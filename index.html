@@ -749,17 +749,9 @@
         <button class="modal-close" id="familyModalClose">✕</button>
       </div>
 
-      <div id="firebaseSetupSection" class="modal-section">
-        <h3>Step 1: Firebase設定</h3>
-        <p style="font-size:13px;color:#666;margin-bottom:8px;">Firebaseコンソールからコピーした設定を貼り付けてください</p>
-        <textarea class="note-input" id="firebaseConfigInput" placeholder='{"apiKey":"...","authDomain":"...","databaseURL":"...","projectId":"..."}'
-          style="min-height:100px;font-size:12px;"></textarea>
-        <button class="save-btn" id="saveFirebaseConfigBtn" style="margin-top:8px;">Firebase接続</button>
-      </div>
-
-      <div id="firebaseConnectedSection" class="modal-section" style="display:none;">
-        <h3>Step 2: 家族コード</h3>
-        <p style="font-size:13px;color:#666;margin-bottom:12px;">新しくコードを作るか、奥様のコードを入力してください</p>
+      <div class="modal-section">
+        <h3>家族コード</h3>
+        <p style="font-size:13px;color:#666;margin-bottom:12px;">新しくコードを作成するか、相手のコードを入力してください。<br>同じコードを使うとカレンダーが共有されます。</p>
 
         <button class="save-btn" id="createFamilyBtn" style="margin-bottom:12px;">新しい家族コードを作成</button>
 

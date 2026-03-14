@@ -76,18 +76,25 @@
   const syncStatus = document.getElementById('syncStatus');
 
   // ---- Firebase ----
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyDEt2n-jJe7BXOPrJeHq7DvhNLFmBfE0nY",
+    authDomain: "claude-68f78.firebaseapp.com",
+    databaseURL: "https://claude-68f78-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "claude-68f78",
+    storageBucket: "claude-68f78.firebasestorage.app",
+    messagingSenderId: "1038366882933",
+    appId: "1:1038366882933:web:42ac51862a388d6a550c3c"
+  };
+
   function initFirebase() {
     if (typeof firebase === 'undefined') {
       console.warn('Firebase SDK not loaded, using localStorage only');
       return false;
     }
 
-    const config = getFirebaseConfig();
-    if (!config) return false;
-
     try {
       if (!firebase.apps.length) {
-        firebase.initializeApp(config);
+        firebase.initializeApp(FIREBASE_CONFIG);
       }
       db = firebase.database();
       firebaseReady = true;
@@ -98,17 +105,6 @@
     }
   }
 
-  function getFirebaseConfig() {
-    const raw = localStorage.getItem('school-cal-firebase-config');
-    if (raw) {
-      try { return JSON.parse(raw); } catch (e) {}
-    }
-    return null;
-  }
-
-  function saveFirebaseConfig(config) {
-    localStorage.setItem('school-cal-firebase-config', JSON.stringify(config));
-  }
 
   // ---- Firebase Sync ----
   function syncToFirebase() {
@@ -200,6 +196,11 @@
   }
 
   function showFamilyModal() {
+    // Show current family code if exists
+    if (familyId) {
+      document.getElementById('familyCodeResultSection').style.display = 'block';
+      document.getElementById('familyCodeResult').textContent = familyId;
+    }
     familyModal.classList.add('active');
   }
 
@@ -670,59 +671,6 @@
   }
 
   // ---- Firebase Setup Flow ----
-  function handleFirebaseSetup() {
-    const configInput = document.getElementById('firebaseConfigInput');
-    const raw = configInput.value.trim();
-
-    try {
-      // Extract config object from pasted text
-      let config;
-      // Try to find the config object in the pasted text
-      const match = raw.match(/\{[\s\S]*apiKey[\s\S]*\}/);
-      if (match) {
-        // Clean up: replace single quotes, remove trailing commas
-        let cleaned = match[0]
-          .replace(/(\w+):/g, '"$1":')  // quote keys
-          .replace(/'/g, '"')            // single to double quotes
-          .replace(/,\s*}/g, '}');       // trailing commas
-        // Try parse
-        try {
-          config = JSON.parse(cleaned);
-        } catch (e) {
-          // Try eval-like approach for JS object
-          config = {};
-          const pairs = match[0].match(/(\w+)\s*:\s*["']([^"']+)["']/g);
-          if (pairs) {
-            pairs.forEach(pair => {
-              const [, key, val] = pair.match(/(\w+)\s*:\s*["']([^"']+)["']/);
-              config[key] = val;
-            });
-          }
-        }
-      } else {
-        config = JSON.parse(raw);
-      }
-
-      if (!config.apiKey || !config.databaseURL) {
-        alert('apiKey と databaseURL が必要です。Firebase設定を確認してください。');
-        return;
-      }
-
-      saveFirebaseConfig(config);
-
-      if (initFirebase()) {
-        document.getElementById('firebaseSetupSection').style.display = 'none';
-        document.getElementById('firebaseConnectedSection').style.display = 'block';
-        startFamilySync();
-      } else {
-        alert('Firebase接続に失敗しました。設定を確認してください。');
-      }
-    } catch (e) {
-      alert('設定の読み取りに失敗しました。Firebaseの設定をそのままコピー＆ペーストしてください。');
-      console.error(e);
-    }
-  }
-
   function handleCreateFamily() {
     const code = generateFamilyId();
     setFamilyId(code);
@@ -767,7 +715,6 @@
   // Family modal
   document.getElementById('familySettingsBtn').addEventListener('click', showFamilyModal);
   document.getElementById('familyModalClose').addEventListener('click', closeFamilyModal);
-  document.getElementById('saveFirebaseConfigBtn').addEventListener('click', handleFirebaseSetup);
   document.getElementById('createFamilyBtn').addEventListener('click', handleCreateFamily);
   document.getElementById('joinFamilyBtn').addEventListener('click', handleJoinFamily);
 
