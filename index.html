@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#4A90D9">
+  <title>スクールカレンダー 2026</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <style>
+    :root {
+      --primary: #4A90D9;
+      --primary-light: #E8F0FE;
+      --danger: #D94A4A;
+      --text: #333;
+      --text-light: #777;
+      --bg: #F5F5F5;
+      --white: #fff;
+      --border: #E0E0E0;
+      --sunday: #D94A4A;
+      --saturday: #4A7DD9;
+      --holiday: #D94A4A;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    .header {
+      background: var(--primary);
+      color: white;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .header h1 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .header-btn {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    .header-btn:active {
+      background: rgba(255,255,255,0.2);
+    }
+
+    /* Month Navigation */
+    .month-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .month-nav button {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 18px;
+      cursor: pointer;
+      color: var(--text);
+    }
+
+    .month-nav button:active {
+      background: var(--primary-light);
+    }
+
+    .month-title {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .month-title .year {
+      font-size: 13px;
+      color: var(--text-light);
+      font-weight: 400;
+    }
+
+    /* Calendar Grid */
+    .calendar {
+      background: var(--white);
+      padding: 0 8px 8px;
+    }
+
+    .weekday-header {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      text-align: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .weekday-header span {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-light);
+    }
+
+    .weekday-header span:first-child {
+      color: var(--sunday);
+    }
+
+    .weekday-header span:last-child {
+      color: var(--saturday);
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+      padding-top: 4px;
+    }
+
+    .day-cell {
+      aspect-ratio: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 2px;
+      border-radius: 8px;
+      cursor: pointer;
+      position: relative;
+      min-height: 48px;
+    }
+
+    .day-cell:active {
+      background: var(--primary-light);
+    }
+
+    .day-cell.empty {
+      cursor: default;
+    }
+
+    .day-cell.empty:active {
+      background: none;
+    }
+
+    .day-cell .day-number {
+      font-size: 14px;
+      font-weight: 600;
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+    }
+
+    .day-cell.sunday .day-number {
+      color: var(--sunday);
+    }
+
+    .day-cell.saturday .day-number {
+      color: var(--saturday);
+    }
+
+    .day-cell.holiday .day-number {
+      color: var(--holiday);
+    }
+
+    .day-cell.today .day-number {
+      background: var(--primary);
+      color: white;
+    }
+
+    .day-cell .service-badge {
+      font-size: 8px;
+      font-weight: 700;
+      padding: 1px 3px;
+      border-radius: 3px;
+      color: white;
+      margin-top: 1px;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .day-cell .transport-icon {
+      font-size: 8px;
+      margin-top: 1px;
+    }
+
+    /* Modal Overlay */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 200;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--white);
+      border-radius: 16px 16px 0 0;
+      width: 100%;
+      max-width: 480px;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 20px;
+      animation: slideUp 0.3s ease;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-header h2 {
+      font-size: 18px;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: var(--text-light);
+      padding: 4px;
+    }
+
+    .modal-section {
+      margin-bottom: 20px;
+    }
+
+    .modal-section h3 {
+      font-size: 14px;
+      color: var(--text-light);
+      margin-bottom: 8px;
+    }
+
+    /* Service Buttons */
+    .service-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .service-btn {
+      padding: 8px 16px;
+      border: 2px solid var(--border);
+      border-radius: 20px;
+      background: var(--white);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .service-btn:active, .service-btn.selected {
+      transform: scale(0.95);
+    }
+
+    .service-btn.selected {
+      color: white;
+    }
+
+    .service-btn.none-btn {
+      border-color: var(--text-light);
+      color: var(--text-light);
+    }
+
+    .service-btn.none-btn.selected {
+      background: #999;
+      border-color: #999;
+      color: white;
+    }
+
+    /* Transport Options */
+    .transport-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .transport-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      background: var(--white);
+      font-size: 14px;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .transport-btn.selected {
+      border-color: var(--primary);
+      background: var(--primary-light);
+    }
+
+    .transport-btn .icon {
+      font-size: 20px;
+    }
+
+    /* Time Picker */
+    .time-picker {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .time-picker select {
+      padding: 10px 12px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-size: 18px;
+      background: var(--white);
+      color: var(--text);
+      -webkit-appearance: none;
+      appearance: none;
+      text-align: center;
+      min-width: 70px;
+    }
+
+    .time-picker select:focus {
+      border-color: var(--primary);
+      outline: none;
+    }
+
+    .time-picker .separator {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    /* Notes */
+    .note-input {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    .note-input:focus {
+      border-color: var(--primary);
+      outline: none;
+    }
+
+    /* Save Button */
+    .save-btn {
+      width: 100%;
+      padding: 14px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+
+    .save-btn:active {
+      opacity: 0.8;
+    }
+
+    .delete-btn {
+      width: 100%;
+      padding: 12px;
+      background: none;
+      color: var(--danger);
+      border: 1px solid var(--danger);
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+
+    /* Settings Modal */
+    .settings-section {
+      margin-bottom: 20px;
+    }
+
+    .settings-section h3 {
+      font-size: 14px;
+      color: var(--text-light);
+      margin-bottom: 8px;
+    }
+
+    .service-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .service-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .service-item input[type="text"] {
+      flex: 1;
+      padding: 8px 12px;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    .service-item input[type="color"] {
+      width: 36px;
+      height: 36px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .service-item button {
+      background: none;
+      border: none;
+      color: var(--danger);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px;
+    }
+
+    .add-service-btn {
+      padding: 8px 16px;
+      background: var(--primary-light);
+      color: var(--primary);
+      border: 1px dashed var(--primary);
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 8px;
+    }
+
+    /* Notification toggle */
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+    }
+
+    .toggle-row label {
+      font-size: 14px;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 50px;
+      height: 28px;
+    }
+
+    .toggle-switch input {
+      display: none;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #ccc;
+      border-radius: 28px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    .toggle-slider:before {
+      content: '';
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      left: 3px;
+      bottom: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+
+    .toggle-switch input:checked + .toggle-slider {
+      background: var(--primary);
+    }
+
+    .toggle-switch input:checked + .toggle-slider:before {
+      transform: translateX(22px);
+    }
+
+    .notification-time-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 0;
+      font-size: 14px;
+    }
+
+    .notification-time-row select {
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    /* Tomorrow preview */
+    .tomorrow-preview {
+      background: var(--white);
+      margin: 8px;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .tomorrow-preview h3 {
+      font-size: 14px;
+      color: var(--text-light);
+      margin-bottom: 8px;
+    }
+
+    .tomorrow-preview .preview-content {
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .tomorrow-preview .preview-service {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      color: white;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    /* Legend */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--white);
+      border-top: 1px solid var(--border);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    /* Bottom safe area for iPhone */
+    .bottom-space {
+      height: env(safe-area-inset-bottom, 20px);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <h1>スクールカレンダー</h1>
+    <button class="header-btn" id="settingsBtn" aria-label="設定">⚙</button>
+  </div>
+
+  <!-- Tomorrow Preview -->
+  <div class="tomorrow-preview" id="tomorrowPreview">
+    <h3>📋 明日の予定</h3>
+    <div class="preview-content" id="tomorrowContent">予定なし</div>
+  </div>
+
+  <!-- Month Navigation -->
+  <div class="month-nav">
+    <button id="prevMonth">◀</button>
+    <div class="month-title" id="monthTitle"></div>
+    <button id="nextMonth">▶</button>
+  </div>
+
+  <!-- Calendar -->
+  <div class="calendar">
+    <div class="weekday-header">
+      <span>日</span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span>土</span>
+    </div>
+    <div class="calendar-grid" id="calendarGrid"></div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend" id="legend"></div>
+
+  <div class="bottom-space"></div>
+
+  <!-- Day Edit Modal -->
+  <div class="modal-overlay" id="dayModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modalDate"></h2>
+        <button class="modal-close" id="modalClose">✕</button>
+      </div>
+
+      <div class="modal-section">
+        <h3>放課後デイサービス</h3>
+        <div class="service-options" id="serviceOptions"></div>
+      </div>
+
+      <div class="modal-section">
+        <h3>送迎方法</h3>
+        <div class="transport-options" id="transportOptions">
+          <button class="transport-btn" data-transport="school-bus">
+            <span class="icon">🚌</span>
+            <span>スクールバス</span>
+          </button>
+          <button class="transport-btn" data-transport="day-pickup">
+            <span class="icon">🚐</span>
+            <span>デイのお迎え</span>
+          </button>
+          <button class="transport-btn" data-transport="self-pickup">
+            <span class="icon">🚗</span>
+            <span>自分で送迎</span>
+          </button>
+          <button class="transport-btn" data-transport="none">
+            <span class="icon">—</span>
+            <span>なし</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h3>帰宅時間</h3>
+        <div class="time-picker">
+          <select id="returnHour"></select>
+          <span class="separator">:</span>
+          <select id="returnMinute"></select>
+        </div>
+      </div>
+
+      <div class="modal-section">
+        <h3>メモ</h3>
+        <textarea class="note-input" id="noteInput" placeholder="メモを入力..."></textarea>
+      </div>
+
+      <button class="save-btn" id="saveBtn">保存する</button>
+      <button class="delete-btn" id="deleteBtn">この日の予定を削除</button>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>設定</h2>
+        <button class="modal-close" id="settingsClose">✕</button>
+      </div>
+
+      <div class="settings-section">
+        <h3>放課後デイサービス一覧</h3>
+        <div class="service-list" id="serviceList"></div>
+        <button class="add-service-btn" id="addServiceBtn">＋ サービスを追加</button>
+      </div>
+
+      <div class="settings-section">
+        <h3>通知設定</h3>
+        <div class="toggle-row">
+          <label>前日通知</label>
+          <div class="toggle-switch">
+            <input type="checkbox" id="notifyToggle">
+            <span class="toggle-slider" id="notifySlider"></span>
+          </div>
+        </div>
+        <div class="notification-time-row">
+          <span>通知時刻：</span>
+          <select id="notifyHour"></select>
+          <span>:</span>
+          <select id="notifyMinute"></select>
+        </div>
+      </div>
+
+      <button class="save-btn" id="saveSettingsBtn">設定を保存</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
