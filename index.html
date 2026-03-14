@@ -198,8 +198,12 @@
       color: white;
     }
 
+    .day-cell.has-service {
+      border-radius: 6px;
+    }
+
     .day-cell .service-badge {
-      font-size: 8px;
+      font-size: 7px;
       font-weight: 700;
       padding: 1px 3px;
       border-radius: 3px;
@@ -214,6 +218,15 @@
     .day-cell .transport-icon {
       font-size: 8px;
       margin-top: 1px;
+    }
+
+    /* Usage Counter */
+    .usage-counter {
+      background: var(--white);
+      margin: 0 8px 8px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
 
     /* Modal Overlay */
@@ -639,6 +652,9 @@
     <div class="calendar-grid" id="calendarGrid"></div>
   </div>
 
+  <!-- Usage Counter -->
+  <div class="usage-counter" id="usageCounter"></div>
+
   <!-- Legend -->
   <div class="legend" id="legend"></div>
 
@@ -680,11 +696,40 @@
       </div>
 
       <div class="modal-section">
-        <h3>帰宅時間</h3>
-        <div class="time-picker">
-          <select id="returnHour"></select>
-          <span class="separator">:</span>
-          <select id="returnMinute"></select>
+        <h3>時間設定</h3>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:14px;">🚌 バス</span>
+            <div class="time-picker">
+              <select id="schoolBusHour"></select>
+              <span class="separator">:</span>
+              <select id="schoolBusMin"></select>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:14px;">🚐 デイお迎え</span>
+            <div class="time-picker">
+              <select id="dayPickupHour"></select>
+              <span class="separator">:</span>
+              <select id="dayPickupMin"></select>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:14px;">🚗 自分送迎</span>
+            <div class="time-picker">
+              <select id="selfPickupHour"></select>
+              <span class="separator">:</span>
+              <select id="selfPickupMin"></select>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--border);padding-top:10px;">
+            <span style="font-size:14px;font-weight:600;">🏠 帰宅時間</span>
+            <div class="time-picker">
+              <select id="returnHour"></select>
+              <span class="separator">:</span>
+              <select id="returnMin"></select>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -710,6 +755,15 @@
         <h3>放課後デイサービス一覧</h3>
         <div class="service-list" id="serviceList"></div>
         <button class="add-service-btn" id="addServiceBtn">＋ サービスを追加</button>
+      </div>
+
+      <div class="settings-section">
+        <h3>受給者証</h3>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:14px;">月の上限回数：</span>
+          <input type="number" id="maxDaysInput" min="1" max="31" value="15" style="width:60px;padding:8px;border:2px solid var(--border);border-radius:8px;font-size:16px;text-align:center;">
+          <span style="font-size:14px;">回</span>
+        </div>
       </div>
 
       <div class="settings-section">

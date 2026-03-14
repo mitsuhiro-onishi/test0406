@@ -10,6 +10,7 @@
   // ---- Constants ----
   const SCHOOL_YEAR_START = { year: 2026, month: 3 }; // April (0-indexed)
   const SCHOOL_YEAR_END = { year: 2027, month: 2 };   // March (0-indexed)
+  const MAX_DAYS = 15; // 受給者証の上限回数
 
   const DEFAULT_SERVICES = [
     { id: 'joy', name: 'JOY', color: '#E67E22' },
@@ -50,7 +51,7 @@
   let currentYear, currentMonth;
   let scheduleData = {};
   let services = [];
-  let settings = { notify: false, notifyHour: 20, notifyMinute: 0 };
+  let settings = { notify: false, notifyHour: 20, notifyMinute: 0, maxDays: MAX_DAYS };
   let selectedDate = null;
   let familyId = null;
   let db = null;
@@ -65,8 +66,6 @@
   const dayModal = document.getElementById('dayModal');
   const modalDate = document.getElementById('modalDate');
   const serviceOptionsEl = document.getElementById('serviceOptions');
-  const returnHourEl = document.getElementById('returnHour');
-  const returnMinuteEl = document.getElementById('returnMinute');
   const noteInput = document.getElementById('noteInput');
 
   const settingsModal = document.getElementById('settingsModal');
@@ -105,7 +104,6 @@
     }
   }
 
-
   // ---- Firebase Sync ----
   function syncToFirebase() {
     if (!firebaseReady || !familyId || !db) return;
@@ -115,6 +113,7 @@
     ref.update({
       schedule: scheduleData,
       services: services,
+      settings: { maxDays: settings.maxDays },
       updatedAt: Date.now()
     }).then(() => {
       updateSyncStatus('synced');
@@ -131,7 +130,6 @@
     ref.on('value', (snapshot) => {
       const data = snapshot.val();
       if (!data) {
-        // First time: push current data
         syncToFirebase();
         return;
       }
@@ -144,10 +142,15 @@
         services = data.services;
         localStorage.setItem('school-cal-services', JSON.stringify(services));
       }
+      if (data.settings && data.settings.maxDays !== undefined) {
+        settings.maxDays = data.settings.maxDays;
+        localStorage.setItem('school-cal-settings', JSON.stringify(settings));
+      }
 
       renderMonth();
       renderTomorrowPreview();
       renderLegend();
+      renderUsageCounter();
       updateSyncStatus('synced');
     });
   }
@@ -196,7 +199,6 @@
   }
 
   function showFamilyModal() {
-    // Show current family code if exists
     if (familyId) {
       document.getElementById('familyCodeResultSection').style.display = 'block';
       document.getElementById('familyCodeResult').textContent = familyId;
@@ -266,6 +268,42 @@
     return `${y}年${m + 1}月${d}日（${dow[date.getDay()]}）`;
   }
 
+  // ---- Usage Counter (受給者証) ----
+  function countMonthlyUsage(year, month) {
+    let count = 0;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = dateKey(year, month, d);
+      const data = scheduleData[key];
+      if (data && data.service && data.service !== 'none') {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  function renderUsageCounter() {
+    const el = document.getElementById('usageCounter');
+    if (!el) return;
+
+    const used = countMonthlyUsage(currentYear, currentMonth);
+    const max = settings.maxDays || MAX_DAYS;
+    const remaining = max - used;
+
+    const barPercent = Math.min((used / max) * 100, 100);
+    const barColor = remaining <= 2 ? '#E74C3C' : remaining <= 5 ? '#F39C12' : '#27AE60';
+
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <span style="font-size:13px;font-weight:600;">受給者証 利用状況</span>
+        <span style="font-size:13px;"><strong>${used}</strong> / ${max}回　残り <strong style="color:${barColor}">${remaining}</strong>回</span>
+      </div>
+      <div style="background:#E0E0E0;border-radius:6px;height:8px;overflow:hidden;">
+        <div style="background:${barColor};height:100%;width:${barPercent}%;border-radius:6px;transition:width 0.3s;"></div>
+      </div>
+    `;
+  }
+
   // ---- Render Calendar ----
   function renderMonth() {
     const year = currentYear;
@@ -300,14 +338,37 @@
       if (today.getFullYear() === year && today.getMonth() === month && today.getDate() === d) {
         classes += ' today';
       }
+
+      // 放デイ設定がある日は背景色を変更
+      const data = scheduleData[key];
+      let svcColor = null;
+      if (data && data.service && data.service !== 'none') {
+        const svc = getServiceById(data.service);
+        if (svc) {
+          svcColor = svc.color;
+          classes += ' has-service';
+        }
+      }
+
       cell.className = classes;
+
+      if (svcColor) {
+        cell.style.background = svcColor + '25'; // 薄い背景色(15%透過)
+        cell.style.borderLeft = `3px solid ${svcColor}`;
+      }
 
       const dayNum = document.createElement('div');
       dayNum.className = 'day-number';
       dayNum.textContent = d;
+
+      // 放デイ設定日は日付の丸を該当色に
+      if (svcColor && !classes.includes('today')) {
+        dayNum.style.background = svcColor;
+        dayNum.style.color = 'white';
+      }
+
       cell.appendChild(dayNum);
 
-      const data = scheduleData[key];
       if (data) {
         if (data.service && data.service !== 'none') {
           const svc = getServiceById(data.service);
@@ -332,6 +393,7 @@
     }
 
     renderLegend();
+    renderUsageCounter();
   }
 
   function renderLegend() {
@@ -375,15 +437,58 @@
       html += `${t.icon} ${t.label} `;
     }
 
-    if (data.returnTime) {
-      html += `<br>帰宅: ${data.returnTime}`;
-    }
+    // Show time for each transport
+    if (data.schoolBusTime) html += `<br>🚌 バス: ${data.schoolBusTime}`;
+    if (data.dayPickupTime) html += `<br>🚐 デイお迎え: ${data.dayPickupTime}`;
+    if (data.selfPickupTime) html += `<br>🚗 自分送迎: ${data.selfPickupTime}`;
+    if (data.returnTime) html += `<br>🏠 帰宅: ${data.returnTime}`;
 
     if (data.note) {
       html += `<br>📝 ${data.note}`;
     }
 
     tomorrowContent.innerHTML = html;
+  }
+
+  // ---- Time Picker Helpers ----
+  function createTimePicker(id, defaultHour, defaultMin) {
+    const hourEl = document.getElementById(id + 'Hour');
+    const minEl = document.getElementById(id + 'Min');
+    if (!hourEl || !minEl) return;
+
+    hourEl.innerHTML = '';
+    for (let h = 9; h <= 19; h++) {
+      const opt = document.createElement('option');
+      opt.value = String(h).padStart(2, '0');
+      opt.textContent = String(h).padStart(2, '0');
+      hourEl.appendChild(opt);
+    }
+    hourEl.value = String(defaultHour).padStart(2, '0');
+
+    minEl.innerHTML = '';
+    for (let m = 0; m < 60; m += 5) {
+      const opt = document.createElement('option');
+      opt.value = String(m).padStart(2, '0');
+      opt.textContent = String(m).padStart(2, '0');
+      minEl.appendChild(opt);
+    }
+    minEl.value = String(defaultMin).padStart(2, '0');
+  }
+
+  function getTimeValue(id) {
+    const hourEl = document.getElementById(id + 'Hour');
+    const minEl = document.getElementById(id + 'Min');
+    if (!hourEl || !minEl) return null;
+    return `${hourEl.value}:${minEl.value}`;
+  }
+
+  function setTimeValue(id, timeStr) {
+    if (!timeStr) return;
+    const [h, m] = timeStr.split(':');
+    const hourEl = document.getElementById(id + 'Hour');
+    const minEl = document.getElementById(id + 'Min');
+    if (hourEl) hourEl.value = h;
+    if (minEl) minEl.value = m;
   }
 
   // ---- Day Modal ----
@@ -414,19 +519,21 @@
       serviceOptionsEl.appendChild(btn);
     });
 
+    // Transport
     document.querySelectorAll('.transport-btn').forEach(btn => {
       btn.classList.toggle('selected', btn.dataset.transport === (data.transport || 'none'));
     });
 
-    populateTimeSelects();
-    if (data.returnTime) {
-      const [h, m] = data.returnTime.split(':');
-      returnHourEl.value = h;
-      returnMinuteEl.value = m;
-    } else {
-      returnHourEl.value = '15';
-      returnMinuteEl.value = '00';
-    }
+    // Time pickers (9:00-19:00)
+    createTimePicker('schoolBus', 15, 0);
+    createTimePicker('dayPickup', 15, 0);
+    createTimePicker('selfPickup', 15, 0);
+    createTimePicker('return', 16, 0);
+
+    if (data.schoolBusTime) setTimeValue('schoolBus', data.schoolBusTime);
+    if (data.dayPickupTime) setTimeValue('dayPickup', data.dayPickupTime);
+    if (data.selfPickupTime) setTimeValue('selfPickup', data.selfPickupTime);
+    if (data.returnTime) setTimeValue('return', data.returnTime);
 
     noteInput.value = data.note || '';
     dayModal.classList.add('active');
@@ -444,23 +551,6 @@
     });
   }
 
-  function populateTimeSelects() {
-    returnHourEl.innerHTML = '';
-    for (let h = 12; h <= 20; h++) {
-      const opt = document.createElement('option');
-      opt.value = String(h).padStart(2, '0');
-      opt.textContent = String(h).padStart(2, '0');
-      returnHourEl.appendChild(opt);
-    }
-    returnMinuteEl.innerHTML = '';
-    for (let m = 0; m < 60; m += 5) {
-      const opt = document.createElement('option');
-      opt.value = String(m).padStart(2, '0');
-      opt.textContent = String(m).padStart(2, '0');
-      returnMinuteEl.appendChild(opt);
-    }
-  }
-
   function closeDayModal() {
     dayModal.classList.remove('active');
     selectedDate = null;
@@ -476,10 +566,13 @@
     const selectedTransportBtn = document.querySelector('.transport-btn.selected');
     const transport = selectedTransportBtn ? selectedTransportBtn.dataset.transport : 'none';
 
-    const returnTime = `${returnHourEl.value}:${returnMinuteEl.value}`;
+    const schoolBusTime = getTimeValue('schoolBus');
+    const dayPickupTime = getTimeValue('dayPickup');
+    const selfPickupTime = getTimeValue('selfPickup');
+    const returnTime = getTimeValue('return');
     const note = noteInput.value.trim();
 
-    scheduleData[key] = { service, transport, returnTime, note };
+    scheduleData[key] = { service, transport, schoolBusTime, dayPickupTime, selfPickupTime, returnTime, note };
     saveSchedule();
     renderMonth();
     renderTomorrowPreview();
@@ -501,6 +594,7 @@
     renderServiceList();
 
     document.getElementById('notifyToggle').checked = settings.notify;
+    document.getElementById('maxDaysInput').value = settings.maxDays || MAX_DAYS;
 
     const notifyHourEl = document.getElementById('notifyHour');
     const notifyMinuteEl = document.getElementById('notifyMinute');
@@ -521,7 +615,6 @@
       notifyMinuteEl.appendChild(opt);
     }
 
-    // Show current family code
     const familyCodeDisplay = document.getElementById('familyCodeDisplay');
     if (familyCodeDisplay) {
       familyCodeDisplay.textContent = familyId || '未設定';
@@ -590,11 +683,13 @@
     settings.notify = document.getElementById('notifyToggle').checked;
     settings.notifyHour = parseInt(document.getElementById('notifyHour').value);
     settings.notifyMinute = parseInt(document.getElementById('notifyMinute').value);
+    settings.maxDays = parseInt(document.getElementById('maxDaysInput').value) || MAX_DAYS;
 
     saveServices();
     saveSettings();
     renderMonth();
     renderLegend();
+    renderUsageCounter();
     setupNotification();
     closeSettings();
   }
@@ -760,7 +855,6 @@
     renderTomorrowPreview();
     setupNotification();
 
-    // Try Firebase
     if (initFirebase()) {
       startFamilySync();
       updateSyncStatus('synced');
