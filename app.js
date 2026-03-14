@@ -269,38 +269,50 @@
   }
 
   // ---- Usage Counter (受給者証) ----
-  function countMonthlyUsage(year, month) {
-    let count = 0;
+  function countMonthlyUsageByService(year, month) {
+    const counts = {};
+    let total = 0;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     for (let d = 1; d <= daysInMonth; d++) {
       const key = dateKey(year, month, d);
       const data = scheduleData[key];
       if (data && data.service && data.service !== 'none') {
-        count++;
+        total++;
+        counts[data.service] = (counts[data.service] || 0) + 1;
       }
     }
-    return count;
+    return { total, counts };
   }
 
   function renderUsageCounter() {
     const el = document.getElementById('usageCounter');
     if (!el) return;
 
-    const used = countMonthlyUsage(currentYear, currentMonth);
+    const { total, counts } = countMonthlyUsageByService(currentYear, currentMonth);
     const max = settings.maxDays || MAX_DAYS;
-    const remaining = max - used;
+    const remaining = max - total;
 
-    const barPercent = Math.min((used / max) * 100, 100);
+    const barPercent = Math.min((total / max) * 100, 100);
     const barColor = remaining <= 2 ? '#E74C3C' : remaining <= 5 ? '#F39C12' : '#27AE60';
+
+    let perServiceHtml = services.map(svc => {
+      const cnt = counts[svc.id] || 0;
+      if (cnt === 0) return '';
+      return `<span style="display:inline-flex;align-items:center;gap:3px;margin-right:10px;font-size:12px;">
+        <span style="width:8px;height:8px;border-radius:50%;background:${svc.color};display:inline-block;"></span>
+        ${svc.name}: <strong>${cnt}</strong>回
+      </span>`;
+    }).join('');
 
     el.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
         <span style="font-size:13px;font-weight:600;">受給者証 利用状況</span>
-        <span style="font-size:13px;"><strong>${used}</strong> / ${max}回　残り <strong style="color:${barColor}">${remaining}</strong>回</span>
+        <span style="font-size:13px;"><strong>${total}</strong> / ${max}回　残り <strong style="color:${barColor}">${remaining}</strong>回</span>
       </div>
-      <div style="background:#E0E0E0;border-radius:6px;height:8px;overflow:hidden;">
+      <div style="background:#E0E0E0;border-radius:6px;height:8px;overflow:hidden;margin-bottom:6px;">
         <div style="background:${barColor};height:100%;width:${barPercent}%;border-radius:6px;transition:width 0.3s;"></div>
       </div>
+      <div style="display:flex;flex-wrap:wrap;">${perServiceHtml}</div>
     `;
   }
 
@@ -369,22 +381,14 @@
 
       cell.appendChild(dayNum);
 
-      if (data) {
-        if (data.service && data.service !== 'none') {
-          const svc = getServiceById(data.service);
-          if (svc) {
-            const badge = document.createElement('div');
-            badge.className = 'service-badge';
-            badge.style.background = svc.color;
-            badge.textContent = svc.name;
-            cell.appendChild(badge);
-          }
-        }
-        if (data.transport && data.transport !== 'none') {
-          const ti = document.createElement('div');
-          ti.className = 'transport-icon';
-          ti.textContent = TRANSPORT_LABELS[data.transport]?.icon || '';
-          cell.appendChild(ti);
+      if (data && data.service && data.service !== 'none') {
+        const svc = getServiceById(data.service);
+        if (svc) {
+          const badge = document.createElement('div');
+          badge.className = 'service-badge';
+          badge.style.background = svc.color;
+          badge.textContent = svc.name;
+          cell.appendChild(badge);
         }
       }
 
@@ -437,10 +441,10 @@
       html += `${t.icon} ${t.label} `;
     }
 
-    // Show time for each transport
-    if (data.schoolBusTime) html += `<br>🚌 バス: ${data.schoolBusTime}`;
-    if (data.dayPickupTime) html += `<br>🚐 デイお迎え: ${data.dayPickupTime}`;
-    if (data.selfPickupTime) html += `<br>🚗 自分送迎: ${data.selfPickupTime}`;
+    if (data.transportTime) {
+      const t = TRANSPORT_LABELS[data.transport];
+      html += `<br>${t?.icon || ''} ${t?.label || '送迎'}: ${data.transportTime}`;
+    }
     if (data.returnTime) html += `<br>🏠 帰宅: ${data.returnTime}`;
 
     if (data.note) {
@@ -451,44 +455,54 @@
   }
 
   // ---- Time Picker Helpers ----
-  function createTimePicker(id, defaultHour, defaultMin) {
-    const hourEl = document.getElementById(id + 'Hour');
-    const minEl = document.getElementById(id + 'Min');
-    if (!hourEl || !minEl) return;
-
-    hourEl.innerHTML = '';
-    for (let h = 9; h <= 19; h++) {
+  function populateSelect(el, start, end, step, defaultVal) {
+    if (!el) return;
+    el.innerHTML = '';
+    for (let v = start; v <= end; v += step) {
       const opt = document.createElement('option');
-      opt.value = String(h).padStart(2, '0');
-      opt.textContent = String(h).padStart(2, '0');
-      hourEl.appendChild(opt);
+      opt.value = String(v).padStart(2, '0');
+      opt.textContent = String(v).padStart(2, '0');
+      el.appendChild(opt);
     }
-    hourEl.value = String(defaultHour).padStart(2, '0');
-
-    minEl.innerHTML = '';
-    for (let m = 0; m < 60; m += 5) {
-      const opt = document.createElement('option');
-      opt.value = String(m).padStart(2, '0');
-      opt.textContent = String(m).padStart(2, '0');
-      minEl.appendChild(opt);
-    }
-    minEl.value = String(defaultMin).padStart(2, '0');
+    el.value = String(defaultVal).padStart(2, '0');
   }
 
-  function getTimeValue(id) {
-    const hourEl = document.getElementById(id + 'Hour');
-    const minEl = document.getElementById(id + 'Min');
-    if (!hourEl || !minEl) return null;
-    return `${hourEl.value}:${minEl.value}`;
+  function getTimeFromSelects(hourId, minId) {
+    const h = document.getElementById(hourId);
+    const m = document.getElementById(minId);
+    if (!h || !m) return null;
+    return `${h.value}:${m.value}`;
   }
 
-  function setTimeValue(id, timeStr) {
+  function setTimeToSelects(hourId, minId, timeStr) {
     if (!timeStr) return;
     const [h, m] = timeStr.split(':');
-    const hourEl = document.getElementById(id + 'Hour');
-    const minEl = document.getElementById(id + 'Min');
-    if (hourEl) hourEl.value = h;
-    if (minEl) minEl.value = m;
+    const hEl = document.getElementById(hourId);
+    const mEl = document.getElementById(minId);
+    if (hEl) hEl.value = h;
+    if (mEl) mEl.value = m;
+  }
+
+  const TRANSPORT_TIME_LABELS = {
+    'school-bus': '🚌 バス時間',
+    'day-pickup': '🚐 お迎え時間',
+    'self-pickup': '🚗 送迎時間',
+  };
+
+  function showTransportTimeSection(transport) {
+    const section = document.getElementById('timeSection');
+    if (!section) return;
+
+    if (transport === 'none') {
+      section.style.display = 'none';
+      return;
+    }
+
+    section.style.display = 'block';
+    const label = document.getElementById('transportTimeLabel');
+    if (label) {
+      label.textContent = TRANSPORT_TIME_LABELS[transport] || '送迎時間';
+    }
   }
 
   // ---- Day Modal ----
@@ -520,20 +534,21 @@
     });
 
     // Transport
+    const currentTransport = data.transport || 'none';
     document.querySelectorAll('.transport-btn').forEach(btn => {
-      btn.classList.toggle('selected', btn.dataset.transport === (data.transport || 'none'));
+      btn.classList.toggle('selected', btn.dataset.transport === currentTransport);
     });
 
     // Time pickers (9:00-19:00)
-    createTimePicker('schoolBus', 15, 0);
-    createTimePicker('dayPickup', 15, 0);
-    createTimePicker('selfPickup', 15, 0);
-    createTimePicker('return', 16, 0);
+    populateSelect(document.getElementById('transportHour'), 9, 19, 1, 15);
+    populateSelect(document.getElementById('transportMin'), 0, 55, 5, 0);
+    populateSelect(document.getElementById('returnHour'), 9, 19, 1, 16);
+    populateSelect(document.getElementById('returnMin'), 0, 55, 5, 0);
 
-    if (data.schoolBusTime) setTimeValue('schoolBus', data.schoolBusTime);
-    if (data.dayPickupTime) setTimeValue('dayPickup', data.dayPickupTime);
-    if (data.selfPickupTime) setTimeValue('selfPickup', data.selfPickupTime);
-    if (data.returnTime) setTimeValue('return', data.returnTime);
+    if (data.transportTime) setTimeToSelects('transportHour', 'transportMin', data.transportTime);
+    if (data.returnTime) setTimeToSelects('returnHour', 'returnMin', data.returnTime);
+
+    showTransportTimeSection(currentTransport);
 
     noteInput.value = data.note || '';
     dayModal.classList.add('active');
@@ -566,13 +581,11 @@
     const selectedTransportBtn = document.querySelector('.transport-btn.selected');
     const transport = selectedTransportBtn ? selectedTransportBtn.dataset.transport : 'none';
 
-    const schoolBusTime = getTimeValue('schoolBus');
-    const dayPickupTime = getTimeValue('dayPickup');
-    const selfPickupTime = getTimeValue('selfPickup');
-    const returnTime = getTimeValue('return');
+    const transportTime = transport !== 'none' ? getTimeFromSelects('transportHour', 'transportMin') : null;
+    const returnTime = transport !== 'none' ? getTimeFromSelects('returnHour', 'returnMin') : null;
     const note = noteInput.value.trim();
 
-    scheduleData[key] = { service, transport, schoolBusTime, dayPickupTime, selfPickupTime, returnTime, note };
+    scheduleData[key] = { service, transport, transportTime, returnTime, note };
     saveSchedule();
     renderMonth();
     renderTomorrowPreview();
@@ -822,6 +835,7 @@
     btn.addEventListener('click', () => {
       document.querySelectorAll('.transport-btn').forEach(b => b.classList.remove('selected'));
       btn.classList.add('selected');
+      showTransportTimeSection(btn.dataset.transport);
     });
   });
 

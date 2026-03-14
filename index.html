@@ -203,21 +203,17 @@
     }
 
     .day-cell .service-badge {
-      font-size: 7px;
+      font-size: 9px;
       font-weight: 700;
-      padding: 1px 3px;
+      padding: 1px 4px;
       border-radius: 3px;
       color: white;
-      margin-top: 1px;
+      margin-top: 2px;
       max-width: 100%;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-    }
-
-    .day-cell .transport-icon {
-      font-size: 8px;
-      margin-top: 1px;
+      line-height: 1.3;
     }
 
     /* Usage Counter */
@@ -695,31 +691,15 @@
         </div>
       </div>
 
-      <div class="modal-section">
-        <h3>時間設定</h3>
+      <div class="modal-section" id="timeSection" style="display:none;">
+        <h3 id="timeSectionTitle">時間設定</h3>
         <div style="display:flex;flex-direction:column;gap:10px;">
           <div style="display:flex;align-items:center;justify-content:space-between;">
-            <span style="font-size:14px;">🚌 バス</span>
+            <span style="font-size:14px;" id="transportTimeLabel">送迎時間</span>
             <div class="time-picker">
-              <select id="schoolBusHour"></select>
+              <select id="transportHour"></select>
               <span class="separator">:</span>
-              <select id="schoolBusMin"></select>
-            </div>
-          </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;">
-            <span style="font-size:14px;">🚐 デイお迎え</span>
-            <div class="time-picker">
-              <select id="dayPickupHour"></select>
-              <span class="separator">:</span>
-              <select id="dayPickupMin"></select>
-            </div>
-          </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;">
-            <span style="font-size:14px;">🚗 自分送迎</span>
-            <div class="time-picker">
-              <select id="selfPickupHour"></select>
-              <span class="separator">:</span>
-              <select id="selfPickupMin"></select>
+              <select id="transportMin"></select>
             </div>
           </div>
           <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--border);padding-top:10px;">
