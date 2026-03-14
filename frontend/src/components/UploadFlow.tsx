@@ -1,46 +1,30 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useState, useRef } from "react";
 import {
   Stepper, Step, StepLabel, Button, Box, Typography,
   Radio, RadioGroup, FormControlLabel, FormControl, FormLabel,
-  Chip, IconButton, Alert, CircularProgress, Paper,
+  Chip, IconButton, Alert, Paper,
 } from "@mui/material";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
-
-interface Category {
-  id: string;
-  name: string;
-  description: string | null;
-  recipient_org_name: string | null;
-  is_required: boolean;
-}
+import { MOCK_CATEGORIES, type MockDocument } from "@/lib/mockData";
 
 const steps = ["ファイル選択", "提出カテゴリ選択", "確認・送信"];
 
-export default function UploadFlow({ exhibitionId }: { exhibitionId: string }) {
+export default function UploadFlow({ onUploaded }: { onUploaded: (docs: MockDocument[]) => void }) {
   const [activeStep, setActiveStep] = useState(0);
   const [files, setFiles] = useState<File[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
-  const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const fetchCategories = async () => {
-      const res = await fetch(`/api/exhibitions/${exhibitionId}/submission-categories`);
-      const data = await res.json();
-      setCategories(data);
-    };
-    fetchCategories();
-  }, [exhibitionId]);
+  const categories = MOCK_CATEGORIES;
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -71,36 +55,25 @@ export default function UploadFlow({ exhibitionId }: { exhibitionId: string }) {
     setActiveStep((prev) => prev - 1);
   };
 
-  const handleUpload = async () => {
-    setUploading(true);
-    setError(null);
-    try {
-      for (const file of files) {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("exhibition_id", exhibitionId);
-        formData.append("submission_category_id", selectedCategory);
-        formData.append("source", file.type.startsWith("image/") ? "camera" : "file");
+  const handleUpload = () => {
+    // モック: アップロード成功をシミュレート
+    const cat = categories.find((c) => c.id === selectedCategory);
+    const newDocs: MockDocument[] = files.map((file, i) => ({
+      id: `doc-new-${Date.now()}-${i}`,
+      file_name: file.name,
+      file_type: file.type || "application/octet-stream",
+      file_size_bytes: file.size,
+      submission_category_name: cat?.name || "",
+      source_channel: file.type.startsWith("image/") ? "camera_capture" : "web_upload",
+      status: "received",
+      created_at: new Date().toISOString(),
+    }));
 
-        const res = await fetch("/api/documents/upload", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.detail || "アップロードに失敗しました");
-        }
-      }
-      setUploadResult(`${files.length}件のファイルをアップロードしました`);
-      setFiles([]);
-      setSelectedCategory("");
-      setActiveStep(0);
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setUploading(false);
-    }
+    onUploaded(newDocs);
+    setUploadResult(`${files.length}件のファイルをアップロードしました`);
+    setFiles([]);
+    setSelectedCategory("");
+    setActiveStep(0);
   };
 
   const selectedCategoryObj = categories.find((c) => c.id === selectedCategory);
@@ -151,10 +124,10 @@ export default function UploadFlow({ exhibitionId }: { exhibitionId: string }) {
           >
             <CloudUploadIcon sx={{ fontSize: 48, color: "text.secondary", mb: 1 }} />
             <Typography variant="body1" gutterBottom>
-              ここにファイルをドラッグ&ドロップ
+              ここをクリックしてファイルを選択
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              対応形式: Excel, Word, PDF, 画像
+              対応形式: Excel (.xlsx), Word (.docx), PDF, 画像 (JPG/PNG/HEIC)
             </Typography>
             <Typography variant="body2" color="text.secondary">
               最大サイズ: 50MB / ファイル
@@ -252,8 +225,7 @@ export default function UploadFlow({ exhibitionId }: { exhibitionId: string }) {
                           )}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                          受取: {cat.recipient_org_name}
-                          {cat.description && ` ― ${cat.description}`}
+                          受取: {cat.recipient_org_name} ― {cat.description}
                         </Typography>
                       </Box>
                     }
@@ -270,7 +242,9 @@ export default function UploadFlow({ exhibitionId }: { exhibitionId: string }) {
       {activeStep === 2 && (
         <Box>
           <Paper variant="outlined" sx={{ p: 3 }}>
-            <Typography variant="subtitle1" gutterBottom>送信内容の確認</Typography>
+            <Typography variant="subtitle1" gutterBottom fontWeight="bold">
+              送信内容の確認
+            </Typography>
 
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" color="text.secondary">ファイル</Typography>
@@ -308,10 +282,9 @@ export default function UploadFlow({ exhibitionId }: { exhibitionId: string }) {
             variant="contained"
             color="primary"
             onClick={handleUpload}
-            disabled={uploading}
-            startIcon={uploading ? <CircularProgress size={20} /> : <CloudUploadIcon />}
+            startIcon={<CloudUploadIcon />}
           >
-            {uploading ? "送信中..." : "送信する"}
+            送信する
           </Button>
         )}
       </Box>

@@ -1,24 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Paper, Chip, Typography, IconButton, Box,
+  Paper, Chip, Typography, Box,
 } from "@mui/material";
-import RefreshIcon from "@mui/icons-material/Refresh";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import CameraAltIcon from "@mui/icons-material/CameraAlt";
-
-interface Document {
-  id: string;
-  file_name: string;
-  file_type: string;
-  file_size_bytes: number;
-  submission_category_name: string | null;
-  source_channel: string;
-  status: string;
-  created_at: string;
-}
+import { type MockDocument } from "@/lib/mockData";
 
 const statusLabels: Record<string, { label: string; color: "default" | "info" | "warning" | "success" | "error" }> = {
   received: { label: "受信済", color: "info" },
@@ -29,51 +17,29 @@ const statusLabels: Record<string, { label: string; color: "default" | "info" | 
   error: { label: "エラー", color: "error" },
 };
 
-export default function DocumentList({ exhibitionId }: { exhibitionId: string }) {
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [total, setTotal] = useState(0);
+const formatFileSize = (bytes: number) => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
 
-  const fetchDocuments = useCallback(async () => {
-    const res = await fetch(`/api/documents?exhibition_id=${exhibitionId}`);
-    const data = await res.json();
-    setDocuments(data.data);
-    setTotal(data.total);
-  }, [exhibitionId]);
+const formatDate = (iso: string) => {
+  const d = new Date(iso);
+  return d.toLocaleString("ja-JP", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
 
-  useEffect(() => {
-    fetchDocuments();
-  }, [fetchDocuments]);
-
-  // Listen for custom refresh event
-  useEffect(() => {
-    const handler = () => fetchDocuments();
-    window.addEventListener("documents-updated", handler);
-    return () => window.removeEventListener("documents-updated", handler);
-  }, [fetchDocuments]);
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
-  const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleString("ja-JP", {
-      month: "2-digit", day: "2-digit",
-      hour: "2-digit", minute: "2-digit",
-    });
-  };
-
+export default function DocumentList({ documents }: { documents: MockDocument[] }) {
   return (
     <Box>
       <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
         <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>
-          全{total}件
+          全{documents.length}件
         </Typography>
-        <IconButton onClick={fetchDocuments} size="small">
-          <RefreshIcon />
-        </IconButton>
       </Box>
 
       {documents.length === 0 ? (
