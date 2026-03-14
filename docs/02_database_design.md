@@ -32,19 +32,26 @@
 
 ### 2.1 organizations（組織）
 
-主催者、装飾業者、出展社を統一管理する。
+主催者、装飾業者、出展社、協力会社（電気施工会社、弁当会社等）を統一管理する。
+主催者・装飾業者・協力会社はドキュメントの受信側（主催者側）として機能する。
 
 | カラム | 型 | 制約 | 説明 |
 |--------|-----|------|------|
 | id | UUID | PK | 組織ID |
 | name | VARCHAR(200) | NOT NULL | 組織名 |
 | name_kana | VARCHAR(200) | | 組織名カナ |
-| org_type | ENUM | NOT NULL | 'organizer' / 'decorator' / 'exhibitor' |
+| org_type | ENUM | NOT NULL | 'organizer' / 'decorator' / 'exhibitor' / 'partner' |
 | contact_email | VARCHAR(255) | | 代表メールアドレス |
 | contact_phone | VARCHAR(20) | | 代表電話番号 |
 | address | TEXT | | 住所 |
 | created_at | TIMESTAMP | NOT NULL | 作成日時 |
 | updated_at | TIMESTAMP | NOT NULL | 更新日時 |
+
+> **org_type 補足:**
+> - `organizer`: 主催者
+> - `decorator`: 装飾業者
+> - `exhibitor`: 出展社（ドキュメント送信側）
+> - `partner`: 協力会社（電気施工会社、弁当会社等。主催者側としてドキュメントを受信する）
 
 ### 2.2 users（ユーザー）
 
@@ -86,7 +93,7 @@
 | id | UUID | PK | ID |
 | exhibition_id | UUID | FK → exhibitions | 展示会 |
 | organization_id | UUID | FK → organizations | 組織 |
-| role | ENUM | NOT NULL | 'organizer' / 'decorator' / 'exhibitor' |
+| role | ENUM | NOT NULL | 'organizer' / 'decorator' / 'exhibitor' / 'partner' |
 | booth_id | UUID | FK → booths, NULL可 | 割当ブース（出展社の場合） |
 | created_at | TIMESTAMP | NOT NULL | 作成日時 |
 
@@ -111,24 +118,36 @@ UNIQUE制約: (exhibition_id, booth_number)
 ### 2.6 documents（ドキュメント原本）
 
 受信した全ドキュメントの原本情報を保管。
+出展社から主催者側（主催者・装飾業者・協力会社）へ送付されるドキュメントを管理する。
 
 | カラム | 型 | 制約 | 説明 |
 |--------|-----|------|------|
 | id | UUID | PK | ドキュメントID |
 | exhibition_id | UUID | FK → exhibitions | 展示会 |
 | booth_id | UUID | FK → booths, NULL可 | 関連ブース |
-| uploaded_by_org_id | UUID | FK → organizations | 送信元組織 |
-| uploaded_by_user_id | UUID | FK → users, NULL可 | 送信ユーザー（メール/FAXの場合NULL） |
+| uploaded_by_org_id | UUID | FK → organizations | 送信元組織（出展社） |
+| uploaded_by_user_id | UUID | FK → users, NULL可 | 送信ユーザー |
+| recipient_org_id | UUID | FK → organizations | 宛先組織（主催者側：主催者・装飾業者・協力会社） |
 | file_name | VARCHAR(500) | NOT NULL | 元ファイル名 |
 | file_type | VARCHAR(50) | NOT NULL | MIMEタイプ |
 | file_size_bytes | BIGINT | NOT NULL | ファイルサイズ |
 | storage_path | VARCHAR(1000) | NOT NULL | S3パス |
-| source_channel | ENUM | NOT NULL | 'web_upload' / 'email' / 'fax' / 'api' |
-| source_detail | JSONB | | 受信詳細（メールアドレス、FAX番号等） |
+| source_channel | ENUM | NOT NULL | 'web_upload' / 'camera_capture' |
+| source_detail | JSONB | | 受信詳細（アップロード元情報等） |
 | document_category | ENUM | | 'order' / 'design' / 'contract' / 'other' |
 | status | ENUM | NOT NULL | 'received' / 'processing' / 'analyzed' / 'review_needed' / 'confirmed' / 'error' |
 | created_at | TIMESTAMP | NOT NULL | 受信日時 |
 | updated_at | TIMESTAMP | NOT NULL | 更新日時 |
+
+> **source_channel 補足:**
+> - `web_upload`: Webブラウザからのアップロード（現在の主要受付チャネル）
+> - `camera_capture`: カメラ撮影による取り込み
+>
+> ※ メール受信（`email`）は将来対応予定
+
+> **recipient_org_id 補足:**
+> 宛先組織は主催者側の組織（organizer / decorator / partner）を指定する。
+> 例：電気工事関連の書類 → 電気施工会社（partner）、装飾関連の書類 → 装飾業者（decorator）
 
 ### 2.7 ai_analyses（AI解析結果）
 
@@ -247,6 +266,7 @@ AI解析から確定した設計仕様データ。
 CREATE INDEX idx_documents_exhibition ON documents(exhibition_id);
 CREATE INDEX idx_documents_booth ON documents(booth_id);
 CREATE INDEX idx_documents_org ON documents(uploaded_by_org_id);
+CREATE INDEX idx_documents_recipient ON documents(recipient_org_id);
 CREATE INDEX idx_documents_status ON documents(status);
 CREATE INDEX idx_documents_category ON documents(document_category);
 CREATE INDEX idx_documents_created ON documents(created_at DESC);

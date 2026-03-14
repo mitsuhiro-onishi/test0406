@@ -62,7 +62,23 @@
 
 ---
 
-## 3. 展示会 API
+## 3. ユーザー・ロール
+
+### ロール一覧
+
+| ロール | 説明 |
+|--------|------|
+| admin | システム管理者 |
+| organizer | 主催者（展示会の作成・管理） |
+| exhibitor | 出展社 |
+| partner | 協力会社（電気施工会社、弁当会社など） |
+| viewer | 閲覧専用 |
+
+`partner` ロールのユーザーは、自組織宛て（`recipient_org_id` が自組織）のドキュメントのみ閲覧可能。
+
+---
+
+## 4. 展示会 API
 
 ### GET /exhibitions
 展示会一覧を取得
@@ -142,7 +158,7 @@
 
 ---
 
-## 4. ブース API
+## 5. ブース API
 
 ### GET /exhibitions/{exhibition_id}/booths
 ブース一覧を取得
@@ -195,10 +211,10 @@
 
 ---
 
-## 5. ドキュメント API
+## 6. ドキュメント API
 
 ### POST /documents/upload
-ドキュメントをアップロード
+ドキュメントをアップロード（Web画面から）
 
 **リクエスト:** multipart/form-data
 | フィールド | 型 | 必須 | 説明 |
@@ -206,7 +222,11 @@
 | file | File | Yes | アップロードファイル |
 | exhibition_id | UUID | Yes | 展示会ID |
 | booth_id | UUID | No | ブースID |
+| recipient_org_id | UUID | No | 宛先組織ID（協力会社など） |
 | document_category | string | No | order / design / other |
+| source | string | No | `file` (デフォルト) / `camera` — カメラ撮影画像の場合は `camera` を指定 |
+
+> **受信チャネルについて:** 現在はWeb画面からのアップロードのみ対応。メール受信は将来対応予定。
 
 **レスポンス: 201**
 ```json
@@ -214,6 +234,7 @@
   "data": {
     "id": "uuid",
     "file_name": "注文書.xlsx",
+    "recipient_org_id": "uuid",
     "status": "received",
     "message": "ファイルを受信しました。AI解析を開始します。"
   }
@@ -232,6 +253,7 @@
 | exhibition_id | UUID | 展示会で絞り込み |
 | booth_id | UUID | ブースで絞り込み |
 | organization_id | UUID | 送信元組織で絞り込み |
+| recipient_org_id | UUID | 宛先組織で絞り込み |
 | status | string | ステータスで絞り込み |
 | document_category | string | カテゴリで絞り込み |
 | source_channel | string | 受信チャネルで絞り込み |
@@ -259,6 +281,10 @@
       "organization": { "id": "uuid", "name": "株式会社サンプル" },
       "user": { "id": "uuid", "name": "田中太郎" }
     },
+    "recipient_org": {
+      "id": "uuid",
+      "name": "○○電気施工株式会社"
+    },
     "ai_analysis": {
       "id": "uuid",
       "confidence_score": 0.92,
@@ -283,7 +309,61 @@
 
 ---
 
-## 6. AI解析 API
+## 7. 協力会社（パートナー）向け API
+
+`partner` ロールのユーザーが、自組織宛てのドキュメントを閲覧するためのエンドポイント。
+
+### GET /partner/documents
+自組織宛てドキュメント一覧を取得
+
+認証ユーザーの所属組織（`recipient_org_id`）に一致するドキュメントのみ返却する。
+
+**クエリパラメータ:**
+| パラメータ | 型 | 説明 |
+|-----------|-----|------|
+| exhibition_id | UUID | 展示会で絞り込み |
+| status | string | ステータスで絞り込み |
+| document_category | string | カテゴリで絞り込み |
+| date_from | date | 受信日from |
+| date_to | date | 受信日to |
+| cursor | string | ページネーション |
+| limit | integer | 取得件数 |
+
+**レスポンス: 200**
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "file_name": "電気工事注文書_A-12.pdf",
+      "document_category": "order",
+      "status": "confirmed",
+      "exhibition": {
+        "id": "uuid",
+        "name": "第15回 国際展示会"
+      },
+      "booth": {
+        "id": "uuid",
+        "booth_number": "A-12"
+      },
+      "uploaded_by": {
+        "organization": { "id": "uuid", "name": "株式会社サンプル" }
+      },
+      "created_at": "2026-04-20T10:00:00Z"
+    }
+  ]
+}
+```
+
+### GET /partner/documents/{id}
+自組織宛てドキュメント詳細を取得
+
+### GET /partner/documents/{id}/download
+自組織宛てドキュメントの原本ファイルをダウンロード（署名付きURL発行）
+
+---
+
+## 8. AI解析 API
 
 ### POST /documents/{id}/reanalyze
 ドキュメントを再解析
@@ -340,7 +420,7 @@
 
 ---
 
-## 7. 注文 API
+## 9. 注文 API
 
 ### GET /orders
 注文一覧
@@ -375,7 +455,7 @@
 
 ---
 
-## 8. 設計仕様 API
+## 10. 設計仕様 API
 
 ### GET /design-specs
 設計仕様一覧
@@ -388,7 +468,7 @@
 
 ---
 
-## 9. 通知 API
+## 11. 通知 API
 
 ### GET /notifications
 通知一覧（自分宛て）
@@ -401,7 +481,7 @@
 
 ---
 
-## 10. レポート API
+## 12. レポート API
 
 ### GET /exhibitions/{id}/reports/documents
 ドキュメント提出状況レポート（CSV/Excel/PDF出力対応）
@@ -419,7 +499,7 @@
 
 ---
 
-## 11. 検索 API
+## 13. 検索 API
 
 ### GET /search
 全文検索（Elasticsearch連携）
@@ -435,15 +515,14 @@
 
 ---
 
-## 12. Webhook API（メール・FAX受信用）
+## 14. Webhook API（メール受信用・将来対応）
+
+> **注意:** メール受信Webhookは将来対応予定。現時点ではWeb画面からのアップロードのみ対応。
 
 ### POST /webhooks/inbound-email
-メール受信Webhook（SES/SendGridから呼び出し）
+メール受信Webhook（SES/SendGridから呼び出し）※将来対応
 
-### POST /webhooks/inbound-fax
-FAX受信Webhook（FAXサービスから呼び出し）
-
-### 処理フロー
+### 処理フロー（将来対応）
 
 ```
 メール受信
