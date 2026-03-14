@@ -351,37 +351,46 @@
         classes += ' today';
       }
 
-      // 放デイ設定がある日は背景色を変更
       const data = scheduleData[key];
       let svcColor = null;
-      if (data && data.service && data.service !== 'none') {
+      const hasService = data && data.service && data.service !== 'none';
+      const hasPersonalNote = data && (!data.service || data.service === 'none') && data.note;
+
+      if (hasService) {
         const svc = getServiceById(data.service);
         if (svc) {
           svcColor = svc.color;
           classes += ' has-service';
         }
+      } else if (hasPersonalNote) {
+        classes += ' has-personal';
       }
 
       cell.className = classes;
 
       if (svcColor) {
-        cell.style.background = svcColor + '25'; // 薄い背景色(15%透過)
+        cell.style.background = svcColor + '25';
         cell.style.borderLeft = `3px solid ${svcColor}`;
+      } else if (hasPersonalNote) {
+        cell.style.background = '#E0E0E0';
+        cell.style.borderLeft = '3px solid #999';
       }
 
       const dayNum = document.createElement('div');
       dayNum.className = 'day-number';
       dayNum.textContent = d;
 
-      // 放デイ設定日は日付の丸を該当色に
       if (svcColor && !classes.includes('today')) {
         dayNum.style.background = svcColor;
+        dayNum.style.color = 'white';
+      } else if (hasPersonalNote && !classes.includes('today')) {
+        dayNum.style.background = '#999';
         dayNum.style.color = 'white';
       }
 
       cell.appendChild(dayNum);
 
-      if (data && data.service && data.service !== 'none') {
+      if (hasService) {
         const svc = getServiceById(data.service);
         if (svc) {
           const badge = document.createElement('div');
@@ -390,6 +399,12 @@
           badge.textContent = svc.name;
           cell.appendChild(badge);
         }
+      } else if (hasPersonalNote) {
+        const badge = document.createElement('div');
+        badge.className = 'service-badge';
+        badge.style.background = '#999';
+        badge.textContent = 'メモ';
+        cell.appendChild(badge);
       }
 
       cell.addEventListener('click', () => openDayModal(year, month, d));
@@ -580,10 +595,12 @@
     for (let d = 1; d <= daysInMonth; d++) {
       const key = dateKey(year, month, d);
       const data = scheduleData[key];
-      if (!data || !data.service || data.service === 'none') continue;
+      const hasService = data && data.service && data.service !== 'none';
+      const hasNote = data && data.note;
+      if (!hasService && !hasNote) continue;
 
-      const svc = getServiceById(data.service);
-      const title = svc ? svc.name : '放課後デイ';
+      const svc = hasService ? getServiceById(data.service) : null;
+      const title = svc ? svc.name : (data.note || '予定');
       const dateStr = `${year}${String(month + 1).padStart(2, '0')}${String(d).padStart(2, '0')}`;
 
       let description = '';
@@ -654,8 +671,8 @@
 
   function buildGoogleCalendarUrl(dateInfo, data) {
     const { year, month, day } = dateInfo;
-    const svc = getServiceById(data.service);
-    const title = svc ? `${svc.name}` : '放課後デイ';
+    const svc = data.service && data.service !== 'none' ? getServiceById(data.service) : null;
+    const title = svc ? svc.name : (data.note || '予定');
 
     let details = '';
     if (data.transport && data.transport !== 'none') {
@@ -696,11 +713,8 @@
     const key = dateKey(selectedDate.year, selectedDate.month, selectedDate.day);
     const data = scheduleData[key];
 
-    if (data && data.service && data.service !== 'none') {
-      btn.style.display = 'block';
-    } else {
-      btn.style.display = 'none';
-    }
+    const hasData = data && ((data.service && data.service !== 'none') || data.note);
+    btn.style.display = hasData ? 'block' : 'none';
   }
 
   function saveDaySchedule() {
