@@ -572,7 +572,86 @@
     selectedDate = null;
   }
 
-  // ---- Google Calendar ----
+  // ---- Google Calendar / ICS Export ----
+  function generateIcsForMonth(year, month) {
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const events = [];
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = dateKey(year, month, d);
+      const data = scheduleData[key];
+      if (!data || !data.service || data.service === 'none') continue;
+
+      const svc = getServiceById(data.service);
+      const title = svc ? svc.name : '放課後デイ';
+      const dateStr = `${year}${String(month + 1).padStart(2, '0')}${String(d).padStart(2, '0')}`;
+
+      let description = '';
+      if (data.transport && data.transport !== 'none') {
+        const t = TRANSPORT_LABELS[data.transport];
+        description += `送迎: ${t.label}`;
+        if (data.transportTime) description += ` ${data.transportTime}`;
+        description += '\\n';
+      }
+      if (data.returnTime) description += `帰宅: ${data.returnTime}\\n`;
+      if (data.note) description += `メモ: ${data.note}\\n`;
+
+      let dtStart, dtEnd;
+      if (data.transportTime && data.returnTime) {
+        dtStart = `DTSTART;TZID=Asia/Tokyo:${dateStr}T${data.transportTime.replace(':', '')}00`;
+        dtEnd = `DTEND;TZID=Asia/Tokyo:${dateStr}T${data.returnTime.replace(':', '')}00`;
+      } else {
+        dtStart = `DTSTART;VALUE=DATE:${dateStr}`;
+        dtEnd = `DTEND;VALUE=DATE:${dateStr}`;
+      }
+
+      const uid = `${key}-${data.service}@school-calendar`;
+      events.push(
+        'BEGIN:VEVENT',
+        dtStart,
+        dtEnd,
+        `SUMMARY:${title}`,
+        `DESCRIPTION:${description}`,
+        `UID:${uid}`,
+        `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')}`,
+        'END:VEVENT'
+      );
+    }
+
+    if (events.length === 0) return null;
+
+    const ics = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//SchoolCalendar//JP',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      'X-WR-TIMEZONE:Asia/Tokyo',
+      ...events,
+      'END:VCALENDAR',
+    ].join('\r\n');
+
+    return ics;
+  }
+
+  function exportMonthIcs() {
+    const ics = generateIcsForMonth(currentYear, currentMonth);
+    if (!ics) {
+      alert('この月には予定がありません');
+      return;
+    }
+
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `schedule_${currentYear}_${String(currentMonth + 1).padStart(2, '0')}.ics`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   function buildGoogleCalendarUrl(dateInfo, data) {
     const { year, month, day } = dateInfo;
     const svc = getServiceById(data.service);
@@ -881,6 +960,7 @@
     window.open(url, '_blank');
   });
   document.getElementById('addServiceBtn').addEventListener('click', addService);
+  document.getElementById('exportIcsBtn').addEventListener('click', exportMonthIcs);
   document.getElementById('saveSettingsBtn').addEventListener('click', saveSettingsData);
 
   // Family modal
