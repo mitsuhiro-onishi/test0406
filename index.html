@@ -75,16 +75,17 @@
     }
     .step-circle.active { background: #1976d2; }
     .step-circle.inactive { background: #bdbdbd; }
-    .step-circle.done { background: #1976d2; }
+    .step-circle.done { background: #4caf50; }
     .step-label.active { color: #1976d2; font-weight: 500; }
     .step-label.inactive { color: #9e9e9e; }
     .step-line {
       width: 60px;
-      height: 1px;
+      height: 2px;
       background: #bdbdbd;
       margin: 0 12px;
+      transition: background 0.3s;
     }
-    .step-line.done { background: #1976d2; }
+    .step-line.done { background: #4caf50; }
 
     /* Drop zone */
     .dropzone {
@@ -97,6 +98,7 @@
       transition: all 0.2s;
     }
     .dropzone:hover { background: #f0f0f0; border-color: #999; }
+    .dropzone.dragover { background: #e3f2fd; border-color: #1976d2; }
     .dropzone .icon { font-size: 48px; color: #9e9e9e; margin-bottom: 8px; }
     .dropzone p { margin: 4px 0; }
     .dropzone .main-text { font-size: 16px; color: #424242; }
@@ -138,17 +140,29 @@
       color: white;
     }
     .btn-contained:hover { background: #1565c0; }
+    .btn-contained:disabled {
+      background: #bdbdbd;
+      cursor: not-allowed;
+    }
+    .btn-contained:disabled:hover { background: #bdbdbd; }
     .btn-text {
       background: none;
       color: #757575;
       border: none;
     }
     .btn-text:hover { background: #f5f5f5; }
-    .btn-text.disabled { color: #ccc; cursor: default; }
+    .btn-text:disabled { color: #ccc; cursor: default; }
+    .btn-text:disabled:hover { background: none; }
+    .btn-success {
+      background: #4caf50;
+      color: white;
+    }
+    .btn-success:hover { background: #388e3c; }
 
     /* File list */
     .file-list { margin-top: 16px; }
     .file-list h4 { font-size: 14px; font-weight: 500; margin-bottom: 8px; }
+    .file-list .empty { font-size: 13px; color: #9e9e9e; }
     .file-item {
       display: flex;
       align-items: center;
@@ -157,7 +171,9 @@
       background: #f5f5f5;
       border-radius: 4px;
       margin-bottom: 4px;
+      animation: fadeIn 0.2s ease;
     }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
     .file-item .name { flex-grow: 1; font-size: 14px; }
     .file-item .size {
       font-size: 12px;
@@ -286,32 +302,6 @@
     .status-confirmed { background: #e8f5e9; color: #2e7d32; }
     .status-review { background: #fff3e0; color: #e65100; }
 
-    /* Tab navigation for preview */
-    .preview-tabs {
-      display: flex;
-      gap: 0;
-      margin-bottom: 20px;
-      border-bottom: 2px solid #e0e0e0;
-    }
-    .preview-tab {
-      padding: 10px 20px;
-      font-size: 14px;
-      cursor: pointer;
-      border: none;
-      background: none;
-      font-family: inherit;
-      color: #757575;
-      border-bottom: 2px solid transparent;
-      margin-bottom: -2px;
-      transition: all 0.2s;
-    }
-    .preview-tab.active {
-      color: #1976d2;
-      border-bottom-color: #1976d2;
-      font-weight: 500;
-    }
-    .preview-tab:hover { color: #1976d2; background: #f5f5f5; }
-
     .step-view { display: none; }
     .step-view.active { display: block; }
 
@@ -326,10 +316,82 @@
       align-items: center;
       gap: 8px;
       font-size: 14px;
+      animation: fadeIn 0.3s ease;
     }
+
+    /* Hidden file input */
+    .hidden-input { display: none; }
+
+    /* Snackbar */
+    .snackbar {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #323232;
+      color: white;
+      padding: 14px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      z-index: 1000;
+      transition: transform 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .snackbar.show { transform: translateX(-50%) translateY(0); }
+
+    /* Progress overlay */
+    .upload-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 999;
+      justify-content: center;
+      align-items: center;
+    }
+    .upload-overlay.show { display: flex; }
+    .upload-dialog {
+      background: white;
+      border-radius: 12px;
+      padding: 32px 40px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+    .upload-dialog .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid #e0e0e0;
+      border-top-color: #1976d2;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .upload-dialog p { font-size: 15px; color: #424242; }
+    .upload-dialog .sub { font-size: 13px; color: #9e9e9e; margin-top: 4px; }
+
+    /* Complete icon */
+    .complete-icon {
+      width: 48px; height: 48px;
+      background: #4caf50;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+      color: white;
+      animation: scaleIn 0.3s ease;
+    }
+    @keyframes scaleIn { from { transform: scale(0); } to { transform: scale(1); } }
   </style>
 </head>
 <body>
+
+  <!-- Hidden file input -->
+  <input type="file" id="fileInput" class="hidden-input" multiple
+    accept=".xlsx,.xls,.docx,.doc,.pdf,.jpg,.jpeg,.png,.heic" />
 
   <!-- AppBar -->
   <div class="appbar">
@@ -340,128 +402,97 @@
   <div class="container">
 
     <!-- Upload Card -->
-    <div class="card">
+    <div class="card" id="uploadCard">
       <h2>書類をアップロード</h2>
       <p class="subtitle">提出する書類のカテゴリを選び、ファイルをアップロードしてください。カメラで紙の書類を撮影してアップロードすることもできます。</p>
-
-      <!-- Preview tabs to show all 3 steps -->
-      <div class="preview-tabs">
-        <button class="preview-tab active" onclick="showStep(0)">Step 1: ファイル選択</button>
-        <button class="preview-tab" onclick="showStep(1)">Step 2: カテゴリ選択</button>
-        <button class="preview-tab" onclick="showStep(2)">Step 3: 確認・送信</button>
-      </div>
 
       <!-- STEP 1: File Selection -->
       <div class="step-view active" id="step-0">
         <div class="stepper">
           <div class="step">
-            <div class="step-circle active">1</div>
-            <span class="step-label active">ファイル選択</span>
+            <div class="step-circle active" id="sc-1">1</div>
+            <span class="step-label active" id="sl-1">ファイル選択</span>
           </div>
-          <div class="step-line"></div>
+          <div class="step-line" id="line-1"></div>
           <div class="step">
-            <div class="step-circle inactive">2</div>
-            <span class="step-label inactive">カテゴリ選択</span>
+            <div class="step-circle inactive" id="sc-2">2</div>
+            <span class="step-label inactive" id="sl-2">カテゴリ選択</span>
           </div>
-          <div class="step-line"></div>
+          <div class="step-line" id="line-2"></div>
           <div class="step">
-            <div class="step-circle inactive">3</div>
-            <span class="step-label inactive">確認・送信</span>
+            <div class="step-circle inactive" id="sc-3">3</div>
+            <span class="step-label inactive" id="sl-3">確認・送信</span>
           </div>
         </div>
 
-        <div class="dropzone">
+        <div class="dropzone" id="dropzone">
           <div class="icon"><span class="material-icons" style="font-size:48px">cloud_upload</span></div>
-          <p class="main-text">ここをクリックしてファイルを選択</p>
+          <p class="main-text">ここをクリックまたはドラッグ＆ドロップでファイルを選択</p>
           <p class="sub-text">対応形式: Excel (.xlsx), Word (.docx), PDF, 画像 (JPG/PNG/HEIC)</p>
           <p class="sub-text">最大サイズ: 50MB / ファイル</p>
         </div>
 
         <div class="btn-row">
-          <button class="btn btn-outlined">
+          <button class="btn btn-outlined" id="btnSelectFile">
             <span class="material-icons" style="font-size:18px">cloud_upload</span>
             ファイルを選択
           </button>
-          <button class="btn btn-outlined-secondary">
+          <button class="btn btn-outlined-secondary" id="btnCamera">
             <span class="material-icons" style="font-size:18px">camera_alt</span>
             カメラで撮影
           </button>
         </div>
 
         <div class="file-list">
-          <h4>選択済みファイル (2件)</h4>
-          <div class="file-item">
-            <span class="material-icons" style="font-size:18px;color:#9e9e9e">insert_drive_file</span>
-            <span class="name">コマ申込書_A社_2026.xlsx</span>
-            <span class="size">240 KB</span>
-            <span class="remove material-icons">close</span>
-          </div>
-          <div class="file-item">
-            <span class="material-icons" style="font-size:18px;color:#9e9e9e">insert_drive_file</span>
-            <span class="name">電気配線図.pdf</span>
-            <span class="size">1.2 MB</span>
-            <span class="remove material-icons">close</span>
+          <h4 id="fileCountLabel">選択済みファイル (0件)</h4>
+          <div id="fileListContainer">
+            <p class="empty" id="fileEmptyMsg">ファイルが選択されていません</p>
           </div>
         </div>
 
         <div class="nav-row">
-          <button class="btn btn-text disabled">戻る</button>
-          <button class="btn btn-contained">次へ</button>
+          <button class="btn btn-text" disabled>戻る</button>
+          <button class="btn btn-contained" id="btnNext1" disabled>次へ</button>
         </div>
       </div>
 
       <!-- STEP 2: Category Selection -->
       <div class="step-view" id="step-1">
-        <div class="stepper">
-          <div class="step">
-            <div class="step-circle done"><span class="material-icons" style="font-size:16px">check</span></div>
-            <span class="step-label active">ファイル選択</span>
-          </div>
-          <div class="step-line done"></div>
-          <div class="step">
-            <div class="step-circle active">2</div>
-            <span class="step-label active">カテゴリ選択</span>
-          </div>
-          <div class="step-line"></div>
-          <div class="step">
-            <div class="step-circle inactive">3</div>
-            <span class="step-label inactive">確認・送信</span>
-          </div>
-        </div>
+        <div class="stepper" id="stepper-2"></div>
 
         <p style="font-size:14px;color:#616161;margin-bottom:12px;">この書類の提出カテゴリを選択してください</p>
 
-        <div class="category-list">
-          <label class="category-item selected">
-            <input type="radio" name="cat" checked />
+        <div class="category-list" id="categoryList">
+          <label class="category-item" data-category="コマ申込" data-dest="○○装飾株式会社">
+            <input type="radio" name="cat" value="コマ申込" />
             <div class="category-info">
               <div class="category-name">コマ申込 <span class="chip-required">必須</span></div>
               <div class="category-desc">受取: ○○装飾株式会社 ― ブースの小間割・レイアウトに関する申込書</div>
             </div>
           </label>
-          <label class="category-item">
-            <input type="radio" name="cat" />
+          <label class="category-item" data-category="ブース設営" data-dest="○○装飾株式会社">
+            <input type="radio" name="cat" value="ブース設営" />
             <div class="category-info">
               <div class="category-name">ブース設営 <span class="chip-required">必須</span></div>
               <div class="category-desc">受取: ○○装飾株式会社 ― ブースの施工・設営に関する設計書</div>
             </div>
           </label>
-          <label class="category-item">
-            <input type="radio" name="cat" />
+          <label class="category-item" data-category="電気申込" data-dest="△△電気工事株式会社">
+            <input type="radio" name="cat" value="電気申込" />
             <div class="category-info">
               <div class="category-name">電気申込 <span class="chip-required">必須</span></div>
               <div class="category-desc">受取: △△電気工事株式会社 ― 電気工事・照明に関する申込書</div>
             </div>
           </label>
-          <label class="category-item">
-            <input type="radio" name="cat" />
+          <label class="category-item" data-category="弁当注文" data-dest="□□フードサービス">
+            <input type="radio" name="cat" value="弁当注文" />
             <div class="category-info">
               <div class="category-name">弁当注文</div>
               <div class="category-desc">受取: □□フードサービス ― 出展者向け弁当・ケータリングの注文書</div>
             </div>
           </label>
-          <label class="category-item">
-            <input type="radio" name="cat" />
+          <label class="category-item" data-category="備品レンタル" data-dest="○○装飾株式会社">
+            <input type="radio" name="cat" value="備品レンタル" />
             <div class="category-info">
               <div class="category-name">備品レンタル</div>
               <div class="category-desc">受取: ○○装飾株式会社 ― テーブル・椅子・ショーケース等の備品レンタル申込</div>
@@ -470,46 +501,30 @@
         </div>
 
         <div class="nav-row">
-          <button class="btn btn-text">戻る</button>
-          <button class="btn btn-contained">次へ</button>
+          <button class="btn btn-text" onclick="goToStep(0)">戻る</button>
+          <button class="btn btn-contained" id="btnNext2" disabled>次へ</button>
         </div>
       </div>
 
       <!-- STEP 3: Confirm -->
       <div class="step-view" id="step-2">
-        <div class="stepper">
-          <div class="step">
-            <div class="step-circle done"><span class="material-icons" style="font-size:16px">check</span></div>
-            <span class="step-label active">ファイル選択</span>
-          </div>
-          <div class="step-line done"></div>
-          <div class="step">
-            <div class="step-circle done"><span class="material-icons" style="font-size:16px">check</span></div>
-            <span class="step-label active">カテゴリ選択</span>
-          </div>
-          <div class="step-line done"></div>
-          <div class="step">
-            <div class="step-circle active">3</div>
-            <span class="step-label active">確認・送信</span>
-          </div>
-        </div>
+        <div class="stepper" id="stepper-3"></div>
 
         <div class="confirm-box">
           <h3>送信内容の確認</h3>
           <div class="confirm-row">
             <div class="confirm-label">ファイル</div>
-            <div class="confirm-value">コマ申込書_A社_2026.xlsx (240 KB)</div>
-            <div class="confirm-value">電気配線図.pdf (1.2 MB)</div>
+            <div id="confirmFiles"></div>
           </div>
           <div class="confirm-row">
             <div class="confirm-label">提出カテゴリ</div>
-            <div class="confirm-value">コマ申込（受取: ○○装飾株式会社）</div>
+            <div class="confirm-value" id="confirmCategory"></div>
           </div>
         </div>
 
         <div class="nav-row">
-          <button class="btn btn-text">戻る</button>
-          <button class="btn btn-contained">
+          <button class="btn btn-text" onclick="goToStep(1)">戻る</button>
+          <button class="btn btn-success" id="btnSubmit">
             <span class="material-icons" style="font-size:18px">cloud_upload</span>
             送信する
           </button>
@@ -522,8 +537,8 @@
       <h2>提出済み書類</h2>
 
       <div class="doc-header">
-        <span class="count">全4件</span>
-        <span class="refresh material-icons">refresh</span>
+        <span class="count" id="docCount">全4件</span>
+        <span class="refresh material-icons" id="btnRefresh">refresh</span>
       </div>
 
       <table>
@@ -536,7 +551,7 @@
             <th>提出日時</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="docTableBody">
           <tr>
             <td>
               <div class="td-file">
@@ -591,21 +606,301 @@
 
   </div>
 
+  <!-- Upload progress overlay -->
+  <div class="upload-overlay" id="uploadOverlay">
+    <div class="upload-dialog" id="uploadDialog">
+      <div class="spinner" id="uploadSpinner"></div>
+      <p id="uploadMsg">アップロード中...</p>
+      <p class="sub" id="uploadSub">しばらくお待ちください</p>
+    </div>
+  </div>
+
+  <!-- Snackbar -->
+  <div class="snackbar" id="snackbar">
+    <span class="material-icons" style="font-size:18px">check_circle</span>
+    <span id="snackbarText"></span>
+  </div>
+
   <script>
-    function showStep(n) {
-      document.querySelectorAll('.step-view').forEach(el => el.classList.remove('active'));
-      document.querySelectorAll('.preview-tab').forEach(el => el.classList.remove('active'));
-      document.getElementById('step-' + n).classList.add('active');
-      document.querySelectorAll('.preview-tab')[n].classList.add('active');
+    // ──── State ────
+    let selectedFiles = [];
+    let selectedCategory = null;
+    let selectedDest = null;
+    let currentStep = 0;
+    let docCount = 4;
+
+    // ──── DOM refs ────
+    const fileInput = document.getElementById('fileInput');
+    const dropzone = document.getElementById('dropzone');
+    const fileListContainer = document.getElementById('fileListContainer');
+    const fileCountLabel = document.getElementById('fileCountLabel');
+    const fileEmptyMsg = document.getElementById('fileEmptyMsg');
+    const btnNext1 = document.getElementById('btnNext1');
+    const btnNext2 = document.getElementById('btnNext2');
+    const btnSubmit = document.getElementById('btnSubmit');
+    const btnSelectFile = document.getElementById('btnSelectFile');
+    const btnCamera = document.getElementById('btnCamera');
+
+    // ──── File selection ────
+    btnSelectFile.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('click', () => fileInput.click());
+
+    // Camera button - use file input with capture
+    btnCamera.addEventListener('click', () => {
+      fileInput.setAttribute('capture', 'environment');
+      fileInput.click();
+      setTimeout(() => fileInput.removeAttribute('capture'), 500);
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      addFiles(e.target.files);
+      fileInput.value = '';
+    });
+
+    // Drag & drop
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+    dropzone.addEventListener('dragleave', () => {
+      dropzone.classList.remove('dragover');
+    });
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      addFiles(e.dataTransfer.files);
+    });
+
+    function addFiles(fileList) {
+      for (const file of fileList) {
+        if (file.size > 50 * 1024 * 1024) {
+          showSnackbar('ファイルサイズが50MBを超えています: ' + file.name);
+          continue;
+        }
+        // Avoid duplicates by name
+        if (selectedFiles.some(f => f.name === file.name)) continue;
+        selectedFiles.push(file);
+      }
+      renderFileList();
     }
 
-    // Radio click styling
+    function removeFile(index) {
+      selectedFiles.splice(index, 1);
+      renderFileList();
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function renderFileList() {
+      fileCountLabel.textContent = '選択済みファイル (' + selectedFiles.length + '件)';
+      btnNext1.disabled = selectedFiles.length === 0;
+
+      if (selectedFiles.length === 0) {
+        fileListContainer.innerHTML = '<p class="empty">ファイルが選択されていません</p>';
+        return;
+      }
+
+      fileListContainer.innerHTML = selectedFiles.map((file, i) => `
+        <div class="file-item">
+          <span class="material-icons" style="font-size:18px;color:#9e9e9e">insert_drive_file</span>
+          <span class="name">${escapeHtml(file.name)}</span>
+          <span class="size">${formatSize(file.size)}</span>
+          <span class="remove material-icons" onclick="removeFile(${i})">close</span>
+        </div>
+      `).join('');
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // ──── Category selection ────
     document.querySelectorAll('.category-item').forEach(item => {
       item.addEventListener('click', () => {
         document.querySelectorAll('.category-item').forEach(i => i.classList.remove('selected'));
         item.classList.add('selected');
+        selectedCategory = item.dataset.category;
+        selectedDest = item.dataset.dest;
+        btnNext2.disabled = false;
       });
     });
+
+    // ──── Step navigation ────
+    btnNext1.addEventListener('click', () => goToStep(1));
+    btnNext2.addEventListener('click', () => goToStep(2));
+
+    function goToStep(step) {
+      currentStep = step;
+
+      // Hide all steps, show target
+      document.querySelectorAll('.step-view').forEach(el => el.classList.remove('active'));
+      document.getElementById('step-' + step).classList.add('active');
+
+      // Update stepper in each visible step
+      updateStepper(step);
+
+      // Populate confirmation if going to step 3
+      if (step === 2) {
+        populateConfirmation();
+      }
+
+      // Scroll to top of card
+      document.getElementById('uploadCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function updateStepper(activeStep) {
+      // Reuse the stepper in step-0 and inject into step-1 and step-2
+      const stepperHTML = buildStepperHTML(activeStep);
+      const currentView = document.getElementById('step-' + activeStep);
+      const stepper = currentView.querySelector('.stepper');
+      if (stepper) stepper.innerHTML = stepperHTML;
+    }
+
+    function buildStepperHTML(activeStep) {
+      const steps = ['ファイル選択', 'カテゴリ選択', '確認・送信'];
+      let html = '';
+      steps.forEach((label, i) => {
+        const num = i + 1;
+        let circleClass, labelClass, circleContent;
+
+        if (i < activeStep) {
+          circleClass = 'done';
+          labelClass = 'active';
+          circleContent = '<span class="material-icons" style="font-size:16px">check</span>';
+        } else if (i === activeStep) {
+          circleClass = 'active';
+          labelClass = 'active';
+          circleContent = num;
+        } else {
+          circleClass = 'inactive';
+          labelClass = 'inactive';
+          circleContent = num;
+        }
+
+        html += `<div class="step">
+          <div class="step-circle ${circleClass}">${circleContent}</div>
+          <span class="step-label ${labelClass}">${label}</span>
+        </div>`;
+
+        if (i < 2) {
+          const lineClass = i < activeStep ? 'done' : '';
+          html += `<div class="step-line ${lineClass}"></div>`;
+        }
+      });
+      return html;
+    }
+
+    // ──── Confirmation ────
+    function populateConfirmation() {
+      const confirmFiles = document.getElementById('confirmFiles');
+      confirmFiles.innerHTML = selectedFiles.map(f =>
+        `<div class="confirm-value">${escapeHtml(f.name)} (${formatSize(f.size)})</div>`
+      ).join('');
+
+      const confirmCat = document.getElementById('confirmCategory');
+      confirmCat.textContent = selectedCategory + '（受取: ' + selectedDest + '）';
+    }
+
+    // ──── Submit ────
+    btnSubmit.addEventListener('click', () => {
+      const overlay = document.getElementById('uploadOverlay');
+      const dialog = document.getElementById('uploadDialog');
+      overlay.classList.add('show');
+
+      // Simulate upload
+      setTimeout(() => {
+        // Show success in dialog
+        document.getElementById('uploadSpinner').style.display = 'none';
+        dialog.innerHTML = `
+          <div class="complete-icon">
+            <span class="material-icons" style="font-size:28px">check</span>
+          </div>
+          <p>アップロード完了</p>
+          <p class="sub">${selectedFiles.length}件のファイルを送信しました</p>
+        `;
+
+        // Add to table
+        const now = new Date();
+        const dateStr = String(now.getMonth() + 1).padStart(2, '0') + '/' +
+                        String(now.getDate()).padStart(2, '0') + ' ' +
+                        String(now.getHours()).padStart(2, '0') + ':' +
+                        String(now.getMinutes()).padStart(2, '0');
+
+        const tbody = document.getElementById('docTableBody');
+        selectedFiles.forEach(file => {
+          docCount++;
+          const isImage = /\.(jpg|jpeg|png|heic)$/i.test(file.name);
+          const icon = isImage ? 'camera_alt' : 'insert_drive_file';
+          const tr = document.createElement('tr');
+          tr.style.animation = 'fadeIn 0.3s ease';
+          tr.innerHTML = `
+            <td>
+              <div class="td-file">
+                <span class="material-icons icon">${icon}</span>
+                <span class="name">${escapeHtml(file.name)}</span>
+              </div>
+            </td>
+            <td><span class="chip-category">${escapeHtml(selectedCategory)}</span></td>
+            <td>${formatSize(file.size)}</td>
+            <td><span class="chip-status status-received">受信済</span></td>
+            <td>${dateStr}</td>
+          `;
+          // Insert at top
+          tbody.insertBefore(tr, tbody.firstChild);
+        });
+
+        document.getElementById('docCount').textContent = '全' + docCount + '件';
+
+        // Close overlay after a moment and reset form
+        setTimeout(() => {
+          overlay.classList.remove('show');
+          // Reset dialog for next use
+          dialog.innerHTML = `
+            <div class="spinner" id="uploadSpinner"></div>
+            <p id="uploadMsg">アップロード中...</p>
+            <p class="sub" id="uploadSub">しばらくお待ちください</p>
+          `;
+
+          // Reset form
+          selectedFiles = [];
+          selectedCategory = null;
+          selectedDest = null;
+          renderFileList();
+          document.querySelectorAll('.category-item').forEach(i => {
+            i.classList.remove('selected');
+            i.querySelector('input').checked = false;
+          });
+          btnNext2.disabled = true;
+          goToStep(0);
+
+          showSnackbar('書類のアップロードが完了しました');
+        }, 1500);
+      }, 2000);
+    });
+
+    // ──── Snackbar ────
+    function showSnackbar(text) {
+      const sb = document.getElementById('snackbar');
+      document.getElementById('snackbarText').textContent = text;
+      sb.classList.add('show');
+      setTimeout(() => sb.classList.remove('show'), 3000);
+    }
+
+    // ──── Refresh button ────
+    document.getElementById('btnRefresh').addEventListener('click', function() {
+      this.style.animation = 'spin 0.5s ease';
+      setTimeout(() => this.style.animation = '', 500);
+      showSnackbar('一覧を更新しました');
+    });
+
+    // ──── Initialize ────
+    updateStepper(0);
   </script>
 
 </body>
