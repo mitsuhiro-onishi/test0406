@@ -1,6 +1,7 @@
 // ============================================================
 // School Schedule Calendar App
 // 26年度 (April 2026 – March 2027)
+// Firebase Realtime Database で夫婦共有対応
 // ============================================================
 
 (function () {
@@ -46,11 +47,14 @@
   };
 
   // ---- State ----
-  let currentYear, currentMonth; // displayed month
-  let scheduleData = {};         // { 'YYYY-MM-DD': { service, transport, returnTime, note } }
+  let currentYear, currentMonth;
+  let scheduleData = {};
   let services = [];
   let settings = { notify: false, notifyHour: 20, notifyMinute: 0 };
   let selectedDate = null;
+  let familyId = null;
+  let db = null;
+  let firebaseReady = false;
 
   // ---- DOM Elements ----
   const monthTitle = document.getElementById('monthTitle');
@@ -61,7 +65,6 @@
   const dayModal = document.getElementById('dayModal');
   const modalDate = document.getElementById('modalDate');
   const serviceOptionsEl = document.getElementById('serviceOptions');
-  const transportOptionsEl = document.getElementById('transportOptions');
   const returnHourEl = document.getElementById('returnHour');
   const returnMinuteEl = document.getElementById('returnMinute');
   const noteInput = document.getElementById('noteInput');
@@ -69,7 +72,142 @@
   const settingsModal = document.getElementById('settingsModal');
   const serviceListEl = document.getElementById('serviceList');
 
-  // ---- Persistence ----
+  const familyModal = document.getElementById('familyModal');
+  const syncStatus = document.getElementById('syncStatus');
+
+  // ---- Firebase ----
+  function initFirebase() {
+    if (typeof firebase === 'undefined') {
+      console.warn('Firebase SDK not loaded, using localStorage only');
+      return false;
+    }
+
+    const config = getFirebaseConfig();
+    if (!config) return false;
+
+    try {
+      if (!firebase.apps.length) {
+        firebase.initializeApp(config);
+      }
+      db = firebase.database();
+      firebaseReady = true;
+      return true;
+    } catch (e) {
+      console.error('Firebase init error:', e);
+      return false;
+    }
+  }
+
+  function getFirebaseConfig() {
+    const raw = localStorage.getItem('school-cal-firebase-config');
+    if (raw) {
+      try { return JSON.parse(raw); } catch (e) {}
+    }
+    return null;
+  }
+
+  function saveFirebaseConfig(config) {
+    localStorage.setItem('school-cal-firebase-config', JSON.stringify(config));
+  }
+
+  // ---- Firebase Sync ----
+  function syncToFirebase() {
+    if (!firebaseReady || !familyId || !db) return;
+    updateSyncStatus('syncing');
+
+    const ref = db.ref('families/' + familyId);
+    ref.update({
+      schedule: scheduleData,
+      services: services,
+      updatedAt: Date.now()
+    }).then(() => {
+      updateSyncStatus('synced');
+    }).catch((e) => {
+      console.error('Sync error:', e);
+      updateSyncStatus('error');
+    });
+  }
+
+  function listenToFirebase() {
+    if (!firebaseReady || !familyId || !db) return;
+
+    const ref = db.ref('families/' + familyId);
+    ref.on('value', (snapshot) => {
+      const data = snapshot.val();
+      if (!data) {
+        // First time: push current data
+        syncToFirebase();
+        return;
+      }
+
+      if (data.schedule) {
+        scheduleData = data.schedule;
+        localStorage.setItem('school-cal-data', JSON.stringify(scheduleData));
+      }
+      if (data.services) {
+        services = data.services;
+        localStorage.setItem('school-cal-services', JSON.stringify(services));
+      }
+
+      renderMonth();
+      renderTomorrowPreview();
+      renderLegend();
+      updateSyncStatus('synced');
+    });
+  }
+
+  function updateSyncStatus(status) {
+    if (!syncStatus) return;
+    switch (status) {
+      case 'syncing':
+        syncStatus.textContent = '同期中...';
+        syncStatus.style.color = '#F39C12';
+        break;
+      case 'synced':
+        syncStatus.textContent = '同期済み';
+        syncStatus.style.color = '#27AE60';
+        break;
+      case 'error':
+        syncStatus.textContent = '同期エラー';
+        syncStatus.style.color = '#E74C3C';
+        break;
+      case 'offline':
+        syncStatus.textContent = 'オフライン';
+        syncStatus.style.color = '#999';
+        break;
+      default:
+        syncStatus.textContent = '';
+    }
+  }
+
+  // ---- Family Code ----
+  function getFamilyId() {
+    return localStorage.getItem('school-cal-family-id');
+  }
+
+  function setFamilyId(id) {
+    familyId = id;
+    localStorage.setItem('school-cal-family-id', id);
+  }
+
+  function generateFamilyId() {
+    const chars = 'abcdefghijkmnpqrstuvwxyz23456789';
+    let result = '';
+    for (let i = 0; i < 6; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  }
+
+  function showFamilyModal() {
+    familyModal.classList.add('active');
+  }
+
+  function closeFamilyModal() {
+    familyModal.classList.remove('active');
+  }
+
+  // ---- Persistence (localStorage fallback) ----
   function loadData() {
     try {
       const raw = localStorage.getItem('school-cal-data');
@@ -90,10 +228,12 @@
 
   function saveSchedule() {
     localStorage.setItem('school-cal-data', JSON.stringify(scheduleData));
+    syncToFirebase();
   }
 
   function saveServices() {
     localStorage.setItem('school-cal-services', JSON.stringify(services));
+    syncToFirebase();
   }
 
   function saveSettings() {
@@ -130,25 +270,21 @@
     const year = currentYear;
     const month = currentMonth;
 
-    // Title
     const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月',
       '7月', '8月', '9月', '10月', '11月', '12月'];
     monthTitle.innerHTML = `${monthNames[month]} <span class="year">${year}年</span>`;
 
-    // Calendar grid
     calendarGrid.innerHTML = '';
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const today = new Date();
 
-    // Empty cells before first day
     for (let i = 0; i < firstDay; i++) {
       const cell = document.createElement('div');
       cell.className = 'day-cell empty';
       calendarGrid.appendChild(cell);
     }
 
-    // Day cells
     for (let d = 1; d <= daysInMonth; d++) {
       const cell = document.createElement('div');
       const date = new Date(year, month, d);
@@ -165,13 +301,11 @@
       }
       cell.className = classes;
 
-      // Day number
       const dayNum = document.createElement('div');
       dayNum.className = 'day-number';
       dayNum.textContent = d;
       cell.appendChild(dayNum);
 
-      // Schedule info
       const data = scheduleData[key];
       if (data) {
         if (data.service && data.service !== 'none') {
@@ -196,7 +330,6 @@
       calendarGrid.appendChild(cell);
     }
 
-    // Legend
     renderLegend();
   }
 
@@ -260,7 +393,6 @@
 
     modalDate.textContent = formatDate(year, month, day);
 
-    // Service options
     serviceOptionsEl.innerHTML = '';
     const noneBtn = document.createElement('button');
     noneBtn.className = 'service-btn none-btn' + (!data.service || data.service === 'none' ? ' selected' : '');
@@ -281,12 +413,10 @@
       serviceOptionsEl.appendChild(btn);
     });
 
-    // Transport
     document.querySelectorAll('.transport-btn').forEach(btn => {
       btn.classList.toggle('selected', btn.dataset.transport === (data.transport || 'none'));
     });
 
-    // Return time
     populateTimeSelects();
     if (data.returnTime) {
       const [h, m] = data.returnTime.split(':');
@@ -297,9 +427,7 @@
       returnMinuteEl.value = '00';
     }
 
-    // Note
     noteInput.value = data.note || '';
-
     dayModal.classList.add('active');
   }
 
@@ -371,7 +499,6 @@
   function openSettings() {
     renderServiceList();
 
-    // Notification settings
     document.getElementById('notifyToggle').checked = settings.notify;
 
     const notifyHourEl = document.getElementById('notifyHour');
@@ -391,6 +518,12 @@
       opt.textContent = String(m).padStart(2, '0');
       if (m === settings.notifyMinute) opt.selected = true;
       notifyMinuteEl.appendChild(opt);
+    }
+
+    // Show current family code
+    const familyCodeDisplay = document.getElementById('familyCodeDisplay');
+    if (familyCodeDisplay) {
+      familyCodeDisplay.textContent = familyId || '未設定';
     }
 
     settingsModal.classList.add('active');
@@ -443,15 +576,12 @@
     const color = colors[services.length % colors.length];
     services.push({ id, name: '', color });
     renderServiceList();
-    // Focus the new input
     const inputs = serviceListEl.querySelectorAll('input[type="text"]');
     if (inputs.length > 0) inputs[inputs.length - 1].focus();
   }
 
   function saveSettingsData() {
-    // Remove empty-named services
     services = services.filter(s => s.name.trim() !== '');
-    // Ensure IDs are unique
     services.forEach((s, i) => {
       if (!s.id) s.id = 'svc_' + Date.now() + '_' + i;
     });
@@ -484,7 +614,6 @@
   }
 
   function clampMonth() {
-    // Clamp to school year range
     if (currentYear < SCHOOL_YEAR_START.year ||
       (currentYear === SCHOOL_YEAR_START.year && currentMonth < SCHOOL_YEAR_START.month)) {
       currentYear = SCHOOL_YEAR_START.year;
@@ -505,7 +634,6 @@
       Notification.requestPermission();
     }
 
-    // Check every minute
     if (window._notifyInterval) clearInterval(window._notifyInterval);
     window._notifyInterval = setInterval(checkNotification, 60000);
   }
@@ -541,6 +669,90 @@
     }
   }
 
+  // ---- Firebase Setup Flow ----
+  function handleFirebaseSetup() {
+    const configInput = document.getElementById('firebaseConfigInput');
+    const raw = configInput.value.trim();
+
+    try {
+      // Extract config object from pasted text
+      let config;
+      // Try to find the config object in the pasted text
+      const match = raw.match(/\{[\s\S]*apiKey[\s\S]*\}/);
+      if (match) {
+        // Clean up: replace single quotes, remove trailing commas
+        let cleaned = match[0]
+          .replace(/(\w+):/g, '"$1":')  // quote keys
+          .replace(/'/g, '"')            // single to double quotes
+          .replace(/,\s*}/g, '}');       // trailing commas
+        // Try parse
+        try {
+          config = JSON.parse(cleaned);
+        } catch (e) {
+          // Try eval-like approach for JS object
+          config = {};
+          const pairs = match[0].match(/(\w+)\s*:\s*["']([^"']+)["']/g);
+          if (pairs) {
+            pairs.forEach(pair => {
+              const [, key, val] = pair.match(/(\w+)\s*:\s*["']([^"']+)["']/);
+              config[key] = val;
+            });
+          }
+        }
+      } else {
+        config = JSON.parse(raw);
+      }
+
+      if (!config.apiKey || !config.databaseURL) {
+        alert('apiKey と databaseURL が必要です。Firebase設定を確認してください。');
+        return;
+      }
+
+      saveFirebaseConfig(config);
+
+      if (initFirebase()) {
+        document.getElementById('firebaseSetupSection').style.display = 'none';
+        document.getElementById('firebaseConnectedSection').style.display = 'block';
+        startFamilySync();
+      } else {
+        alert('Firebase接続に失敗しました。設定を確認してください。');
+      }
+    } catch (e) {
+      alert('設定の読み取りに失敗しました。Firebaseの設定をそのままコピー＆ペーストしてください。');
+      console.error(e);
+    }
+  }
+
+  function handleCreateFamily() {
+    const code = generateFamilyId();
+    setFamilyId(code);
+    document.getElementById('familyCodeResult').textContent = code;
+    document.getElementById('familyCodeResultSection').style.display = 'block';
+    listenToFirebase();
+    syncToFirebase();
+  }
+
+  function handleJoinFamily() {
+    const input = document.getElementById('joinFamilyInput');
+    const code = input.value.trim().toLowerCase();
+    if (code.length < 4) {
+      alert('家族コードを入力してください');
+      return;
+    }
+    setFamilyId(code);
+    listenToFirebase();
+    closeFamilyModal();
+    renderMonth();
+  }
+
+  function startFamilySync() {
+    familyId = getFamilyId();
+    if (familyId) {
+      listenToFirebase();
+      document.getElementById('familyCodeDisplay').textContent = familyId;
+    }
+  }
+
   // ---- Event Listeners ----
   document.getElementById('prevMonth').addEventListener('click', prevMonth);
   document.getElementById('nextMonth').addEventListener('click', nextMonth);
@@ -551,6 +763,17 @@
   document.getElementById('deleteBtn').addEventListener('click', deleteDaySchedule);
   document.getElementById('addServiceBtn').addEventListener('click', addService);
   document.getElementById('saveSettingsBtn').addEventListener('click', saveSettingsData);
+
+  // Family modal
+  document.getElementById('familySettingsBtn').addEventListener('click', showFamilyModal);
+  document.getElementById('familyModalClose').addEventListener('click', closeFamilyModal);
+  document.getElementById('saveFirebaseConfigBtn').addEventListener('click', handleFirebaseSetup);
+  document.getElementById('createFamilyBtn').addEventListener('click', handleCreateFamily);
+  document.getElementById('joinFamilyBtn').addEventListener('click', handleJoinFamily);
+
+  familyModal.addEventListener('click', (e) => {
+    if (e.target === familyModal) closeFamilyModal();
+  });
 
   // Transport buttons
   document.querySelectorAll('.transport-btn').forEach(btn => {
@@ -578,7 +801,6 @@
   function init() {
     loadData();
 
-    // Start at current month if in school year, otherwise April 2026
     const now = new Date();
     currentYear = now.getFullYear();
     currentMonth = now.getMonth();
@@ -590,6 +812,14 @@
     renderMonth();
     renderTomorrowPreview();
     setupNotification();
+
+    // Try Firebase
+    if (initFirebase()) {
+      startFamilySync();
+      updateSyncStatus('synced');
+    } else {
+      updateSyncStatus('offline');
+    }
   }
 
   init();
