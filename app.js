@@ -551,6 +551,7 @@
     showTransportTimeSection(currentTransport);
 
     noteInput.value = data.note || '';
+    updateGcalButton();
     dayModal.classList.add('active');
   }
 
@@ -571,6 +572,58 @@
     selectedDate = null;
   }
 
+  // ---- Google Calendar ----
+  function buildGoogleCalendarUrl(dateInfo, data) {
+    const { year, month, day } = dateInfo;
+    const svc = getServiceById(data.service);
+    const title = svc ? `${svc.name}` : '放課後デイ';
+
+    let details = '';
+    if (data.transport && data.transport !== 'none') {
+      const t = TRANSPORT_LABELS[data.transport];
+      details += `送迎: ${t.icon} ${t.label}`;
+      if (data.transportTime) details += ` ${data.transportTime}`;
+      details += '\n';
+    }
+    if (data.returnTime) details += `帰宅: ${data.returnTime}\n`;
+    if (data.note) details += `メモ: ${data.note}\n`;
+
+    // Use transport time as start, return time as end. Fallback to all-day.
+    let dates;
+    if (data.transportTime && data.returnTime) {
+      const startDt = `${year}${String(month + 1).padStart(2, '0')}${String(day).padStart(2, '0')}T${data.transportTime.replace(':', '')}00`;
+      const endDt = `${year}${String(month + 1).padStart(2, '0')}${String(day).padStart(2, '0')}T${data.returnTime.replace(':', '')}00`;
+      dates = `${startDt}/${endDt}`;
+    } else {
+      const d = `${year}${String(month + 1).padStart(2, '0')}${String(day).padStart(2, '0')}`;
+      dates = `${d}/${d}`;
+    }
+
+    const params = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: title,
+      dates: dates,
+      details: details,
+      ctz: 'Asia/Tokyo',
+    });
+
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  }
+
+  function updateGcalButton() {
+    const btn = document.getElementById('addToGcalBtn');
+    if (!btn || !selectedDate) return;
+
+    const key = dateKey(selectedDate.year, selectedDate.month, selectedDate.day);
+    const data = scheduleData[key];
+
+    if (data && data.service && data.service !== 'none') {
+      btn.style.display = 'block';
+    } else {
+      btn.style.display = 'none';
+    }
+  }
+
   function saveDaySchedule() {
     if (!selectedDate) return;
     const key = dateKey(selectedDate.year, selectedDate.month, selectedDate.day);
@@ -589,7 +642,9 @@
     saveSchedule();
     renderMonth();
     renderTomorrowPreview();
-    closeDayModal();
+
+    // Show Google Calendar button after save
+    updateGcalButton();
   }
 
   function deleteDaySchedule() {
@@ -817,6 +872,14 @@
   document.getElementById('settingsClose').addEventListener('click', closeSettings);
   document.getElementById('saveBtn').addEventListener('click', saveDaySchedule);
   document.getElementById('deleteBtn').addEventListener('click', deleteDaySchedule);
+  document.getElementById('addToGcalBtn').addEventListener('click', () => {
+    if (!selectedDate) return;
+    const key = dateKey(selectedDate.year, selectedDate.month, selectedDate.day);
+    const data = scheduleData[key];
+    if (!data) return;
+    const url = buildGoogleCalendarUrl(selectedDate, data);
+    window.open(url, '_blank');
+  });
   document.getElementById('addServiceBtn').addEventListener('click', addService);
   document.getElementById('saveSettingsBtn').addEventListener('click', saveSettingsData);
 
