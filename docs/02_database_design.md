@@ -9,6 +9,12 @@
 └──────────────┘     └──────┬───────┘     └──────────────────┘
                             │
                      ┌──────┴───────┐
+                     │ submission_  │
+                     │ categories   │ ← 展示会ごとの提出カテゴリ×受取先
+                     │ (提出カテゴリ) │
+                     └──────┬───────┘
+                            │
+                     ┌──────┴───────┐
                      │ booths       │
                      │ (ブース)      │
                      └──────┬───────┘
@@ -99,7 +105,33 @@
 
 UNIQUE制約: (exhibition_id, organization_id)
 
-### 2.5 booths（ブース）
+### 2.5 submission_categories（提出カテゴリ）
+
+展示会ごとに「出展社が何を提出するか」と「誰が受け取るか」のセットを定義する。
+展示会ごとにカテゴリの種類・数・受取先を自由に設定可能。
+
+| カラム | 型 | 制約 | 説明 |
+|--------|-----|------|------|
+| id | UUID | PK | 提出カテゴリID |
+| exhibition_id | UUID | FK → exhibitions | 展示会 |
+| name | VARCHAR(100) | NOT NULL | カテゴリ名（例: コマ申込、電気申込、弁当注文） |
+| description | TEXT | | カテゴリの説明・補足 |
+| recipient_org_id | UUID | FK → organizations | 受取先組織（主催者側） |
+| is_required | BOOLEAN | DEFAULT true | 全出展社に必須か |
+| deadline | TIMESTAMP | | 提出期限（展示会全体の期限と別に設定可能） |
+| sort_order | INTEGER | DEFAULT 0 | 表示順 |
+| is_active | BOOLEAN | DEFAULT true | 有効フラグ |
+| created_at | TIMESTAMP | NOT NULL | 作成日時 |
+| updated_at | TIMESTAMP | NOT NULL | 更新日時 |
+
+UNIQUE制約: (exhibition_id, name)
+
+> **設計意図:**
+> - 展示会Aでは「コマ申込→装飾業者、電気申込→電気施工会社、弁当注文→ケータリング会社」
+> - 展示会Bでは「ブース設営→装飾業者X、備品レンタル→装飾業者X、清掃→清掃会社Z」
+> - のように、展示会ごとに完全に自由な組み合わせが可能
+
+### 2.6 booths（ブース）
 
 | カラム | 型 | 制約 | 説明 |
 |--------|-----|------|------|
@@ -115,7 +147,7 @@ UNIQUE制約: (exhibition_id, organization_id)
 
 UNIQUE制約: (exhibition_id, booth_number)
 
-### 2.6 documents（ドキュメント原本）
+### 2.7 documents（ドキュメント原本）
 
 受信した全ドキュメントの原本情報を保管。
 出展社から主催者側（主催者・装飾業者・協力会社）へ送付されるドキュメントを管理する。
@@ -124,10 +156,11 @@ UNIQUE制約: (exhibition_id, booth_number)
 |--------|-----|------|------|
 | id | UUID | PK | ドキュメントID |
 | exhibition_id | UUID | FK → exhibitions | 展示会 |
+| submission_category_id | UUID | FK → submission_categories | 提出カテゴリ |
 | booth_id | UUID | FK → booths, NULL可 | 関連ブース |
 | uploaded_by_org_id | UUID | FK → organizations | 送信元組織（出展社） |
 | uploaded_by_user_id | UUID | FK → users, NULL可 | 送信ユーザー |
-| recipient_org_id | UUID | FK → organizations | 宛先組織（主催者側：主催者・装飾業者・協力会社） |
+| recipient_org_id | UUID | FK → organizations | 宛先組織（submission_categoryから自動設定） |
 | file_name | VARCHAR(500) | NOT NULL | 元ファイル名 |
 | file_type | VARCHAR(50) | NOT NULL | MIMEタイプ |
 | file_size_bytes | BIGINT | NOT NULL | ファイルサイズ |
@@ -145,11 +178,12 @@ UNIQUE制約: (exhibition_id, booth_number)
 >
 > ※ メール受信（`email`）は将来対応予定
 
-> **recipient_org_id 補足:**
-> 宛先組織は主催者側の組織（organizer / decorator / partner）を指定する。
-> 例：電気工事関連の書類 → 電気施工会社（partner）、装飾関連の書類 → 装飾業者（decorator）
+> **submission_category_id & recipient_org_id 補足:**
+> 出展社がアップロード時に提出カテゴリを選択すると、
+> そのカテゴリに紐付いた受取先組織が `recipient_org_id` に自動設定される。
+> 例：「電気申込」を選択 → recipient_org_id = 電気施工会社のID
 
-### 2.7 ai_analyses（AI解析結果）
+### 2.8 ai_analyses（AI解析結果）
 
 | カラム | 型 | 制約 | 説明 |
 |--------|-----|------|------|
@@ -168,7 +202,7 @@ UNIQUE制約: (exhibition_id, booth_number)
 | review_notes | TEXT | | レビューコメント |
 | created_at | TIMESTAMP | NOT NULL | 解析日時 |
 
-### 2.8 orders（注文）
+### 2.9 orders（注文）
 
 AI解析から確定した注文データ。
 
@@ -189,7 +223,7 @@ AI解析から確定した注文データ。
 | created_at | TIMESTAMP | NOT NULL | 作成日時 |
 | updated_at | TIMESTAMP | NOT NULL | 更新日時 |
 
-### 2.9 order_items（注文明細）
+### 2.10 order_items（注文明細）
 
 | カラム | 型 | 制約 | 説明 |
 |--------|-----|------|------|
@@ -205,7 +239,7 @@ AI解析から確定した注文データ。
 | sort_order | INTEGER | DEFAULT 0 | 表示順 |
 | created_at | TIMESTAMP | NOT NULL | 作成日時 |
 
-### 2.10 design_specs（設計仕様）
+### 2.11 design_specs（設計仕様）
 
 AI解析から確定した設計仕様データ。
 
@@ -229,7 +263,7 @@ AI解析から確定した設計仕様データ。
 | created_at | TIMESTAMP | NOT NULL | 作成日時 |
 | updated_at | TIMESTAMP | NOT NULL | 更新日時 |
 
-### 2.11 notifications（通知）
+### 2.12 notifications（通知）
 
 | カラム | 型 | 制約 | 説明 |
 |--------|-----|------|------|
@@ -243,7 +277,7 @@ AI解析から確定した設計仕様データ。
 | is_read | BOOLEAN | DEFAULT false | 既読フラグ |
 | created_at | TIMESTAMP | NOT NULL | 作成日時 |
 
-### 2.12 audit_logs（監査ログ）
+### 2.13 audit_logs（監査ログ）
 
 | カラム | 型 | 制約 | 説明 |
 |--------|-----|------|------|
@@ -262,8 +296,13 @@ AI解析から確定した設計仕様データ。
 ## 3. インデックス設計
 
 ```sql
+-- submission_categories: 展示会ごとのカテゴリ一覧
+CREATE INDEX idx_submission_categories_exhibition ON submission_categories(exhibition_id);
+CREATE INDEX idx_submission_categories_recipient ON submission_categories(recipient_org_id);
+
 -- documents: 頻繁な検索パターンに対応
 CREATE INDEX idx_documents_exhibition ON documents(exhibition_id);
+CREATE INDEX idx_documents_submission_category ON documents(submission_category_id);
 CREATE INDEX idx_documents_booth ON documents(booth_id);
 CREATE INDEX idx_documents_org ON documents(uploaded_by_org_id);
 CREATE INDEX idx_documents_recipient ON documents(recipient_org_id);
