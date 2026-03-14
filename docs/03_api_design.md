@@ -74,7 +74,7 @@
 | partner | 協力会社（電気施工会社、弁当会社など） |
 | viewer | 閲覧専用 |
 
-`partner` ロールのユーザーは、自組織宛て（`recipient_org_id` が自組織）のドキュメントのみ閲覧可能。
+`partner` ロールのユーザーは、自組織が受取先（`recipient_org_id`）に設定されている提出カテゴリのドキュメントのみ閲覧可能。
 
 ---
 
@@ -158,7 +158,155 @@
 
 ---
 
-## 5. ブース API
+## 5. 提出カテゴリ API
+
+展示会ごとに、出展社が提出すべきドキュメントの種別（提出カテゴリ）を管理する。出展社はドキュメント提出時に「提出カテゴリ選択」を行い、システムが自動的に適切な受取先組織へルーティングする。
+
+> **従来の「宛先選択」からの変更:** 出展社は宛先（協力会社）を直接選択するのではなく、提出カテゴリ（例: 「電気申込」「弁当注文」）を選択する。各カテゴリには受取先組織（`recipient_org_id`）が事前に設定されているため、出展社は宛先を意識する必要がない。
+
+### 提出カテゴリ オブジェクト
+
+| フィールド | 型 | 説明 |
+|-----------|-----|------|
+| id | UUID | 提出カテゴリID |
+| name | string | カテゴリ名（例: "コマ申込", "電気申込", "弁当注文"） |
+| description | string | カテゴリの説明 |
+| recipient_org_id | UUID | 受取先組織ID（協力会社など） |
+| is_required | boolean | 必須提出かどうか |
+| deadline | datetime | 提出期限（展示会全体の期限と別に設定可能） |
+| sort_order | integer | 表示順 |
+
+### GET /exhibitions/{id}/submission-categories
+展示会の提出カテゴリ一覧を取得
+
+**レスポンス: 200**
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "name": "コマ申込",
+      "description": "ブースの小間割り申込書を提出してください",
+      "recipient_org": {
+        "id": "uuid",
+        "name": "主催事務局"
+      },
+      "is_required": true,
+      "deadline": "2026-04-30T23:59:59Z",
+      "sort_order": 1
+    },
+    {
+      "id": "uuid",
+      "name": "電気申込",
+      "description": "電気工事の申込書・仕様書を提出してください",
+      "recipient_org": {
+        "id": "uuid",
+        "name": "○○電気施工株式会社"
+      },
+      "is_required": true,
+      "deadline": "2026-05-10T23:59:59Z",
+      "sort_order": 2
+    },
+    {
+      "id": "uuid",
+      "name": "弁当注文",
+      "description": "搬入・搬出日の弁当注文書を提出してください",
+      "recipient_org": {
+        "id": "uuid",
+        "name": "△△フードサービス株式会社"
+      },
+      "is_required": false,
+      "deadline": "2026-05-20T23:59:59Z",
+      "sort_order": 3
+    }
+  ]
+}
+```
+
+### POST /exhibitions/{id}/submission-categories
+提出カテゴリを作成（主催者のみ）
+
+**リクエストボディ:**
+```json
+{
+  "name": "電気申込",
+  "description": "電気工事の申込書・仕様書を提出してください",
+  "recipient_org_id": "uuid",
+  "is_required": true,
+  "deadline": "2026-05-10T23:59:59Z",
+  "sort_order": 2
+}
+```
+
+**レスポンス: 201**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "name": "電気申込",
+    "description": "電気工事の申込書・仕様書を提出してください",
+    "recipient_org": {
+      "id": "uuid",
+      "name": "○○電気施工株式会社"
+    },
+    "is_required": true,
+    "deadline": "2026-05-10T23:59:59Z",
+    "sort_order": 2
+  }
+}
+```
+
+### PUT /exhibitions/{id}/submission-categories/{category_id}
+提出カテゴリを更新
+
+**リクエストボディ:**
+```json
+{
+  "name": "電気申込",
+  "description": "電気工事の申込書・仕様書を提出してください（更新）",
+  "recipient_org_id": "uuid",
+  "is_required": true,
+  "deadline": "2026-05-15T23:59:59Z",
+  "sort_order": 2
+}
+```
+
+### DELETE /exhibitions/{id}/submission-categories/{category_id}
+提出カテゴリを削除
+
+> **注意:** 該当カテゴリに紐づくドキュメントが存在する場合は削除不可（409 Conflict）。
+
+### POST /exhibitions/{id}/submission-categories/copy-from/{source_exhibition_id}
+別の展示会から提出カテゴリをコピー
+
+過去の展示会で定義した提出カテゴリ構成を、新しい展示会にコピーする。カテゴリ名・説明・受取先・必須フラグ・表示順がコピーされ、期限は空欄（未設定）となる。
+
+**レスポンス: 201**
+```json
+{
+  "data": {
+    "copied_count": 5,
+    "categories": [
+      {
+        "id": "uuid",
+        "name": "コマ申込",
+        "description": "ブースの小間割り申込書を提出してください",
+        "recipient_org": {
+          "id": "uuid",
+          "name": "主催事務局"
+        },
+        "is_required": true,
+        "deadline": null,
+        "sort_order": 1
+      }
+    ]
+  }
+}
+```
+
+---
+
+## 6. ブース API
 
 ### GET /exhibitions/{exhibition_id}/booths
 ブース一覧を取得
@@ -188,7 +336,10 @@
       {
         "id": "uuid",
         "file_name": "注文書_サンプル社.xlsx",
-        "document_category": "order",
+        "submission_category": {
+          "id": "uuid",
+          "name": "電気申込"
+        },
         "status": "confirmed",
         "created_at": "2026-04-20T10:00:00Z"
       }
@@ -211,19 +362,20 @@
 
 ---
 
-## 6. ドキュメント API
+## 7. ドキュメント API
 
 ### POST /documents/upload
 ドキュメントをアップロード（Web画面から）
+
+出展社はアップロード時に「提出カテゴリ」を選択する。受取先組織は提出カテゴリの設定から自動的に決定されるため、出展社が直接指定する必要はない。
 
 **リクエスト:** multipart/form-data
 | フィールド | 型 | 必須 | 説明 |
 |-----------|-----|------|------|
 | file | File | Yes | アップロードファイル |
 | exhibition_id | UUID | Yes | 展示会ID |
+| submission_category_id | UUID | Yes | 提出カテゴリID（受取先組織はカテゴリから自動決定） |
 | booth_id | UUID | No | ブースID |
-| recipient_org_id | UUID | No | 宛先組織ID（協力会社など） |
-| document_category | string | No | order / design / other |
 | source | string | No | `file` (デフォルト) / `camera` — カメラ撮影画像の場合は `camera` を指定 |
 
 > **受信チャネルについて:** 現在はWeb画面からのアップロードのみ対応。メール受信は将来対応予定。
@@ -234,7 +386,14 @@
   "data": {
     "id": "uuid",
     "file_name": "注文書.xlsx",
-    "recipient_org_id": "uuid",
+    "submission_category": {
+      "id": "uuid",
+      "name": "電気申込"
+    },
+    "recipient_org": {
+      "id": "uuid",
+      "name": "○○電気施工株式会社"
+    },
     "status": "received",
     "message": "ファイルを受信しました。AI解析を開始します。"
   }
@@ -253,9 +412,9 @@
 | exhibition_id | UUID | 展示会で絞り込み |
 | booth_id | UUID | ブースで絞り込み |
 | organization_id | UUID | 送信元組織で絞り込み |
+| submission_category_id | UUID | 提出カテゴリで絞り込み |
 | recipient_org_id | UUID | 宛先組織で絞り込み |
 | status | string | ステータスで絞り込み |
-| document_category | string | カテゴリで絞り込み |
 | source_channel | string | 受信チャネルで絞り込み |
 | date_from | date | 受信日from |
 | date_to | date | 受信日to |
@@ -274,7 +433,11 @@
     "file_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "file_size_bytes": 45000,
     "source_channel": "web_upload",
-    "document_category": "order",
+    "submission_category": {
+      "id": "uuid",
+      "name": "電気申込",
+      "description": "電気工事の申込書・仕様書を提出してください"
+    },
     "status": "analyzed",
     "download_url": "https://...",
     "uploaded_by": {
@@ -309,21 +472,23 @@
 
 ---
 
-## 7. 協力会社（パートナー）向け API
+## 8. 協力会社（パートナー）向け API
 
 `partner` ロールのユーザーが、自組織宛てのドキュメントを閲覧するためのエンドポイント。
+
+自組織が受取先（`recipient_org_id`）として設定されている提出カテゴリに紐づくドキュメントのみ返却する。
 
 ### GET /partner/documents
 自組織宛てドキュメント一覧を取得
 
-認証ユーザーの所属組織（`recipient_org_id`）に一致するドキュメントのみ返却する。
+認証ユーザーの所属組織が受取先に設定されている提出カテゴリのドキュメントのみ返却する。
 
 **クエリパラメータ:**
 | パラメータ | 型 | 説明 |
 |-----------|-----|------|
 | exhibition_id | UUID | 展示会で絞り込み |
 | status | string | ステータスで絞り込み |
-| document_category | string | カテゴリで絞り込み |
+| submission_category_id | UUID | 提出カテゴリで絞り込み |
 | date_from | date | 受信日from |
 | date_to | date | 受信日to |
 | cursor | string | ページネーション |
@@ -336,7 +501,10 @@
     {
       "id": "uuid",
       "file_name": "電気工事注文書_A-12.pdf",
-      "document_category": "order",
+      "submission_category": {
+        "id": "uuid",
+        "name": "電気申込"
+      },
       "status": "confirmed",
       "exhibition": {
         "id": "uuid",
@@ -363,7 +531,7 @@
 
 ---
 
-## 8. AI解析 API
+## 9. AI解析 API
 
 ### POST /documents/{id}/reanalyze
 ドキュメントを再解析
@@ -420,7 +588,7 @@
 
 ---
 
-## 9. 注文 API
+## 10. 注文 API
 
 ### GET /orders
 注文一覧
@@ -455,7 +623,7 @@
 
 ---
 
-## 10. 設計仕様 API
+## 11. 設計仕様 API
 
 ### GET /design-specs
 設計仕様一覧
@@ -468,7 +636,7 @@
 
 ---
 
-## 11. 通知 API
+## 12. 通知 API
 
 ### GET /notifications
 通知一覧（自分宛て）
@@ -481,7 +649,7 @@
 
 ---
 
-## 12. レポート API
+## 13. レポート API
 
 ### GET /exhibitions/{id}/reports/documents
 ドキュメント提出状況レポート（CSV/Excel/PDF出力対応）
@@ -499,7 +667,7 @@
 
 ---
 
-## 13. 検索 API
+## 14. 検索 API
 
 ### GET /search
 全文検索（Elasticsearch連携）
@@ -515,7 +683,7 @@
 
 ---
 
-## 14. Webhook API（メール受信用・将来対応）
+## 15. Webhook API（メール受信用・将来対応）
 
 > **注意:** メール受信Webhookは将来対応予定。現時点ではWeb画面からのアップロードのみ対応。
 
