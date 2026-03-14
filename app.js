@@ -399,6 +399,14 @@
           badge.textContent = svc.name;
           cell.appendChild(badge);
         }
+        if (data.note) {
+          const memoBadge = document.createElement('div');
+          memoBadge.className = 'service-badge';
+          memoBadge.style.background = '#999';
+          memoBadge.style.fontSize = '7px';
+          memoBadge.textContent = 'メモ';
+          cell.appendChild(memoBadge);
+        }
       } else if (hasPersonalNote) {
         const badge = document.createElement('div');
         badge.className = 'service-badge';
