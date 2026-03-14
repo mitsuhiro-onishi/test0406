@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>展示会ドキュメント管理 - UIプレビュー</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Roboto', 'Noto Sans JP', sans-serif;
+      background: #f5f5f5;
+      color: #212121;
+    }
+
+    /* AppBar */
+    .appbar {
+      background: #1976d2;
+      color: white;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+    .appbar h1 { font-size: 18px; font-weight: 500; flex-grow: 1; }
+    .appbar .user { font-size: 14px; opacity: 0.9; }
+
+    /* Container */
+    .container { max-width: 800px; margin: 0 auto; padding: 32px 16px; }
+
+    /* Card */
+    .card {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .card h2 {
+      font-size: 20px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    .card .subtitle {
+      font-size: 14px;
+      color: #757575;
+      margin-bottom: 20px;
+    }
+
+    /* Stepper */
+    .stepper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 28px;
+      gap: 0;
+    }
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+    .step-circle {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 500;
+      color: white;
+    }
+    .step-circle.active { background: #1976d2; }
+    .step-circle.inactive { background: #bdbdbd; }
+    .step-circle.done { background: #1976d2; }
+    .step-label.active { color: #1976d2; font-weight: 500; }
+    .step-label.inactive { color: #9e9e9e; }
+    .step-line {
+      width: 60px;
+      height: 1px;
+      background: #bdbdbd;
+      margin: 0 12px;
+    }
+    .step-line.done { background: #1976d2; }
+
+    /* Drop zone */
+    .dropzone {
+      border: 2px dashed #ccc;
+      border-radius: 8px;
+      padding: 40px;
+      text-align: center;
+      background: #fafafa;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .dropzone:hover { background: #f0f0f0; border-color: #999; }
+    .dropzone .icon { font-size: 48px; color: #9e9e9e; margin-bottom: 8px; }
+    .dropzone p { margin: 4px 0; }
+    .dropzone .main-text { font-size: 16px; color: #424242; }
+    .dropzone .sub-text { font-size: 13px; color: #9e9e9e; }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 16px;
+    }
+    .btn {
+      padding: 8px 20px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: none;
+      transition: all 0.2s;
+    }
+    .btn-outlined {
+      background: white;
+      border: 1px solid #1976d2;
+      color: #1976d2;
+    }
+    .btn-outlined:hover { background: #e3f2fd; }
+    .btn-outlined-secondary {
+      background: white;
+      border: 1px solid #ff9800;
+      color: #ff9800;
+    }
+    .btn-outlined-secondary:hover { background: #fff3e0; }
+    .btn-contained {
+      background: #1976d2;
+      color: white;
+    }
+    .btn-contained:hover { background: #1565c0; }
+    .btn-text {
+      background: none;
+      color: #757575;
+      border: none;
+    }
+    .btn-text:hover { background: #f5f5f5; }
+    .btn-text.disabled { color: #ccc; cursor: default; }
+
+    /* File list */
+    .file-list { margin-top: 16px; }
+    .file-list h4 { font-size: 14px; font-weight: 500; margin-bottom: 8px; }
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #f5f5f5;
+      border-radius: 4px;
+      margin-bottom: 4px;
+    }
+    .file-item .name { flex-grow: 1; font-size: 14px; }
+    .file-item .size {
+      font-size: 12px;
+      background: #e0e0e0;
+      padding: 2px 8px;
+      border-radius: 12px;
+    }
+    .file-item .remove {
+      cursor: pointer;
+      color: #9e9e9e;
+      font-size: 18px;
+    }
+    .file-item .remove:hover { color: #f44336; }
+
+    /* Radio categories */
+    .category-list { margin-top: 8px; }
+    .category-item {
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      padding: 12px 16px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .category-item:hover { border-color: #90caf9; background: #f8fbff; }
+    .category-item.selected { border-color: #1976d2; background: #e3f2fd; }
+    .category-item input[type="radio"] {
+      margin-top: 4px;
+      accent-color: #1976d2;
+      width: 18px;
+      height: 18px;
+    }
+    .category-info { flex-grow: 1; }
+    .category-name { font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+    .category-desc { font-size: 13px; color: #757575; margin-top: 2px; }
+    .chip-required {
+      font-size: 11px;
+      background: #ffebee;
+      color: #d32f2f;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 500;
+    }
+
+    /* Confirm section */
+    .confirm-box {
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 24px;
+    }
+    .confirm-box h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+    .confirm-row { margin-bottom: 12px; }
+    .confirm-label { font-size: 13px; color: #9e9e9e; margin-bottom: 2px; }
+    .confirm-value { font-size: 15px; }
+
+    /* Navigation */
+    .nav-row {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 24px;
+    }
+
+    /* Table */
+    .doc-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .doc-header .count { flex-grow: 1; font-size: 14px; color: #757575; }
+    .doc-header .refresh {
+      cursor: pointer;
+      color: #757575;
+      font-size: 20px;
+      padding: 4px;
+      border-radius: 50%;
+    }
+    .doc-header .refresh:hover { background: #f5f5f5; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    thead { background: #fafafa; }
+    th {
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #616161;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    td {
+      padding: 10px 12px;
+      font-size: 14px;
+      border-bottom: 1px solid #f5f5f5;
+    }
+    tr:last-child td { border-bottom: none; }
+    .td-file {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .td-file .icon { font-size: 18px; color: #9e9e9e; }
+    .td-file .name { max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chip-category {
+      font-size: 12px;
+      border: 1px solid #e0e0e0;
+      padding: 2px 10px;
+      border-radius: 12px;
+      white-space: nowrap;
+    }
+    .chip-status {
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .status-received { background: #e3f2fd; color: #1565c0; }
+    .status-confirmed { background: #e8f5e9; color: #2e7d32; }
+    .status-review { background: #fff3e0; color: #e65100; }
+
+    /* Tab navigation for preview */
+    .preview-tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+    .preview-tab {
+      padding: 10px 20px;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      font-family: inherit;
+      color: #757575;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.2s;
+    }
+    .preview-tab.active {
+      color: #1976d2;
+      border-bottom-color: #1976d2;
+      font-weight: 500;
+    }
+    .preview-tab:hover { color: #1976d2; background: #f5f5f5; }
+
+    .step-view { display: none; }
+    .step-view.active { display: block; }
+
+    /* Alert */
+    .alert-success {
+      background: #e8f5e9;
+      color: #2e7d32;
+      padding: 12px 16px;
+      border-radius: 4px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- AppBar -->
+  <div class="appbar">
+    <h1>第15回 国際産業展示会 - 出展社ポータル</h1>
+    <span class="user">出展社A株式会社</span>
+  </div>
+
+  <div class="container">
+
+    <!-- Upload Card -->
+    <div class="card">
+      <h2>書類をアップロード</h2>
+      <p class="subtitle">提出する書類のカテゴリを選び、ファイルをアップロードしてください。カメラで紙の書類を撮影してアップロードすることもできます。</p>
+
+      <!-- Preview tabs to show all 3 steps -->
+      <div class="preview-tabs">
+        <button class="preview-tab active" onclick="showStep(0)">Step 1: ファイル選択</button>
+        <button class="preview-tab" onclick="showStep(1)">Step 2: カテゴリ選択</button>
+        <button class="preview-tab" onclick="showStep(2)">Step 3: 確認・送信</button>
+      </div>
+
+      <!-- STEP 1: File Selection -->
+      <div class="step-view active" id="step-0">
+        <div class="stepper">
+          <div class="step">
+            <div class="step-circle active">1</div>
+            <span class="step-label active">ファイル選択</span>
+          </div>
+          <div class="step-line"></div>
+          <div class="step">
+            <div class="step-circle inactive">2</div>
+            <span class="step-label inactive">カテゴリ選択</span>
+          </div>
+          <div class="step-line"></div>
+          <div class="step">
+            <div class="step-circle inactive">3</div>
+            <span class="step-label inactive">確認・送信</span>
+          </div>
+        </div>
+
+        <div class="dropzone">
+          <div class="icon"><span class="material-icons" style="font-size:48px">cloud_upload</span></div>
+          <p class="main-text">ここをクリックしてファイルを選択</p>
+          <p class="sub-text">対応形式: Excel (.xlsx), Word (.docx), PDF, 画像 (JPG/PNG/HEIC)</p>
+          <p class="sub-text">最大サイズ: 50MB / ファイル</p>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-outlined">
+            <span class="material-icons" style="font-size:18px">cloud_upload</span>
+            ファイルを選択
+          </button>
+          <button class="btn btn-outlined-secondary">
+            <span class="material-icons" style="font-size:18px">camera_alt</span>
+            カメラで撮影
+          </button>
+        </div>
+
+        <div class="file-list">
+          <h4>選択済みファイル (2件)</h4>
+          <div class="file-item">
+            <span class="material-icons" style="font-size:18px;color:#9e9e9e">insert_drive_file</span>
+            <span class="name">コマ申込書_A社_2026.xlsx</span>
+            <span class="size">240 KB</span>
+            <span class="remove material-icons">close</span>
+          </div>
+          <div class="file-item">
+            <span class="material-icons" style="font-size:18px;color:#9e9e9e">insert_drive_file</span>
+            <span class="name">電気配線図.pdf</span>
+            <span class="size">1.2 MB</span>
+            <span class="remove material-icons">close</span>
+          </div>
+        </div>
+
+        <div class="nav-row">
+          <button class="btn btn-text disabled">戻る</button>
+          <button class="btn btn-contained">次へ</button>
+        </div>
+      </div>
+
+      <!-- STEP 2: Category Selection -->
+      <div class="step-view" id="step-1">
+        <div class="stepper">
+          <div class="step">
+            <div class="step-circle done"><span class="material-icons" style="font-size:16px">check</span></div>
+            <span class="step-label active">ファイル選択</span>
+          </div>
+          <div class="step-line done"></div>
+          <div class="step">
+            <div class="step-circle active">2</div>
+            <span class="step-label active">カテゴリ選択</span>
+          </div>
+          <div class="step-line"></div>
+          <div class="step">
+            <div class="step-circle inactive">3</div>
+            <span class="step-label inactive">確認・送信</span>
+          </div>
+        </div>
+
+        <p style="font-size:14px;color:#616161;margin-bottom:12px;">この書類の提出カテゴリを選択してください</p>
+
+        <div class="category-list">
+          <label class="category-item selected">
+            <input type="radio" name="cat" checked />
+            <div class="category-info">
+              <div class="category-name">コマ申込 <span class="chip-required">必須</span></div>
+              <div class="category-desc">受取: ○○装飾株式会社 ― ブースの小間割・レイアウトに関する申込書</div>
+            </div>
+          </label>
+          <label class="category-item">
+            <input type="radio" name="cat" />
+            <div class="category-info">
+              <div class="category-name">ブース設営 <span class="chip-required">必須</span></div>
+              <div class="category-desc">受取: ○○装飾株式会社 ― ブースの施工・設営に関する設計書</div>
+            </div>
+          </label>
+          <label class="category-item">
+            <input type="radio" name="cat" />
+            <div class="category-info">
+              <div class="category-name">電気申込 <span class="chip-required">必須</span></div>
+              <div class="category-desc">受取: △△電気工事株式会社 ― 電気工事・照明に関する申込書</div>
+            </div>
+          </label>
+          <label class="category-item">
+            <input type="radio" name="cat" />
+            <div class="category-info">
+              <div class="category-name">弁当注文</div>
+              <div class="category-desc">受取: □□フードサービス ― 出展者向け弁当・ケータリングの注文書</div>
+            </div>
+          </label>
+          <label class="category-item">
+            <input type="radio" name="cat" />
+            <div class="category-info">
+              <div class="category-name">備品レンタル</div>
+              <div class="category-desc">受取: ○○装飾株式会社 ― テーブル・椅子・ショーケース等の備品レンタル申込</div>
+            </div>
+          </label>
+        </div>
+
+        <div class="nav-row">
+          <button class="btn btn-text">戻る</button>
+          <button class="btn btn-contained">次へ</button>
+        </div>
+      </div>
+
+      <!-- STEP 3: Confirm -->
+      <div class="step-view" id="step-2">
+        <div class="stepper">
+          <div class="step">
+            <div class="step-circle done"><span class="material-icons" style="font-size:16px">check</span></div>
+            <span class="step-label active">ファイル選択</span>
+          </div>
+          <div class="step-line done"></div>
+          <div class="step">
+            <div class="step-circle done"><span class="material-icons" style="font-size:16px">check</span></div>
+            <span class="step-label active">カテゴリ選択</span>
+          </div>
+          <div class="step-line done"></div>
+          <div class="step">
+            <div class="step-circle active">3</div>
+            <span class="step-label active">確認・送信</span>
+          </div>
+        </div>
+
+        <div class="confirm-box">
+          <h3>送信内容の確認</h3>
+          <div class="confirm-row">
+            <div class="confirm-label">ファイル</div>
+            <div class="confirm-value">コマ申込書_A社_2026.xlsx (240 KB)</div>
+            <div class="confirm-value">電気配線図.pdf (1.2 MB)</div>
+          </div>
+          <div class="confirm-row">
+            <div class="confirm-label">提出カテゴリ</div>
+            <div class="confirm-value">コマ申込（受取: ○○装飾株式会社）</div>
+          </div>
+        </div>
+
+        <div class="nav-row">
+          <button class="btn btn-text">戻る</button>
+          <button class="btn btn-contained">
+            <span class="material-icons" style="font-size:18px">cloud_upload</span>
+            送信する
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Document List Card -->
+    <div class="card">
+      <h2>提出済み書類</h2>
+
+      <div class="doc-header">
+        <span class="count">全4件</span>
+        <span class="refresh material-icons">refresh</span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>ファイル名</th>
+            <th>カテゴリ</th>
+            <th>サイズ</th>
+            <th>状態</th>
+            <th>提出日時</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="td-file">
+                <span class="material-icons icon">insert_drive_file</span>
+                <span class="name">コマ申込書_A社_2026.xlsx</span>
+              </div>
+            </td>
+            <td><span class="chip-category">コマ申込</span></td>
+            <td>240 KB</td>
+            <td><span class="chip-status status-confirmed">確認済</span></td>
+            <td>03/10 14:30</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="td-file">
+                <span class="material-icons icon">insert_drive_file</span>
+                <span class="name">電気配線図.pdf</span>
+              </div>
+            </td>
+            <td><span class="chip-category">電気申込</span></td>
+            <td>1.2 MB</td>
+            <td><span class="chip-status status-received">受信済</span></td>
+            <td>03/12 09:15</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="td-file">
+                <span class="material-icons icon">insert_drive_file</span>
+                <span class="name">ブース設計図_v2.pdf</span>
+              </div>
+            </td>
+            <td><span class="chip-category">ブース設営</span></td>
+            <td>3.0 MB</td>
+            <td><span class="chip-status status-review">要レビュー</span></td>
+            <td>03/13 16:45</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="td-file">
+                <span class="material-icons icon">camera_alt</span>
+                <span class="name">弁当注文書_撮影.jpg</span>
+              </div>
+            </td>
+            <td><span class="chip-category">弁当注文</span></td>
+            <td>871 KB</td>
+            <td><span class="chip-status status-received">受信済</span></td>
+            <td>03/14 10:00</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <script>
+    function showStep(n) {
+      document.querySelectorAll('.step-view').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.preview-tab').forEach(el => el.classList.remove('active'));
+      document.getElementById('step-' + n).classList.add('active');
+      document.querySelectorAll('.preview-tab')[n].classList.add('active');
+    }
+
+    // Radio click styling
+    document.querySelectorAll('.category-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.category-item').forEach(i => i.classList.remove('selected'));
+        item.classList.add('selected');
+      });
+    });
+  </script>
+
+</body>
+</html>
