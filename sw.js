@@ -1,4 +1,4 @@
-const CACHE_NAME = 'school-cal-v1';
+const CACHE_NAME = 'school-support-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -25,6 +25,13 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Network-first for API calls and CDN resources
+  const url = new URL(event.request.url);
+  if (url.hostname !== location.hostname) {
+    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
+    return;
+  }
+  // Cache-first for local assets
   event.respondWith(
     caches.match(event.request).then((cached) => cached || fetch(event.request))
   );

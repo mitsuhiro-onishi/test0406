@@ -1,11 +1,11 @@
 {
-  "name": "スクールカレンダー 2026",
-  "short_name": "スクールカレンダー",
-  "description": "養護学校・放課後デイサービスのスケジュール管理",
+  "name": "スクールサポート",
+  "short_name": "スクールサポート",
+  "description": "養護学校のプリント読み取り・持ち物管理・スケジュール管理",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#F5F5F5",
-  "theme_color": "#4A90D9",
+  "theme_color": "#667eea",
   "orientation": "portrait",
   "icons": [
     {
