@@ -865,8 +865,7 @@
 
     let filtered = [...packingItems];
     if (packingFilter === 'unchecked') filtered = filtered.filter(i => !i.checked);
-    else if (packingFilter === 'today') filtered = filtered.filter(i => i.date === today);
-    else if (packingFilter === 'tomorrow') filtered = filtered.filter(i => i.date === tomorrow);
+    else if (packingFilter === 'checked') filtered = filtered.filter(i => i.checked);
 
     if (filtered.length === 0) {
       container.innerHTML = `<div class="packing-empty">
@@ -876,44 +875,20 @@
       return;
     }
 
-    // Group by date
-    const groups = {};
-    const noDate = [];
-    filtered.forEach(item => {
-      if (item.date) {
-        if (!groups[item.date]) groups[item.date] = [];
-        groups[item.date].push(item);
-      } else {
-        noDate.push(item);
-      }
+    // Sort: unchecked first, then by deadline (urgent first), no-date last
+    filtered.sort((a, b) => {
+      // Unchecked before checked
+      if (a.checked !== b.checked) return a.checked ? 1 : -1;
+      // Both have dates: earlier first
+      if (a.date && b.date) return a.date.localeCompare(b.date);
+      // Has date before no date
+      if (a.date && !b.date) return -1;
+      if (!a.date && b.date) return 1;
+      return 0;
     });
 
-    // Sort dates
-    const sortedDates = Object.keys(groups).sort();
-
-    sortedDates.forEach(date => {
-      const groupEl = document.createElement('div');
-      groupEl.className = 'packing-date-group';
-      const label = document.createElement('div');
-      label.className = 'packing-date-label';
-      if (date === today) label.textContent = '今日 - ' + formatDateShort(date);
-      else if (date === tomorrow) label.textContent = '明日 - ' + formatDateShort(date);
-      else label.textContent = formatDateShort(date);
-      groupEl.appendChild(label);
-      groups[date].forEach(item => groupEl.appendChild(createPackingItemEl(item)));
-      container.appendChild(groupEl);
-    });
-
-    if (noDate.length > 0) {
-      const groupEl = document.createElement('div');
-      groupEl.className = 'packing-date-group';
-      const label = document.createElement('div');
-      label.className = 'packing-date-label';
-      label.textContent = '日付なし';
-      groupEl.appendChild(label);
-      noDate.forEach(item => groupEl.appendChild(createPackingItemEl(item)));
-      container.appendChild(groupEl);
-    }
+    // Single flat list
+    filtered.forEach(item => container.appendChild(createPackingItemEl(item)));
   }
 
   function createPackingItemEl(item) {
@@ -930,9 +905,35 @@
       updatePackingBadge();
     });
 
+    const textWrapper = document.createElement('div');
+    textWrapper.style.flex = '1';
     const text = document.createElement('div');
     text.className = 'packing-item-text';
     text.textContent = item.text;
+    textWrapper.appendChild(text);
+
+    if (item.date) {
+      const today = todayKey();
+      const tomorrow = tomorrowKey();
+      const deadlineEl = document.createElement('div');
+      deadlineEl.className = 'packing-item-date';
+      let deadlineText = formatDateShort(item.date) + 'まで';
+      if (item.date === today) {
+        deadlineText = '今日まで';
+        deadlineEl.style.color = 'var(--danger)';
+        deadlineEl.style.fontWeight = '600';
+      } else if (item.date === tomorrow) {
+        deadlineText = '明日まで';
+        deadlineEl.style.color = '#F39C12';
+        deadlineEl.style.fontWeight = '600';
+      } else if (item.date < today) {
+        deadlineText = '期限切れ（' + formatDateShort(item.date) + '）';
+        deadlineEl.style.color = 'var(--danger)';
+        deadlineEl.style.fontWeight = '600';
+      }
+      deadlineEl.textContent = deadlineText;
+      textWrapper.appendChild(deadlineEl);
+    }
 
     const delBtn = document.createElement('button');
     delBtn.className = 'packing-item-delete';
@@ -945,7 +946,7 @@
     });
 
     el.appendChild(checkbox);
-    el.appendChild(text);
+    el.appendChild(textWrapper);
     el.appendChild(delBtn);
     return el;
   }
@@ -1126,20 +1127,73 @@
       return order.indexOf(a.dayIndex) - order.indexOf(b.dayIndex);
     });
 
-    // Parse packing items
+    // Parse packing items with deadline detection
     // Look for: 持ち物, 準備物, もちもの, 用意するもの, etc.
     const itemKeywords = ['持ち物', '持物', 'もちもの', '準備物', '用意', '必要な物', '持参'];
     let inItemsSection = false;
-    const itemSet = new Set();
+    let sectionDeadline = null; // deadline detected for the current section
+    const itemMap = new Map(); // item name -> { text, deadline }
+
+    // Helper: detect date from text (e.g. "4月15日", "4/15", "月曜日", "明日")
+    function detectDeadline(line) {
+      // "○月○日" pattern
+      const mdMatch = line.match(/(\d{1,2})[月/](\d{1,2})日?/);
+      if (mdMatch) {
+        const now = new Date();
+        let y = now.getFullYear();
+        const m = parseInt(mdMatch[1]) - 1;
+        const d = parseInt(mdMatch[2]);
+        // If the date is in the past, assume next year
+        const candidate = new Date(y, m, d);
+        if (candidate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+          y++;
+        }
+        return dateKey(y, m, d);
+      }
+      // Day-of-week pattern: "月曜日に", "火曜までに"
+      const dowMatch = line.match(/([月火水木金土日])曜日?(?:に|まで)/);
+      if (dowMatch) {
+        const dayMap = { '月': 1, '火': 2, '水': 3, '木': 4, '金': 5, '土': 6, '日': 0 };
+        const targetDow = dayMap[dowMatch[1]];
+        if (targetDow !== undefined) {
+          const now = new Date();
+          for (let i = 1; i <= 7; i++) {
+            const d = new Date(now);
+            d.setDate(now.getDate() + i);
+            if (d.getDay() === targetDow) {
+              return dateKey(d.getFullYear(), d.getMonth(), d.getDate());
+            }
+          }
+        }
+      }
+      // "明日" or "あした"
+      if (/明日|あした/.test(line)) {
+        const t = new Date();
+        t.setDate(t.getDate() + 1);
+        return dateKey(t.getFullYear(), t.getMonth(), t.getDate());
+      }
+      // "明後日" or "あさって"
+      if (/明後日|あさって/.test(line)) {
+        const t = new Date();
+        t.setDate(t.getDate() + 2);
+        return dateKey(t.getFullYear(), t.getMonth(), t.getDate());
+      }
+      return null;
+    }
 
     lines.forEach((line, idx) => {
       // Check if this line starts a packing items section
       if (itemKeywords.some(kw => line.includes(kw))) {
         inItemsSection = true;
+        // Detect deadline from this header line
+        sectionDeadline = detectDeadline(line);
         // Extract items from same line after keyword
         const afterKeyword = line.replace(/.*?(?:持ち物|持物|もちもの|準備物|用意するもの|必要な物|持参)[：:\s]*/i, '');
         if (afterKeyword && afterKeyword !== line) {
-          extractItems(afterKeyword).forEach(item => itemSet.add(item));
+          const lineDeadline = detectDeadline(afterKeyword) || sectionDeadline;
+          extractItems(afterKeyword).forEach(item => {
+            if (!itemMap.has(item)) itemMap.set(item, { text: item, deadline: lineDeadline });
+          });
         }
         return;
       }
@@ -1148,9 +1202,13 @@
         // Empty line or new section ends the items section
         if (line.length < 2 || /^[\d０-９]|^[月火水木金土日]曜/.test(line)) {
           inItemsSection = false;
+          sectionDeadline = null;
           return;
         }
-        extractItems(line).forEach(item => itemSet.add(item));
+        const lineDeadline = detectDeadline(line) || sectionDeadline;
+        extractItems(line).forEach(item => {
+          if (!itemMap.has(item)) itemMap.set(item, { text: item, deadline: lineDeadline });
+        });
       }
     });
 
@@ -1165,12 +1223,16 @@
     ];
     const fullText = normalized;
     commonItems.forEach(item => {
-      if (fullText.includes(item) && !itemSet.has(item)) {
-        itemSet.add(item);
+      if (fullText.includes(item) && !itemMap.has(item)) {
+        // Try to find deadline near the mention
+        const mentionIdx = fullText.indexOf(item);
+        const context = fullText.substring(Math.max(0, mentionIdx - 30), mentionIdx + item.length + 30);
+        const deadline = detectDeadline(context);
+        itemMap.set(item, { text: item, deadline });
       }
     });
 
-    ocrParsedItems = Array.from(itemSet);
+    ocrParsedItems = Array.from(itemMap.values());
 
     // Render parsed results
     renderOCRSchedule();
@@ -1223,9 +1285,10 @@
     ocrParsedItems.forEach((item, idx) => {
       const row = document.createElement('div');
       row.className = 'ocr-item-row';
+      const deadlineLabel = item.deadline ? ` <span style="font-size:12px;color:var(--primary);font-weight:600;">（${formatDateShort(item.deadline)}まで）</span>` : '';
       row.innerHTML = `
         <input type="checkbox" class="ocr-item-checkbox" checked data-idx="${idx}">
-        <span style="font-size:14px;">${item}</span>
+        <span style="font-size:14px;">${item.text}${deadlineLabel}</span>
       `;
       list.appendChild(row);
     });
@@ -1277,13 +1340,14 @@
     const checkboxes = document.querySelectorAll('.ocr-item-checkbox');
     checkboxes.forEach((cb, idx) => {
       if (cb.checked && ocrParsedItems[idx]) {
+        const parsedItem = ocrParsedItems[idx];
         // Check if item already exists
-        const exists = packingItems.some(i => i.text === ocrParsedItems[idx]);
+        const exists = packingItems.some(i => i.text === parsedItem.text);
         if (!exists) {
           packingItems.push({
             id: 'pkg_' + Date.now() + '_' + idx,
-            text: ocrParsedItems[idx],
-            date: null,
+            text: parsedItem.text,
+            date: parsedItem.deadline || null,
             checked: false,
             source: 'ocr',
           });
