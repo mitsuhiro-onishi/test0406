@@ -67,6 +67,7 @@
   // OCR state
   let ocrParsedSchedule = [];
   let ocrParsedItems = [];
+  let ocrParsedEvents = []; // 行事予定: { date: 'YYYY-MM-DD', day: '月', text: '...', schoolTime: '...' }
 
   // ---- Firebase ----
   const FIREBASE_CONFIG = {
@@ -865,8 +866,7 @@
 
     let filtered = [...packingItems];
     if (packingFilter === 'unchecked') filtered = filtered.filter(i => !i.checked);
-    else if (packingFilter === 'today') filtered = filtered.filter(i => i.date === today);
-    else if (packingFilter === 'tomorrow') filtered = filtered.filter(i => i.date === tomorrow);
+    else if (packingFilter === 'checked') filtered = filtered.filter(i => i.checked);
 
     if (filtered.length === 0) {
       container.innerHTML = `<div class="packing-empty">
@@ -876,44 +876,20 @@
       return;
     }
 
-    // Group by date
-    const groups = {};
-    const noDate = [];
-    filtered.forEach(item => {
-      if (item.date) {
-        if (!groups[item.date]) groups[item.date] = [];
-        groups[item.date].push(item);
-      } else {
-        noDate.push(item);
-      }
+    // Sort: unchecked first, then by deadline (urgent first), no-date last
+    filtered.sort((a, b) => {
+      // Unchecked before checked
+      if (a.checked !== b.checked) return a.checked ? 1 : -1;
+      // Both have dates: earlier first
+      if (a.date && b.date) return a.date.localeCompare(b.date);
+      // Has date before no date
+      if (a.date && !b.date) return -1;
+      if (!a.date && b.date) return 1;
+      return 0;
     });
 
-    // Sort dates
-    const sortedDates = Object.keys(groups).sort();
-
-    sortedDates.forEach(date => {
-      const groupEl = document.createElement('div');
-      groupEl.className = 'packing-date-group';
-      const label = document.createElement('div');
-      label.className = 'packing-date-label';
-      if (date === today) label.textContent = '今日 - ' + formatDateShort(date);
-      else if (date === tomorrow) label.textContent = '明日 - ' + formatDateShort(date);
-      else label.textContent = formatDateShort(date);
-      groupEl.appendChild(label);
-      groups[date].forEach(item => groupEl.appendChild(createPackingItemEl(item)));
-      container.appendChild(groupEl);
-    });
-
-    if (noDate.length > 0) {
-      const groupEl = document.createElement('div');
-      groupEl.className = 'packing-date-group';
-      const label = document.createElement('div');
-      label.className = 'packing-date-label';
-      label.textContent = '日付なし';
-      groupEl.appendChild(label);
-      noDate.forEach(item => groupEl.appendChild(createPackingItemEl(item)));
-      container.appendChild(groupEl);
-    }
+    // Single flat list
+    filtered.forEach(item => container.appendChild(createPackingItemEl(item)));
   }
 
   function createPackingItemEl(item) {
@@ -930,9 +906,35 @@
       updatePackingBadge();
     });
 
+    const textWrapper = document.createElement('div');
+    textWrapper.style.flex = '1';
     const text = document.createElement('div');
     text.className = 'packing-item-text';
     text.textContent = item.text;
+    textWrapper.appendChild(text);
+
+    if (item.date) {
+      const today = todayKey();
+      const tomorrow = tomorrowKey();
+      const deadlineEl = document.createElement('div');
+      deadlineEl.className = 'packing-item-date';
+      let deadlineText = formatDateShort(item.date) + 'まで';
+      if (item.date === today) {
+        deadlineText = '今日まで';
+        deadlineEl.style.color = 'var(--danger)';
+        deadlineEl.style.fontWeight = '600';
+      } else if (item.date === tomorrow) {
+        deadlineText = '明日まで';
+        deadlineEl.style.color = '#F39C12';
+        deadlineEl.style.fontWeight = '600';
+      } else if (item.date < today) {
+        deadlineText = '期限切れ（' + formatDateShort(item.date) + '）';
+        deadlineEl.style.color = 'var(--danger)';
+        deadlineEl.style.fontWeight = '600';
+      }
+      deadlineEl.textContent = deadlineText;
+      textWrapper.appendChild(deadlineEl);
+    }
 
     const delBtn = document.createElement('button');
     delBtn.className = 'packing-item-delete';
@@ -945,7 +947,7 @@
     });
 
     el.appendChild(checkbox);
-    el.appendChild(text);
+    el.appendChild(textWrapper);
     el.appendChild(delBtn);
     return el;
   }
@@ -1064,6 +1066,7 @@
   function parseOCRText(text) {
     ocrParsedSchedule = [];
     ocrParsedItems = [];
+    ocrParsedEvents = [];
 
     // Normalize text
     const normalized = text
@@ -1074,72 +1077,213 @@
 
     const lines = normalized.split('\n').map(l => l.trim()).filter(l => l);
 
-    // Parse schedule: look for day-of-week + time patterns
-    // Patterns: 月曜日 14:30, 月曜 14時30分, 月 14:30下校, etc.
+    // ---- Detect monthly event calendar format ----
+    // Look for header like "○月行事予定" or "令和○年度 ○月行事予定"
+    let eventMonth = null;
+    let eventYear = null;
+    const dayMap = { '月': 1, '火': 2, '水': 3, '木': 4, '金': 5, '土': 6, '日': 0 };
+
+    // Try to detect month from header
+    for (const line of lines) {
+      // "5月行事予定" or "5月 行事" or "令和8年度 5月"
+      const monthMatch = line.match(/(\d{1,2})月\s*(?:行事|予定|の予定)/);
+      if (monthMatch) {
+        eventMonth = parseInt(monthMatch[1]) - 1; // 0-indexed
+        // Try year from same line or nearby: "令和8年度" → 2026
+        const reMatch = line.match(/令和\s*(\d{1,2})\s*年/);
+        if (reMatch) {
+          eventYear = 2018 + parseInt(reMatch[1]);
+        }
+        break;
+      }
+      // Also try "行事等及び校時" with month detected elsewhere
+      if (/行事.*校時/.test(line)) {
+        // Look for month in nearby lines
+        for (const l2 of lines) {
+          const m2 = l2.match(/(\d{1,2})月/);
+          if (m2 && !l2.match(/～\d{1,2}月/)) {
+            eventMonth = parseInt(m2[1]) - 1;
+            break;
+          }
+        }
+      }
+    }
+
+    // Default to current year if not found
+    if (eventYear === null) {
+      const now = new Date();
+      eventYear = now.getFullYear();
+      // If event month is Apr-Mar of school year
+      if (eventMonth !== null && eventMonth < 3 && now.getMonth() >= 3) {
+        eventYear = now.getFullYear() + 1;
+      }
+    }
+    if (eventMonth === null) {
+      // Fallback: detect from content - look for the most common "日 曜" pattern
+      eventMonth = new Date().getMonth();
+    }
+
+    // Parse "日 曜 行事内容" rows
+    // Pattern: number + day-char + text (e.g. "13 月 小・中学部入学式、視力検査")
+    const eventEntries = [];
+    const eventLineRegex = /^(\d{1,2})\s*[|｜]?\s*([月火水木金土日])\s*[|｜]?\s*(.*)/;
+    // Also handle: "13月小・中学部入学式" (no space after day char)
+    const eventLineRegex2 = /^(\d{1,2})\s*([月火水木金土日])\s*(.*)/;
+
+    lines.forEach(line => {
+      let match = line.match(eventLineRegex) || line.match(eventLineRegex2);
+      if (!match) return;
+
+      const dayNum = parseInt(match[1]);
+      const dayChar = match[2];
+      let eventText = match[3].trim();
+
+      // Validate: day number should be 1-31
+      if (dayNum < 1 || dayNum > 31) return;
+      // Skip header rows like "日 曜 行事等及び校時"
+      if (/行事|校時/.test(eventText) && eventText.length < 10) return;
+
+      // Extract school time code from end of line (半, 水, 小1, etc.)
+      let schoolTime = '';
+      const timeCodeMatch = eventText.match(/\s+(半|水|小\d?|小1|小I)$/);
+      if (timeCodeMatch) {
+        schoolTime = timeCodeMatch[1];
+        eventText = eventText.substring(0, eventText.length - timeCodeMatch[0].length).trim();
+      }
+
+      if (eventText.length === 0) return; // Skip empty events (just day/date)
+
+      const dateStr = dateKey(eventYear, eventMonth, dayNum);
+      eventEntries.push({
+        date: dateStr,
+        day: dayChar,
+        dayNum,
+        text: eventText,
+        schoolTime,
+        checked: true,
+      });
+    });
+
+    if (eventEntries.length > 0) {
+      ocrParsedEvents = eventEntries;
+    }
+
+    // ---- Parse day-of-week + time patterns (original logic) ----
     const dayPatterns = [
       { regex: /([月火水木金土日])(?:曜日?)?[^\d]*(\d{1,2})[:\s時](\d{2})?/g, type: 'dayTime' },
       { regex: /([月火水木金土日])(?:曜日?)?.*?(\d{1,2}時\d{2}分)/g, type: 'dayTimeFull' },
       { regex: /([月火水木金土日])(?:曜日?)?.*?下校[^\d]*(\d{1,2})[:\s時](\d{2})?/g, type: 'dismissal' },
     ];
 
-    const dayMap = { '月': 1, '火': 2, '水': 3, '木': 4, '金': 5, '土': 6, '日': 0 };
-    const foundDays = new Set();
+    // Only parse day-time if we didn't find event calendar format
+    if (ocrParsedEvents.length === 0) {
+      const foundDays = new Set();
+      lines.forEach(line => {
+        for (const pat of dayPatterns) {
+          const regex = new RegExp(pat.regex.source, pat.regex.flags);
+          let match;
+          while ((match = regex.exec(line)) !== null) {
+            const dayChar = match[1];
+            const dayIdx = dayMap[dayChar];
+            if (dayIdx === undefined || foundDays.has(dayChar)) continue;
 
-    lines.forEach(line => {
-      // Try each pattern
-      for (const pat of dayPatterns) {
-        const regex = new RegExp(pat.regex.source, pat.regex.flags);
-        let match;
-        while ((match = regex.exec(line)) !== null) {
-          const dayChar = match[1];
-          const dayIdx = dayMap[dayChar];
-          if (dayIdx === undefined || foundDays.has(dayChar)) continue;
+            let hour, min;
+            if (pat.type === 'dayTimeFull') {
+              const timeParts = match[2].match(/(\d{1,2})時(\d{2})分/);
+              if (timeParts) { hour = timeParts[1]; min = timeParts[2]; }
+            } else {
+              hour = match[2];
+              min = match[3] || '00';
+            }
 
-          let hour, min;
-          if (pat.type === 'dayTimeFull') {
-            const timeParts = match[2].match(/(\d{1,2})時(\d{2})分/);
-            if (timeParts) { hour = timeParts[1]; min = timeParts[2]; }
-          } else {
-            hour = match[2];
-            min = match[3] || '00';
+            if (hour) {
+              const h = parseInt(hour);
+              if (h >= 8 && h <= 19) {
+                foundDays.add(dayChar);
+                ocrParsedSchedule.push({
+                  day: dayChar,
+                  dayIndex: dayIdx,
+                  time: `${String(h).padStart(2, '0')}:${String(parseInt(min)).padStart(2, '0')}`,
+                  label: `${dayChar}曜日`,
+                });
+              }
+            }
           }
+        }
+      });
+      ocrParsedSchedule.sort((a, b) => {
+        const order = [1, 2, 3, 4, 5, 6, 0];
+        return order.indexOf(a.dayIndex) - order.indexOf(b.dayIndex);
+      });
+    }
 
-          if (hour) {
-            const h = parseInt(hour);
-            if (h >= 8 && h <= 19) {
-              foundDays.add(dayChar);
-              ocrParsedSchedule.push({
-                day: dayChar,
-                dayIndex: dayIdx,
-                time: `${String(h).padStart(2, '0')}:${String(parseInt(min)).padStart(2, '0')}`,
-                label: `${dayChar}曜日`,
-              });
+    // Parse packing items with deadline detection
+    // Look for: 持ち物, 準備物, もちもの, 用意するもの, etc.
+    const itemKeywords = ['持ち物', '持物', 'もちもの', '準備物', '用意', '必要な物', '持参'];
+    let inItemsSection = false;
+    let sectionDeadline = null; // deadline detected for the current section
+    const itemMap = new Map(); // item name -> { text, deadline }
+
+    // Helper: detect date from text (e.g. "4月15日", "4/15", "月曜日", "明日")
+    function detectDeadline(line) {
+      // "○月○日" pattern
+      const mdMatch = line.match(/(\d{1,2})[月/](\d{1,2})日?/);
+      if (mdMatch) {
+        const now = new Date();
+        let y = now.getFullYear();
+        const m = parseInt(mdMatch[1]) - 1;
+        const d = parseInt(mdMatch[2]);
+        // If the date is in the past, assume next year
+        const candidate = new Date(y, m, d);
+        if (candidate < new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+          y++;
+        }
+        return dateKey(y, m, d);
+      }
+      // Day-of-week pattern: "月曜日に", "火曜までに"
+      const dowMatch = line.match(/([月火水木金土日])曜日?(?:に|まで)/);
+      if (dowMatch) {
+        const dayMap = { '月': 1, '火': 2, '水': 3, '木': 4, '金': 5, '土': 6, '日': 0 };
+        const targetDow = dayMap[dowMatch[1]];
+        if (targetDow !== undefined) {
+          const now = new Date();
+          for (let i = 1; i <= 7; i++) {
+            const d = new Date(now);
+            d.setDate(now.getDate() + i);
+            if (d.getDay() === targetDow) {
+              return dateKey(d.getFullYear(), d.getMonth(), d.getDate());
             }
           }
         }
       }
-    });
-
-    // Sort schedule by day index (Mon-Fri)
-    ocrParsedSchedule.sort((a, b) => {
-      const order = [1, 2, 3, 4, 5, 6, 0];
-      return order.indexOf(a.dayIndex) - order.indexOf(b.dayIndex);
-    });
-
-    // Parse packing items
-    // Look for: 持ち物, 準備物, もちもの, 用意するもの, etc.
-    const itemKeywords = ['持ち物', '持物', 'もちもの', '準備物', '用意', '必要な物', '持参'];
-    let inItemsSection = false;
-    const itemSet = new Set();
+      // "明日" or "あした"
+      if (/明日|あした/.test(line)) {
+        const t = new Date();
+        t.setDate(t.getDate() + 1);
+        return dateKey(t.getFullYear(), t.getMonth(), t.getDate());
+      }
+      // "明後日" or "あさって"
+      if (/明後日|あさって/.test(line)) {
+        const t = new Date();
+        t.setDate(t.getDate() + 2);
+        return dateKey(t.getFullYear(), t.getMonth(), t.getDate());
+      }
+      return null;
+    }
 
     lines.forEach((line, idx) => {
       // Check if this line starts a packing items section
       if (itemKeywords.some(kw => line.includes(kw))) {
         inItemsSection = true;
+        // Detect deadline from this header line
+        sectionDeadline = detectDeadline(line);
         // Extract items from same line after keyword
         const afterKeyword = line.replace(/.*?(?:持ち物|持物|もちもの|準備物|用意するもの|必要な物|持参)[：:\s]*/i, '');
         if (afterKeyword && afterKeyword !== line) {
-          extractItems(afterKeyword).forEach(item => itemSet.add(item));
+          const lineDeadline = detectDeadline(afterKeyword) || sectionDeadline;
+          extractItems(afterKeyword).forEach(item => {
+            if (!itemMap.has(item)) itemMap.set(item, { text: item, deadline: lineDeadline });
+          });
         }
         return;
       }
@@ -1148,9 +1292,13 @@
         // Empty line or new section ends the items section
         if (line.length < 2 || /^[\d０-９]|^[月火水木金土日]曜/.test(line)) {
           inItemsSection = false;
+          sectionDeadline = null;
           return;
         }
-        extractItems(line).forEach(item => itemSet.add(item));
+        const lineDeadline = detectDeadline(line) || sectionDeadline;
+        extractItems(line).forEach(item => {
+          if (!itemMap.has(item)) itemMap.set(item, { text: item, deadline: lineDeadline });
+        });
       }
     });
 
@@ -1165,15 +1313,20 @@
     ];
     const fullText = normalized;
     commonItems.forEach(item => {
-      if (fullText.includes(item) && !itemSet.has(item)) {
-        itemSet.add(item);
+      if (fullText.includes(item) && !itemMap.has(item)) {
+        // Try to find deadline near the mention
+        const mentionIdx = fullText.indexOf(item);
+        const context = fullText.substring(Math.max(0, mentionIdx - 30), mentionIdx + item.length + 30);
+        const deadline = detectDeadline(context);
+        itemMap.set(item, { text: item, deadline });
       }
     });
 
-    ocrParsedItems = Array.from(itemSet);
+    ocrParsedItems = Array.from(itemMap.values());
 
     // Render parsed results
     renderOCRSchedule();
+    renderOCREvents();
     renderOCRPackingItems();
   }
 
@@ -1208,6 +1361,104 @@
     });
   }
 
+  function renderOCREvents() {
+    const card = document.getElementById('ocrEventsCard');
+    const list = document.getElementById('ocrEventsList');
+    if (!card || !list) return;
+
+    if (ocrParsedEvents.length === 0) {
+      card.style.display = 'none';
+      renderBusDefaults(false);
+      return;
+    }
+
+    card.style.display = 'block';
+    list.innerHTML = '';
+
+    ocrParsedEvents.forEach((evt, idx) => {
+      const row = document.createElement('div');
+      row.className = 'ocr-item-row';
+      row.style.justifyContent = 'flex-start';
+      const dateLabel = `${evt.dayNum}日(${evt.day})`;
+      const timeLabel = evt.schoolTime ? `<span style="font-size:11px;background:var(--primary-light);color:var(--primary);padding:1px 6px;border-radius:4px;margin-left:6px;">${evt.schoolTime}</span>` : '';
+      row.innerHTML = `
+        <input type="checkbox" class="ocr-event-checkbox" checked data-idx="${idx}">
+        <span style="font-size:13px;font-weight:600;min-width:60px;">${dateLabel}</span>
+        <span style="font-size:13px;flex:1;">${evt.text}${timeLabel}</span>
+      `;
+      list.appendChild(row);
+    });
+
+    // Show bus defaults UI when event calendar is detected
+    renderBusDefaults(true);
+  }
+
+  function renderBusDefaults(show) {
+    const card = document.getElementById('ocrBusDefaultCard');
+    const container = document.getElementById('ocrBusDefaults');
+    if (!card || !container) return;
+
+    if (!show) {
+      card.style.display = 'none';
+      return;
+    }
+
+    card.style.display = 'block';
+    container.innerHTML = '';
+
+    const dowNames = ['日', '月', '火', '水', '木', '金', '土'];
+    // Default weekdays Mon-Fri
+    [1, 2, 3, 4, 5].forEach(dow => {
+      const row = document.createElement('div');
+      row.className = 'bus-default-row';
+      row.dataset.dow = dow;
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);';
+
+      const toggle = document.createElement('input');
+      toggle.type = 'checkbox';
+      toggle.className = 'bus-default-toggle';
+      toggle.checked = true;
+      toggle.style.cssText = 'width:18px;height:18px;accent-color:var(--primary);';
+
+      const label = document.createElement('span');
+      label.style.cssText = 'font-size:14px;font-weight:600;min-width:30px;';
+      label.textContent = dowNames[dow];
+
+      const hourSel = document.createElement('select');
+      hourSel.className = 'bus-hour';
+      hourSel.style.cssText = 'padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:14px;';
+      for (let h = 9; h <= 18; h++) {
+        const opt = document.createElement('option');
+        opt.value = String(h).padStart(2, '0');
+        opt.textContent = String(h).padStart(2, '0');
+        hourSel.appendChild(opt);
+      }
+      hourSel.value = '15'; // Default 15:00
+
+      const sep = document.createElement('span');
+      sep.textContent = ':';
+      sep.style.fontWeight = '700';
+
+      const minSel = document.createElement('select');
+      minSel.className = 'bus-min';
+      minSel.style.cssText = 'padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:14px;';
+      for (let m = 0; m < 60; m += 5) {
+        const opt = document.createElement('option');
+        opt.value = String(m).padStart(2, '0');
+        opt.textContent = String(m).padStart(2, '0');
+        minSel.appendChild(opt);
+      }
+      minSel.value = '00';
+
+      row.appendChild(toggle);
+      row.appendChild(label);
+      row.appendChild(hourSel);
+      row.appendChild(sep);
+      row.appendChild(minSel);
+      container.appendChild(row);
+    });
+  }
+
   function renderOCRPackingItems() {
     const card = document.getElementById('ocrPackingCard');
     const list = document.getElementById('ocrPackingList');
@@ -1223,33 +1474,102 @@
     ocrParsedItems.forEach((item, idx) => {
       const row = document.createElement('div');
       row.className = 'ocr-item-row';
+      const deadlineLabel = item.deadline ? ` <span style="font-size:12px;color:var(--primary);font-weight:600;">（${formatDateShort(item.deadline)}まで）</span>` : '';
       row.innerHTML = `
         <input type="checkbox" class="ocr-item-checkbox" checked data-idx="${idx}">
-        <span style="font-size:14px;">${item}</span>
+        <span style="font-size:14px;">${item.text}${deadlineLabel}</span>
       `;
       list.appendChild(row);
     });
   }
 
   function applyOCRResults() {
+    let eventCount = 0;
     let scheduleCount = 0;
     let itemCount = 0;
+    let busCount = 0;
 
-    // Apply schedule to calendar
-    // For each day-of-week schedule, apply to upcoming dates in current/next month
+    // Apply event calendar to calendar notes
+    if (ocrParsedEvents.length > 0) {
+      const checkboxes = document.querySelectorAll('.ocr-event-checkbox');
+      checkboxes.forEach((cb, idx) => {
+        if (!cb.checked || !ocrParsedEvents[idx]) return;
+        const evt = ocrParsedEvents[idx];
+        const key = evt.date;
+        const existing = scheduleData[key] || {};
+        const newNote = existing.note
+          ? (existing.note.includes(evt.text) ? existing.note : existing.note + '\n' + evt.text)
+          : evt.text;
+        scheduleData[key] = {
+          ...existing,
+          service: existing.service || 'none',
+          transport: existing.transport || 'none',
+          note: newNote,
+        };
+        eventCount++;
+      });
+    }
+
+    // Apply bus default schedule
+    const busCard = document.getElementById('ocrBusDefaultCard');
+    if (busCard && busCard.style.display !== 'none') {
+      // Read bus defaults from UI
+      const busDefaults = {};
+      document.querySelectorAll('.bus-default-row').forEach(row => {
+        const dow = parseInt(row.dataset.dow);
+        const enabled = row.querySelector('.bus-default-toggle').checked;
+        const hourSel = row.querySelector('.bus-hour');
+        const minSel = row.querySelector('.bus-min');
+        if (enabled && hourSel && minSel) {
+          busDefaults[dow] = `${hourSel.value}:${minSel.value}`;
+        }
+      });
+
+      // Apply to all matching weekdays in the detected month
+      if (Object.keys(busDefaults).length > 0 && ocrParsedEvents.length > 0) {
+        // Detect month/year from events
+        const firstEvt = ocrParsedEvents[0];
+        const d0 = new Date(firstEvt.date);
+        const targetYear = d0.getFullYear();
+        const targetMonth = d0.getMonth();
+        const daysInMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+
+        for (let d = 1; d <= daysInMonth; d++) {
+          const date = new Date(targetYear, targetMonth, d);
+          const dow = date.getDay();
+          if (dow === 0 || dow === 6) continue; // Skip weekends
+          if (!busDefaults[dow]) continue;
+
+          const key = dateKey(targetYear, targetMonth, d);
+          // Skip holidays
+          if (isHoliday(key)) continue;
+
+          const existing = scheduleData[key] || {};
+          scheduleData[key] = {
+            ...existing,
+            service: existing.service || 'none',
+            transport: existing.transport || 'school-bus',
+            transportTime: existing.transportTime || busDefaults[dow],
+            note: existing.note || '',
+          };
+          busCount++;
+        }
+      }
+    }
+
+    if (eventCount > 0 || busCount > 0) saveSchedule();
+
+    // Apply day-of-week schedule (original logic for time-based prints)
     if (ocrParsedSchedule.length > 0) {
       const today = new Date();
-      // Apply for the next 4 weeks
       for (let offset = 0; offset < 28; offset++) {
         const date = new Date(today);
         date.setDate(today.getDate() + offset);
         const dow = date.getDay();
-
         const matching = ocrParsedSchedule.find(s => s.dayIndex === dow);
         if (matching) {
           const key = dateKey(date.getFullYear(), date.getMonth(), date.getDate());
           const existing = scheduleData[key] || {};
-          // Only set return time if no existing service data
           if (!existing.service || existing.service === 'none') {
             scheduleData[key] = {
               ...existing,
@@ -1260,7 +1580,6 @@
               note: existing.note || `下校 ${matching.time}`,
             };
           } else {
-            // Update note with dismissal time
             scheduleData[key] = {
               ...existing,
               transportTime: existing.transportTime || matching.time,
@@ -1274,16 +1593,16 @@
     }
 
     // Apply packing items
-    const checkboxes = document.querySelectorAll('.ocr-item-checkbox');
-    checkboxes.forEach((cb, idx) => {
+    const packCheckboxes = document.querySelectorAll('.ocr-item-checkbox');
+    packCheckboxes.forEach((cb, idx) => {
       if (cb.checked && ocrParsedItems[idx]) {
-        // Check if item already exists
-        const exists = packingItems.some(i => i.text === ocrParsedItems[idx]);
+        const parsedItem = ocrParsedItems[idx];
+        const exists = packingItems.some(i => i.text === parsedItem.text);
         if (!exists) {
           packingItems.push({
             id: 'pkg_' + Date.now() + '_' + idx,
-            text: ocrParsedItems[idx],
-            date: null,
+            text: parsedItem.text,
+            date: parsedItem.deadline || null,
             checked: false,
             source: 'ocr',
           });
@@ -1294,15 +1613,16 @@
     if (itemCount > 0) savePackingItems();
 
     // Show confirmation
-    let msg = '';
-    if (scheduleCount > 0) msg += `${scheduleCount}件のスケジュールを反映しました。`;
-    if (itemCount > 0) msg += `${itemCount}件の持ち物を追加しました。`;
-    if (!msg) msg = '反映するデータがありませんでした。';
+    const parts = [];
+    if (eventCount > 0) parts.push(`行事${eventCount}件`);
+    if (busCount > 0) parts.push(`バス${busCount}日分`);
+    if (scheduleCount > 0) parts.push(`スケジュール${scheduleCount}件`);
+    if (itemCount > 0) parts.push(`持ち物${itemCount}件`);
+    const msg = parts.length > 0 ? parts.join('、') + 'を反映しました' : '反映するデータがありませんでした。';
 
     showToast(msg);
     updatePackingBadge();
 
-    // Reset scanner
     setTimeout(() => {
       resetScanner();
       switchView('home');
@@ -1317,6 +1637,11 @@
     document.getElementById('previewImage').src = '';
     ocrParsedSchedule = [];
     ocrParsedItems = [];
+    ocrParsedEvents = [];
+    const eventsCard = document.getElementById('ocrEventsCard');
+    if (eventsCard) eventsCard.style.display = 'none';
+    const busCard = document.getElementById('ocrBusDefaultCard');
+    if (busCard) busCard.style.display = 'none';
   }
 
   // ============================================================
