@@ -2,7 +2,7 @@
 # Gemini API Image Generation Script
 # Usage: ./generate-image.sh "your prompt here" [output_filename]
 
-API_KEY="AIzaSyACKV3mGQLr0FchRlArHPE00-yfaqLhQWg"
+API_KEY="AIzaSyCFfsob53plYQgWe2lA0A-0A-JUv9LOqKs"
 MODEL="gemini-2.0-flash-exp"
 PROMPT="${1:-A cute cat sitting on a windowsill}"
 OUTPUT="${2:-generated_image.png}"
