@@ -3,7 +3,7 @@
 # Usage: ./generate-image.sh "your prompt here" [output_filename]
 
 API_KEY="AIzaSyCFfsob53plYQgWe2lA0A-0A-JUv9LOqKs"
-MODEL="gemini-2.0-flash-exp"
+MODEL="gemini-2.1-flash-image-preview"
 PROMPT="${1:-A cute cat sitting on a windowsill}"
 OUTPUT="${2:-generated_image.png}"
 
