@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Gemini Image Generator</title>
+<style>
+  body { font-family: sans-serif; max-width: 700px; margin: 40px auto; padding: 20px; background: #f5f5f5; }
+  h1 { color: #333; }
+  textarea { width: 100%; height: 80px; font-size: 16px; padding: 10px; border-radius: 8px; border: 1px solid #ccc; }
+  button { background: #4285f4; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 8px; cursor: pointer; margin-top: 10px; }
+  button:hover { background: #3367d6; }
+  button:disabled { background: #ccc; cursor: not-allowed; }
+  #status { margin-top: 15px; color: #666; }
+  #result { margin-top: 20px; }
+  #result img { max-width: 100%; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+  .model-select { margin: 10px 0; }
+  select { font-size: 14px; padding: 6px; border-radius: 4px; }
+  #error { color: red; margin-top: 10px; }
+  #model-list { margin-top: 10px; font-size: 13px; color: #555; }
+</style>
+</head>
+<body>
+<h1>Gemini Image Generator</h1>
+
+<div>
+  <label><b>API Key:</b></label><br>
+  <input type="text" id="apiKey" value="AIzaSyCFfsob53plYQgWe2lA0A-0A-JUv9LOqKs" style="width:100%; padding:8px; font-size:14px; border-radius:8px; border:1px solid #ccc;">
+</div>
+
+<div class="model-select">
+  <label><b>Model:</b></label>
+  <select id="model">
+    <option value="gemini-2.0-flash-exp">gemini-2.0-flash-exp</option>
+    <option value="gemini-2.0-flash-preview-image-generation">gemini-2.0-flash-preview-image-generation</option>
+    <option value="gemini-2.1-flash-image-preview">gemini-2.1-flash-image-preview (Nano Banana 2)</option>
+  </select>
+  <button onclick="listModels()" style="font-size:12px; padding:6px 12px;">使えるモデルを確認</button>
+  <div id="model-list"></div>
+</div>
+
+<div>
+  <label><b>プロンプト:</b></label><br>
+  <textarea id="prompt" placeholder="例: A cute cat wearing a hat">A banana wearing a costume</textarea>
+</div>
+
+<button id="generateBtn" onclick="generateImage()">画像を生成</button>
+
+<div id="status"></div>
+<div id="error"></div>
+<div id="result"></div>
+
+<script>
+const API_BASE = "https://generativelanguage.googleapis.com/v1beta";
+
+async function listModels() {
+  const key = document.getElementById("apiKey").value;
+  const listEl = document.getElementById("model-list");
+  listEl.textContent = "読み込み中...";
+  try {
+    const res = await fetch(`${API_BASE}/models?key=${key}`);
+    const data = await res.json();
+    if (data.error) {
+      listEl.textContent = "Error: " + data.error.message;
+      return;
+    }
+    const models = (data.models || [])
+      .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
+      .map(m => m.name.replace("models/", ""));
+    listEl.innerHTML = "<b>利用可能なモデル:</b><br>" + models.join("<br>");
+  } catch (e) {
+    listEl.textContent = "Error: " + e.message;
+  }
+}
+
+async function generateImage() {
+  const key = document.getElementById("apiKey").value;
+  const model = document.getElementById("model").value;
+  const prompt = document.getElementById("prompt").value;
+  const btn = document.getElementById("generateBtn");
+  const status = document.getElementById("status");
+  const error = document.getElementById("error");
+  const result = document.getElementById("result");
+
+  btn.disabled = true;
+  status.textContent = "生成中... (30秒ほどかかる場合があります)";
+  error.textContent = "";
+  result.innerHTML = "";
+
+  try {
+    const res = await fetch(`${API_BASE}/models/${model}:generateContent?key=${key}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
+      })
+    });
+
+    const data = await res.json();
+
+    if (data.error) {
+      error.textContent = "API Error: " + data.error.message;
+      status.textContent = "";
+      btn.disabled = false;
+      return;
+    }
+
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    let hasImage = false;
+
+    for (const part of parts) {
+      if (part.inlineData) {
+        const img = document.createElement("img");
+        img.src = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+        result.appendChild(img);
+
+        // Download link
+        const a = document.createElement("a");
+        a.href = img.src;
+        a.download = "generated_image.png";
+        a.textContent = "画像をダウンロード";
+        a.style.display = "block";
+        a.style.marginTop = "10px";
+        result.appendChild(a);
+        hasImage = true;
+      } else if (part.text) {
+        const p = document.createElement("p");
+        p.textContent = part.text;
+        result.appendChild(p);
+      }
+    }
+
+    status.textContent = hasImage ? "生成完了！" : "画像が返されませんでした";
+  } catch (e) {
+    error.textContent = "Error: " + e.message;
+    status.textContent = "";
+  }
+
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>
