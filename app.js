@@ -1713,6 +1713,107 @@
   }
 
   // ============================================================
+  // PRINT CALENDAR (A4)
+  // ============================================================
+
+  function printCalendar() {
+    const year = currentYear;
+    const month = currentMonth;
+    const container = document.getElementById('printContainer');
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDay = new Date(year, month, 1).getDay();
+    const today = new Date();
+    const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+
+    let html = `<div class="print-header">${year}年 ${monthNames[month]} スケジュール</div>`;
+    html += '<table class="print-calendar-grid">';
+    html += '<tr>';
+    const dowClasses = ['sun', '', '', '', '', '', 'sat'];
+    const dowNames = ['日', '月', '火', '水', '木', '金', '土'];
+    dowNames.forEach((name, i) => {
+      html += `<th class="${dowClasses[i]}">${name}</th>`;
+    });
+    html += '</tr>';
+
+    let dayCounter = 1;
+    const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+
+    for (let i = 0; i < totalCells; i++) {
+      if (i % 7 === 0) html += '<tr>';
+
+      if (i < firstDay || dayCounter > daysInMonth) {
+        html += '<td></td>';
+      } else {
+        const d = dayCounter;
+        const date = new Date(year, month, d);
+        const dow = date.getDay();
+        const key = dateKey(year, month, d);
+        const data = scheduleData[key];
+        const holiday = isHoliday(key);
+        const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === d;
+
+        let tdClass = '';
+        if (dow === 0 || holiday) tdClass = 'sun holiday';
+        else if (dow === 6) tdClass = 'sat';
+        if (isToday) tdClass += ' today';
+
+        let cellContent = `<div class="print-day-num">${d}</div>`;
+
+        if (holiday) {
+          cellContent += `<div class="print-holiday-name">${HOLIDAYS[key]}</div>`;
+        }
+
+        if (data) {
+          const hasService = data.service && data.service !== 'none';
+          if (hasService) {
+            const svc = getServiceById(data.service);
+            if (svc) {
+              cellContent += `<div class="print-service-tag" style="background:${svc.color};">${svc.name}</div>`;
+            }
+          }
+
+          let details = [];
+          if (data.transport && data.transport !== 'none') {
+            const t = TRANSPORT_LABELS[data.transport];
+            let line = `${t.icon} ${t.label}`;
+            if (data.transportTime) line += ` ${data.transportTime}`;
+            details.push(line);
+          }
+          if (data.returnTime) {
+            details.push(`🏠 帰宅 ${data.returnTime}`);
+          }
+          if (data.note) {
+            // Split long notes into lines
+            const noteLines = data.note.split('\n');
+            noteLines.forEach(nl => {
+              if (nl.trim()) details.push(`📝 ${nl.trim()}`);
+            });
+          }
+
+          if (details.length > 0) {
+            cellContent += '<div class="print-detail">';
+            details.forEach(line => {
+              cellContent += `<div class="print-detail-line">${line}</div>`;
+            });
+            cellContent += '</div>';
+          }
+        }
+
+        html += `<td class="${tdClass}">${cellContent}</td>`;
+        dayCounter++;
+      }
+
+      if (i % 7 === 6) html += '</tr>';
+    }
+
+    html += '</table>';
+    html += `<div class="print-footer">印刷日: ${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}</div>`;
+
+    container.innerHTML = html;
+    window.print();
+  }
+
+  // ============================================================
   // EVENT LISTENERS
   // ============================================================
 
@@ -1739,6 +1840,7 @@
     window.open(buildGoogleCalendarUrl(selectedDate, data), '_blank');
   });
   document.getElementById('exportIcsBtn').addEventListener('click', exportMonthIcs);
+  document.getElementById('printCalendarBtn').addEventListener('click', printCalendar);
 
   // Settings
   document.getElementById('settingsBtn').addEventListener('click', openSettings);
