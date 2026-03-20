@@ -1,0 +1,502 @@
+/* ============================================================
+   DAIMATSU FAIR 2026 - Registration Form Styles
+   ============================================================ */
+
+:root {
+  --primary: #4a90d9;
+  --primary-dark: #3a7bc8;
+  --primary-light: #e8f0fb;
+  --danger: #e74c3c;
+  --text: #333;
+  --text-light: #666;
+  --text-muted: #999;
+  --bg: #f5f5f5;
+  --white: #fff;
+  --border: #ddd;
+  --border-light: #eee;
+  --required-bg: #e74c3c;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  max-width: 640px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== Header ===== */
+.header {
+  background: linear-gradient(135deg, #4a90d9 0%, #5ba0e8 50%, #6db0f0 100%);
+  color: white;
+  text-align: center;
+  padding: 24px 16px 16px;
+}
+
+.header-logo {
+  margin-bottom: 8px;
+}
+
+.header-title {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  line-height: 1.2;
+}
+
+.header-year {
+  font-size: 42px;
+  font-weight: 900;
+  letter-spacing: 4px;
+}
+
+.header-info {
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 4px;
+  opacity: 0.9;
+}
+
+.header-subtitle {
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 8px;
+  opacity: 0.8;
+}
+
+/* ===== Step Indicator ===== */
+.steps {
+  display: flex;
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+}
+
+.step {
+  flex: 1;
+  text-align: center;
+  padding: 12px 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-bottom: 3px solid transparent;
+  transition: all 0.3s;
+}
+
+.step.active {
+  color: var(--primary);
+  font-weight: 700;
+  border-bottom-color: var(--primary);
+}
+
+.step.completed {
+  color: var(--primary);
+}
+
+.step-label {
+  display: block;
+}
+
+/* ===== Form Container ===== */
+.form-container {
+  flex: 1;
+  padding: 0 0 24px;
+}
+
+.form-heading {
+  font-size: 18px;
+  font-weight: 700;
+  padding: 20px 16px 12px;
+  border-left: 4px solid var(--primary);
+  margin: 0 16px 16px;
+  margin-top: 20px;
+}
+
+/* ===== Form Section ===== */
+.form-section {
+  border: none;
+  margin: 0 16px 16px;
+  padding: 0;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-light);
+  padding: 0 0 12px;
+}
+
+.section-title-boxed {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 0 0 12px;
+}
+
+.companion-section {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px !important;
+}
+
+/* ===== Form Groups ===== */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+
+.required {
+  display: inline-block;
+  background: var(--required-bg);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 3px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.note {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-left: 4px;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+/* ===== Inputs ===== */
+input[type="text"],
+input[type="email"],
+input[type="tel"] {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 16px;
+  font-family: inherit;
+  background: var(--white);
+  color: var(--text);
+  transition: border-color 0.2s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input:focus {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.1);
+}
+
+input::placeholder {
+  color: var(--text-muted);
+}
+
+input.error {
+  border-color: var(--danger);
+}
+
+/* Name fields row */
+.name-row {
+  display: flex;
+  gap: 12px;
+}
+
+.name-field {
+  flex: 1;
+}
+
+.name-label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+/* Select */
+.select-wrapper {
+  position: relative;
+}
+
+select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 16px;
+  font-family: inherit;
+  background: var(--white);
+  color: var(--text);
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+select:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+.select-wrapper::after {
+  content: '';
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid var(--text-muted);
+  pointer-events: none;
+}
+
+/* Error messages */
+.error-msg {
+  font-size: 12px;
+  color: var(--danger);
+  margin-top: 4px;
+  min-height: 0;
+  display: none;
+}
+
+.error-msg.show {
+  display: block;
+}
+
+/* ===== Terms Section ===== */
+.terms-section {
+  margin: 24px 16px;
+}
+
+.terms-heading {
+  font-size: 18px;
+  font-weight: 700;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--text);
+  margin-bottom: 16px;
+}
+
+.terms-box {
+  background: var(--white);
+  border: 1px solid var(--primary);
+  border-radius: 8px;
+  padding: 16px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.policy-link {
+  color: var(--primary);
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.terms-agree {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+/* ===== Submit Button ===== */
+.submit-btn {
+  display: block;
+  width: calc(100% - 32px);
+  margin: 24px auto;
+  padding: 16px;
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  color: white;
+  border: none;
+  border-radius: 30px;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  letter-spacing: 1px;
+}
+
+.submit-btn:active {
+  opacity: 0.8;
+}
+
+.submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ===== Step 2: Confirmation ===== */
+.confirm-notice {
+  font-size: 14px;
+  color: var(--text-light);
+  padding: 0 16px 16px;
+  line-height: 1.6;
+}
+
+.confirm-table {
+  width: calc(100% - 32px);
+  margin: 0 16px;
+  border-collapse: collapse;
+  background: var(--white);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.confirm-table th,
+.confirm-table td {
+  padding: 12px 16px;
+  font-size: 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: top;
+}
+
+.confirm-table th {
+  background: var(--primary-light);
+  color: var(--text);
+  font-weight: 600;
+  width: 35%;
+  white-space: nowrap;
+}
+
+.confirm-table td {
+  color: var(--text);
+  word-break: break-all;
+}
+
+.confirm-buttons {
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.back-btn {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  background: var(--white);
+  color: var(--text-light);
+  border: 1px solid var(--border);
+  border-radius: 30px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.back-btn:active {
+  background: var(--bg);
+}
+
+/* ===== Step 3: Complete ===== */
+.complete-content {
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.complete-icon {
+  width: 80px;
+  height: 80px;
+  background: #27ae60;
+  color: white;
+  font-size: 40px;
+  font-weight: 700;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+}
+
+.complete-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.complete-message {
+  font-size: 14px;
+  color: var(--text-light);
+  line-height: 1.8;
+  margin-bottom: 24px;
+}
+
+.complete-info {
+  background: var(--primary-light);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+  font-size: 15px;
+  line-height: 2;
+  font-weight: 600;
+  color: var(--primary-dark);
+}
+
+.complete-note {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ===== Footer ===== */
+.footer {
+  text-align: center;
+  padding: 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  background: var(--white);
+  margin-top: auto;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 480px) {
+  .header-title {
+    font-size: 22px;
+  }
+  .header-year {
+    font-size: 34px;
+  }
+  .confirm-table th {
+    width: 30%;
+  }
+}
