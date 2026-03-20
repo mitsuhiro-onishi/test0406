@@ -3,57 +3,50 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DAIMATSU FAIR 2026 - ご来場事前登録</title>
+  <title id="pageTitle">展示会 - ご来場事前登録</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
   <!-- Header -->
-  <header class="header">
-    <div class="header-logo">
-      <div class="header-title">DAIMATSU FAIR<br><span class="header-year">2026</span></div>
-      <div class="header-info">4/23-4/24 INTEX NO.3</div>
+  <header class="header" id="headerArea">
+    <div class="header-banner" id="headerBanner" style="display:none;">
+      <img id="bannerImg" src="" alt="バナー">
     </div>
-    <p class="header-subtitle">DAIMATSU FAIR 2026</p>
+    <div class="header-text" id="headerText">
+      <div class="header-title" id="headerTitle">DAIMATSU FAIR<br><span class="header-year">2026</span></div>
+      <div class="header-info" id="headerInfo">4/23-4/24 INTEX NO.3</div>
+    </div>
+    <p class="header-subtitle" id="headerSubtitle">DAIMATSU FAIR 2026</p>
   </header>
 
   <!-- Step Indicator -->
   <nav class="steps">
-    <div class="step active" data-step="1">
-      <span class="step-label">項目の入力</span>
-    </div>
-    <div class="step" data-step="2">
-      <span class="step-label">入力内容の確認</span>
-    </div>
-    <div class="step" data-step="3">
-      <span class="step-label">お申し込み完了</span>
-    </div>
+    <div class="step active" data-step="1"><span class="step-label">項目の入力</span></div>
+    <div class="step" data-step="2"><span class="step-label">入力内容の確認</span></div>
+    <div class="step" data-step="3"><span class="step-label">お申し込み完了</span></div>
   </nav>
 
   <!-- ===== Step 1: Input Form ===== -->
   <main class="form-container" id="step1">
     <h2 class="form-heading">ご来場お申し込み</h2>
-
     <form id="registrationForm" novalidate>
       <fieldset class="form-section">
         <legend class="section-title">ご来場者様情報の入力</legend>
 
-        <!-- 会社名 -->
-        <div class="form-group">
+        <div class="form-group" id="group-companyName">
           <label for="companyName">会社名 <span class="required">必須</span></label>
           <input type="text" id="companyName" name="companyName" required>
           <p class="error-msg" id="err-companyName"></p>
         </div>
 
-        <!-- 会社名(カナ) -->
-        <div class="form-group">
+        <div class="form-group" id="group-companyKana">
           <label for="companyKana">会社名(カナ) <span class="required">必須</span></label>
           <input type="text" id="companyKana" name="companyKana" required>
           <p class="error-msg" id="err-companyKana"></p>
         </div>
 
-        <!-- 氏名 -->
-        <div class="form-group">
+        <div class="form-group" id="group-name">
           <label>氏名（姓・名）<span class="note">※全角</span> <span class="required">必須</span></label>
           <div class="name-row">
             <div class="name-field">
@@ -68,8 +61,7 @@
           <p class="error-msg" id="err-name"></p>
         </div>
 
-        <!-- 氏名フリガナ -->
-        <div class="form-group">
+        <div class="form-group" id="group-nameKana">
           <label>氏名フリガナ（姓・名）<span class="note">※全角カタカナ</span> <span class="required">必須</span></label>
           <div class="name-row">
             <div class="name-field">
@@ -84,55 +76,36 @@
           <p class="error-msg" id="err-nameKana"></p>
         </div>
 
-        <!-- 電話番号 -->
-        <div class="form-group">
+        <div class="form-group" id="group-phone">
           <label for="phone">電話番号 <span class="note">※半角数字　ハイフンなし</span></label>
           <input type="tel" id="phone" name="phone" placeholder="例) 09012345678" inputmode="numeric">
           <p class="error-msg" id="err-phone"></p>
         </div>
 
-        <!-- メールアドレス -->
-        <div class="form-group">
+        <div class="form-group" id="group-email">
           <label for="email">メールアドレス <span class="note">※半角英数字</span> <span class="required">必須</span></label>
           <input type="email" id="email" name="email" placeholder="info@example.co.jp" required>
           <p class="hint">※確認メールを確実にお届けするため、メールアドレスは正確にご入力下さい</p>
           <p class="error-msg" id="err-email"></p>
         </div>
 
-        <!-- メールアドレス確認 -->
-        <div class="form-group">
+        <div class="form-group" id="group-emailConfirm">
           <label for="emailConfirm">メールアドレス（確認用） <span class="required">必須</span></label>
           <input type="email" id="emailConfirm" name="emailConfirm" required>
           <p class="hint">※確認のため、もう一度メールアドレスをご入力下さい</p>
           <p class="error-msg" id="err-emailConfirm"></p>
         </div>
 
-        <!-- 業種 -->
-        <div class="form-group">
+        <div class="form-group" id="group-industry">
           <label for="industry">業種</label>
           <div class="select-wrapper">
             <select id="industry" name="industry">
               <option value="">▼選択してください</option>
-              <option value="製造業">製造業</option>
-              <option value="建設業">建設業</option>
-              <option value="卸売業">卸売業</option>
-              <option value="小売業">小売業</option>
-              <option value="飲食業">飲食業</option>
-              <option value="サービス業">サービス業</option>
-              <option value="IT・通信">IT・通信</option>
-              <option value="不動産業">不動産業</option>
-              <option value="運輸業">運輸業</option>
-              <option value="金融・保険業">金融・保険業</option>
-              <option value="医療・福祉">医療・福祉</option>
-              <option value="教育">教育</option>
-              <option value="官公庁・団体">官公庁・団体</option>
-              <option value="その他">その他</option>
             </select>
           </div>
         </div>
 
-        <!-- エントリー番号 -->
-        <div class="form-group">
+        <div class="form-group" id="group-entryNumber">
           <label for="entryNumber">エントリー番号 <span class="required">必須</span></label>
           <input type="text" id="entryNumber" name="entryNumber" inputmode="numeric" maxlength="5" required>
           <p class="hint">※数字5桁でご入力ください（例：12345）</p>
@@ -140,29 +113,21 @@
         </div>
       </fieldset>
 
-      <!-- 同伴者情報 -->
-      <fieldset class="form-section companion-section">
+      <fieldset class="form-section companion-section" id="group-companions">
         <legend class="section-title-boxed">同伴者情報<span class="note">※同伴者がいらっしゃる場合のみご入力ください</span></legend>
         <div class="form-group">
           <label for="companions">同伴者数</label>
           <div class="select-wrapper">
-            <select id="companions" name="companions">
-              <option value="0">0人</option>
-              <option value="1">1人</option>
-              <option value="2">2人</option>
-              <option value="3">3人</option>
-              <option value="4">4人</option>
-            </select>
+            <select id="companions" name="companions"></select>
           </div>
           <p class="hint">※5人目以降はお手数ですが再度アクセスのうえお申し込みください。</p>
         </div>
       </fieldset>
 
-      <!-- 利用規約 -->
       <section class="terms-section">
         <h3 class="terms-heading">ご利用規約</h3>
         <div class="terms-box">
-          <p><a href="#" class="policy-link">当社プライバシーポリシー</a>に同意いただける場合「同意する」にチェックをつけ、確認ボタンを押して次へ進んでください。</p>
+          <p><a href="#" class="policy-link" id="policyLink">当社プライバシーポリシー</a>に同意いただける場合「同意する」にチェックをつけ、確認ボタンを押して次へ進んでください。</p>
           <div class="terms-agree">
             <span class="required">必須</span>
             <label class="checkbox-label">
@@ -174,7 +139,7 @@
         </div>
       </section>
 
-      <button type="submit" class="submit-btn" id="confirmBtn">入力内容を確認する</button>
+      <button type="submit" class="submit-btn">入力内容を確認する</button>
     </form>
   </main>
 
@@ -182,37 +147,69 @@
   <main class="form-container" id="step2" style="display:none;">
     <h2 class="form-heading">入力内容の確認</h2>
     <p class="confirm-notice">以下の内容でよろしければ「申し込む」ボタンを押してください。</p>
-
-    <table class="confirm-table" id="confirmTable">
-      <tbody></tbody>
-    </table>
-
+    <table class="confirm-table" id="confirmTable"><tbody></tbody></table>
     <div class="confirm-buttons">
       <button type="button" class="back-btn" id="backToInput">戻って修正する</button>
       <button type="button" class="submit-btn" id="submitBtn">申し込む</button>
     </div>
   </main>
 
-  <!-- ===== Step 3: Complete ===== -->
+  <!-- ===== Step 3: Complete + Ticket ===== -->
   <main class="form-container" id="step3" style="display:none;">
     <div class="complete-content">
       <div class="complete-icon">✓</div>
       <h2 class="complete-title">お申し込み完了</h2>
-      <p class="complete-message">ご来場の事前登録が完了しました。<br>ご入力いただいたメールアドレスに確認メールをお送りしました。</p>
-      <div class="complete-info">
-        <p>DAIMATSU FAIR 2026</p>
-        <p>2026年4月23日（木）・24日（金）</p>
-        <p>インテックス大阪 3号館</p>
+      <p class="complete-message">ご来場の事前登録が完了しました。<br>下記の入場券をご提示ください。</p>
+    </div>
+
+    <!-- Admission Ticket -->
+    <div class="ticket" id="ticketArea">
+      <div class="ticket-header" id="ticketHeader">
+        <div class="ticket-event-title" id="ticketEventTitle">DAIMATSU FAIR 2026</div>
+        <div class="ticket-event-info" id="ticketEventInfo">2026年4月23日（木）・24日（金）</div>
+        <div class="ticket-venue" id="ticketVenue">インテックス大阪 3号館</div>
       </div>
-      <p class="complete-note">当日は受付にてお名前をお伝えください。</p>
+      <div class="ticket-label">ADMISSION TICKET / 入場券</div>
+      <div class="ticket-body">
+        <div class="ticket-qr" id="ticketQr"></div>
+        <div class="ticket-id" id="ticketId">ID: --------</div>
+        <div class="ticket-details">
+          <div class="ticket-detail-row">
+            <span class="ticket-detail-label">会社名</span>
+            <span class="ticket-detail-value" id="ticketCompany">-</span>
+          </div>
+          <div class="ticket-detail-row">
+            <span class="ticket-detail-label">氏名</span>
+            <span class="ticket-detail-value" id="ticketName">-</span>
+          </div>
+          <div class="ticket-detail-row" id="ticketCompanionRow" style="display:none;">
+            <span class="ticket-detail-label">同伴者</span>
+            <span class="ticket-detail-value" id="ticketCompanions">-</span>
+          </div>
+        </div>
+      </div>
+      <div class="ticket-footer">
+        この入場券を受付にてご提示ください
+      </div>
+    </div>
+
+    <div class="ticket-actions">
+      <button class="btn-save-ticket" id="saveTicketBtn">入場券を画像として保存</button>
+      <p class="ticket-note">※スクリーンショットでも保存できます</p>
     </div>
   </main>
 
   <!-- Footer -->
-  <footer class="footer">
+  <footer class="footer" id="footerArea">
     Copyright &copy; DAIMATSU co.,Ltd.
   </footer>
 
+  <!-- QR Code Library -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+  <!-- html2canvas for ticket saving -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+  <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

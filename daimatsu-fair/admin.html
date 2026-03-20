@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理画面 - 展示会事前登録システム</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+  <header class="admin-header">
+    <h1>展示会事前登録 管理画面</h1>
+    <a href="index.html" class="preview-link" target="_blank">登録フォームを確認 →</a>
+  </header>
+
+  <nav class="admin-nav">
+    <button class="nav-btn active" data-tab="event">イベント設定</button>
+    <button class="nav-btn" data-tab="fields">フォーム項目</button>
+    <button class="nav-btn" data-tab="registrations">登録一覧</button>
+  </nav>
+
+  <!-- ===== Tab: Event Settings ===== -->
+  <section class="tab-content active" id="tab-event">
+    <div class="card">
+      <h2 class="card-title">基本情報</h2>
+
+      <div class="field">
+        <label for="eventTitle">イベントタイトル</label>
+        <input type="text" id="eventTitle" placeholder="DAIMATSU FAIR 2026">
+      </div>
+
+      <div class="field">
+        <label for="eventSubtitle">サブタイトル</label>
+        <input type="text" id="eventSubtitle" placeholder="DAIMATSU FAIR 2026">
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="eventDate">開催日程</label>
+          <input type="text" id="eventDate" placeholder="4/23-4/24">
+        </div>
+        <div class="field">
+          <label for="eventVenue">会場</label>
+          <input type="text" id="eventVenue" placeholder="INTEX NO.3">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label for="eventDateLong">開催日（詳細表示用）</label>
+          <input type="text" id="eventDateLong" placeholder="2026年4月23日（木）・24日（金）">
+        </div>
+        <div class="field">
+          <label for="eventVenueLong">会場名（詳細表示用）</label>
+          <input type="text" id="eventVenueLong" placeholder="インテックス大阪 3号館">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="eventCopyright">フッターコピーライト</label>
+        <input type="text" id="eventCopyright" placeholder="Copyright © DAIMATSU co.,Ltd.">
+      </div>
+
+      <div class="field">
+        <label for="privacyUrl">プライバシーポリシーURL</label>
+        <input type="url" id="privacyUrl" placeholder="https://example.com/privacy">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">バナー画像</h2>
+      <p class="card-desc">ヘッダーに表示するロゴ・バナー画像を設定します。</p>
+
+      <div class="banner-preview" id="bannerPreview">
+        <span class="banner-placeholder">画像未設定</span>
+      </div>
+
+      <div class="field">
+        <input type="file" id="bannerUpload" accept="image/*">
+      </div>
+
+      <button class="btn btn-outline" id="removeBanner">バナー画像を削除</button>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">ヘッダー色</h2>
+      <div class="field-row">
+        <div class="field">
+          <label for="headerColorFrom">グラデーション開始色</label>
+          <input type="color" id="headerColorFrom" value="#4a90d9">
+        </div>
+        <div class="field">
+          <label for="headerColorTo">グラデーション終了色</label>
+          <input type="color" id="headerColorTo" value="#6db0f0">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">業種選択肢</h2>
+      <p class="card-desc">業種プルダウンの選択肢を改行区切りで入力してください。</p>
+      <div class="field">
+        <textarea id="industryOptions" rows="10" placeholder="製造業&#10;建設業&#10;卸売業&#10;..."></textarea>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="saveEventSettings">設定を保存</button>
+  </section>
+
+  <!-- ===== Tab: Form Fields ===== -->
+  <section class="tab-content" id="tab-fields">
+    <div class="card">
+      <h2 class="card-title">フォーム項目の表示設定</h2>
+      <p class="card-desc">表示/非表示を切り替えたり、必須設定を変更できます。</p>
+
+      <table class="fields-table">
+        <thead>
+          <tr>
+            <th>表示</th>
+            <th>項目名</th>
+            <th>必須</th>
+          </tr>
+        </thead>
+        <tbody id="fieldsTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">同伴者の最大人数</h2>
+      <div class="field">
+        <label for="maxCompanions">最大人数</label>
+        <input type="number" id="maxCompanions" min="0" max="20" value="4">
+      </div>
+    </div>
+
+    <button class="btn btn-primary" id="saveFieldSettings">設定を保存</button>
+  </section>
+
+  <!-- ===== Tab: Registrations ===== -->
+  <section class="tab-content" id="tab-registrations">
+    <div class="card">
+      <div class="reg-header">
+        <h2 class="card-title">登録一覧 <span class="reg-count" id="regCount">0件</span></h2>
+        <div class="reg-actions">
+          <button class="btn btn-outline btn-sm" id="exportCsv">CSV出力</button>
+          <button class="btn btn-danger btn-sm" id="clearRegistrations">全削除</button>
+        </div>
+      </div>
+
+      <div class="search-box">
+        <input type="text" id="regSearch" placeholder="会社名・氏名で検索...">
+      </div>
+
+      <div class="reg-list" id="regList">
+        <p class="empty-msg">登録データはありません</p>
+      </div>
+    </div>
+  </section>
+
+  <script src="config.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
