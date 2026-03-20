@@ -257,17 +257,25 @@
     .ocr-schedule-item {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      gap: 8px;
       padding: 10px 0;
       border-bottom: 1px solid var(--border);
     }
     .ocr-schedule-item:last-child { border-bottom: none; }
     .ocr-schedule-day { font-weight: 600; font-size: 14px; }
-    .ocr-schedule-time {
+    .ocr-schedule-time-input {
       font-size: 14px;
       color: var(--primary);
       font-weight: 600;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px 8px;
+      width: 90px;
+      text-align: center;
+      background: var(--card-bg);
     }
+    .ocr-schedule-time-input:focus { border-color: var(--primary); outline: none; }
+    .ocr-schedule-label { font-size: 13px; color: var(--text-light); }
     .ocr-item-row {
       display: flex;
       align-items: center;
@@ -278,11 +286,49 @@
     .ocr-item-row:last-child { border-bottom: none; }
     .ocr-item-checkbox {
       width: 20px; height: 20px;
+      min-width: 20px;
       border: 2px solid var(--border);
       border-radius: 4px;
       cursor: pointer;
       accent-color: var(--primary);
     }
+    .ocr-item-text-input {
+      flex: 1;
+      font-size: 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-family: inherit;
+      background: var(--card-bg);
+    }
+    .ocr-item-text-input:focus { border-color: var(--primary); outline: none; }
+    .ocr-confirm-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 3000;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .ocr-confirm-modal {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 400px;
+      width: 100%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .ocr-confirm-modal h3 { margin: 0 0 16px; font-size: 17px; }
+    .ocr-confirm-section { margin-bottom: 16px; }
+    .ocr-confirm-section h4 { margin: 0 0 8px; font-size: 14px; color: var(--text-light); }
+    .ocr-confirm-item { font-size: 14px; padding: 4px 0; }
+    .ocr-confirm-btns { display: flex; gap: 10px; margin-top: 20px; }
+    .ocr-confirm-btns button {
+      flex: 1; padding: 12px; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; border: none;
+    }
+    .ocr-confirm-ok { background: var(--primary); color: white; }
+    .ocr-confirm-ok:active { opacity: 0.8; }
+    .ocr-confirm-back { background: none; border: 1px solid var(--border) !important; color: var(--text); }
     .ocr-raw-text {
       width: 100%;
       min-height: 100px;
@@ -808,8 +854,20 @@
           <button class="save-btn" id="reParseBtn" style="background:#F39C12;margin-top:8px;">再解析する</button>
         </div>
 
-        <button class="ocr-apply-btn" id="ocrApplyBtn">カレンダー＆持ち物に反映する</button>
+        <button class="ocr-apply-btn" id="ocrApplyBtn">内容を確認して反映する</button>
         <button class="ocr-retry-btn" id="ocrRetryBtn">別のプリントを読み取る</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- OCR Confirmation Modal -->
+  <div class="ocr-confirm-overlay" id="ocrConfirmOverlay" style="display:none;">
+    <div class="ocr-confirm-modal">
+      <h3>📋 反映内容の確認</h3>
+      <div id="ocrConfirmBody"></div>
+      <div class="ocr-confirm-btns">
+        <button class="ocr-confirm-back" id="ocrConfirmBack">戻って編集</button>
+        <button class="ocr-confirm-ok" id="ocrConfirmOk">反映する</button>
       </div>
     </div>
   </div>

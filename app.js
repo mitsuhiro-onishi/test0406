@@ -1350,12 +1350,14 @@
     card.style.display = 'block';
     list.innerHTML = '';
 
-    ocrParsedSchedule.forEach(item => {
+    ocrParsedSchedule.forEach((item, idx) => {
       const row = document.createElement('div');
       row.className = 'ocr-schedule-item';
       row.innerHTML = `
+        <input type="checkbox" class="ocr-item-checkbox ocr-sched-checkbox" checked data-sched-idx="${idx}">
         <span class="ocr-schedule-day">${item.label}</span>
-        <span class="ocr-schedule-time">${item.time} 下校</span>
+        <input type="time" class="ocr-schedule-time-input" data-sched-idx="${idx}" value="${item.time}">
+        <span class="ocr-schedule-label">下校</span>
       `;
       list.appendChild(row);
     });
@@ -1384,7 +1386,8 @@
       row.innerHTML = `
         <input type="checkbox" class="ocr-event-checkbox" checked data-idx="${idx}">
         <span style="font-size:13px;font-weight:600;min-width:60px;">${dateLabel}</span>
-        <span style="font-size:13px;flex:1;">${evt.text}${timeLabel}</span>
+        <input type="text" class="ocr-item-text-input ocr-event-text" data-evt-idx="${idx}" value="${evt.text}" style="font-size:13px;">
+        ${timeLabel}
       `;
       list.appendChild(row);
     });
@@ -1474,27 +1477,133 @@
     ocrParsedItems.forEach((item, idx) => {
       const row = document.createElement('div');
       row.className = 'ocr-item-row';
-      const deadlineLabel = item.deadline ? ` <span style="font-size:12px;color:var(--primary);font-weight:600;">（${formatDateShort(item.deadline)}まで）</span>` : '';
+      const deadlineLabel = item.deadline ? `（${formatDateShort(item.deadline)}まで）` : '';
       row.innerHTML = `
         <input type="checkbox" class="ocr-item-checkbox" checked data-idx="${idx}">
-        <span style="font-size:14px;">${item.text}${deadlineLabel}</span>
+        <input type="text" class="ocr-item-text-input" data-idx="${idx}" value="${item.text}${deadlineLabel}">
       `;
       list.appendChild(row);
     });
   }
 
+  // Collect edited OCR data from inputs
+  function collectEditedOCRData() {
+    const schedules = [];
+    const events = [];
+    const items = [];
+
+    // Collect schedule data from editable inputs
+    document.querySelectorAll('.ocr-sched-checkbox').forEach(cb => {
+      const idx = parseInt(cb.dataset.schedIdx);
+      const timeInput = document.querySelector(`.ocr-schedule-time-input[data-sched-idx="${idx}"]`);
+      if (cb.checked && timeInput && timeInput.value) {
+        schedules.push({
+          ...ocrParsedSchedule[idx],
+          time: timeInput.value,
+        });
+      }
+    });
+
+    // Collect event data (with edited text)
+    document.querySelectorAll('.ocr-event-checkbox').forEach(cb => {
+      const idx = parseInt(cb.dataset.idx);
+      if (cb.checked && ocrParsedEvents[idx]) {
+        const textInput = document.querySelector(`.ocr-event-text[data-evt-idx="${idx}"]`);
+        const editedText = textInput ? textInput.value.trim() : ocrParsedEvents[idx].text;
+        events.push({ ...ocrParsedEvents[idx], text: editedText });
+      }
+    });
+
+    // Collect packing items from editable inputs
+    document.querySelectorAll('.ocr-item-checkbox[data-idx]').forEach(cb => {
+      const idx = parseInt(cb.dataset.idx);
+      const textInput = document.querySelector(`.ocr-item-text-input[data-idx="${idx}"]`);
+      if (cb.checked && textInput && textInput.value.trim()) {
+        items.push(textInput.value.trim());
+      }
+    });
+
+    // Collect bus defaults
+    const busDefaults = {};
+    const busCard = document.getElementById('ocrBusDefaultCard');
+    if (busCard && busCard.style.display !== 'none') {
+      document.querySelectorAll('.bus-default-row').forEach(row => {
+        const dow = parseInt(row.dataset.dow);
+        const enabled = row.querySelector('.bus-default-toggle').checked;
+        const hourSel = row.querySelector('.bus-hour');
+        const minSel = row.querySelector('.bus-min');
+        if (enabled && hourSel && minSel) {
+          busDefaults[dow] = `${hourSel.value}:${minSel.value}`;
+        }
+      });
+    }
+
+    return { schedules, events, items, busDefaults };
+  }
+
+  // Show confirmation modal
+  function showOCRConfirmation() {
+    const { schedules, events, items, busDefaults } = collectEditedOCRData();
+    const hasBus = Object.keys(busDefaults).length > 0;
+
+    if (schedules.length === 0 && events.length === 0 && items.length === 0 && !hasBus) {
+      showToast('反映するデータがありません。項目にチェックを入れてください。');
+      return;
+    }
+
+    const body = document.getElementById('ocrConfirmBody');
+    let html = '';
+    const dowNames = ['日', '月', '火', '水', '木', '金', '土'];
+
+    if (events.length > 0) {
+      html += '<div class="ocr-confirm-section"><h4>📅 行事予定</h4>';
+      events.forEach(evt => {
+        html += `<div class="ocr-confirm-item">${evt.dayNum}日(${evt.day}) ${evt.text}</div>`;
+      });
+      html += '</div>';
+    }
+
+    if (hasBus) {
+      html += '<div class="ocr-confirm-section"><h4>🚌 バス基本スケジュール</h4>';
+      Object.entries(busDefaults).forEach(([dow, time]) => {
+        html += `<div class="ocr-confirm-item">${dowNames[dow]}曜日：<strong>${time}</strong></div>`;
+      });
+      html += '</div>';
+    }
+
+    if (schedules.length > 0) {
+      html += '<div class="ocr-confirm-section"><h4>🕐 下校時間スケジュール（4週間分に反映）</h4>';
+      schedules.forEach(s => {
+        html += `<div class="ocr-confirm-item">${s.label}：<strong>${s.time}</strong> 下校</div>`;
+      });
+      html += '</div>';
+    }
+
+    if (items.length > 0) {
+      html += '<div class="ocr-confirm-section"><h4>🎒 追加する持ち物</h4>';
+      items.forEach(item => {
+        html += `<div class="ocr-confirm-item">・${item}</div>`;
+      });
+      html += '</div>';
+    }
+
+    body.innerHTML = html;
+    document.getElementById('ocrConfirmOverlay').style.display = 'flex';
+  }
+
+  // Actually apply after confirmation
   function applyOCRResults() {
+    document.getElementById('ocrConfirmOverlay').style.display = 'none';
+
+    const { schedules, events, items, busDefaults } = collectEditedOCRData();
     let eventCount = 0;
     let scheduleCount = 0;
     let itemCount = 0;
     let busCount = 0;
 
     // Apply event calendar to calendar notes
-    if (ocrParsedEvents.length > 0) {
-      const checkboxes = document.querySelectorAll('.ocr-event-checkbox');
-      checkboxes.forEach((cb, idx) => {
-        if (!cb.checked || !ocrParsedEvents[idx]) return;
-        const evt = ocrParsedEvents[idx];
+    if (events.length > 0) {
+      events.forEach(evt => {
         const key = evt.date;
         const existing = scheduleData[key] || {};
         const newNote = existing.note
@@ -1511,62 +1620,44 @@
     }
 
     // Apply bus default schedule
-    const busCard = document.getElementById('ocrBusDefaultCard');
-    if (busCard && busCard.style.display !== 'none') {
-      // Read bus defaults from UI
-      const busDefaults = {};
-      document.querySelectorAll('.bus-default-row').forEach(row => {
-        const dow = parseInt(row.dataset.dow);
-        const enabled = row.querySelector('.bus-default-toggle').checked;
-        const hourSel = row.querySelector('.bus-hour');
-        const minSel = row.querySelector('.bus-min');
-        if (enabled && hourSel && minSel) {
-          busDefaults[dow] = `${hourSel.value}:${minSel.value}`;
-        }
-      });
+    if (Object.keys(busDefaults).length > 0 && ocrParsedEvents.length > 0) {
+      const firstEvt = ocrParsedEvents[0];
+      const d0 = new Date(firstEvt.date);
+      const targetYear = d0.getFullYear();
+      const targetMonth = d0.getMonth();
+      const daysInMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
 
-      // Apply to all matching weekdays in the detected month
-      if (Object.keys(busDefaults).length > 0 && ocrParsedEvents.length > 0) {
-        // Detect month/year from events
-        const firstEvt = ocrParsedEvents[0];
-        const d0 = new Date(firstEvt.date);
-        const targetYear = d0.getFullYear();
-        const targetMonth = d0.getMonth();
-        const daysInMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+      for (let d = 1; d <= daysInMonth; d++) {
+        const date = new Date(targetYear, targetMonth, d);
+        const dow = date.getDay();
+        if (dow === 0 || dow === 6) continue;
+        if (!busDefaults[dow]) continue;
 
-        for (let d = 1; d <= daysInMonth; d++) {
-          const date = new Date(targetYear, targetMonth, d);
-          const dow = date.getDay();
-          if (dow === 0 || dow === 6) continue; // Skip weekends
-          if (!busDefaults[dow]) continue;
+        const key = dateKey(targetYear, targetMonth, d);
+        if (isHoliday(key)) continue;
 
-          const key = dateKey(targetYear, targetMonth, d);
-          // Skip holidays
-          if (isHoliday(key)) continue;
-
-          const existing = scheduleData[key] || {};
-          scheduleData[key] = {
-            ...existing,
-            service: existing.service || 'none',
-            transport: existing.transport || 'school-bus',
-            transportTime: existing.transportTime || busDefaults[dow],
-            note: existing.note || '',
-          };
-          busCount++;
-        }
+        const existing = scheduleData[key] || {};
+        scheduleData[key] = {
+          ...existing,
+          service: existing.service || 'none',
+          transport: existing.transport || 'school-bus',
+          transportTime: existing.transportTime || busDefaults[dow],
+          note: existing.note || '',
+        };
+        busCount++;
       }
     }
 
     if (eventCount > 0 || busCount > 0) saveSchedule();
 
     // Apply day-of-week schedule (original logic for time-based prints)
-    if (ocrParsedSchedule.length > 0) {
+    if (schedules.length > 0) {
       const today = new Date();
       for (let offset = 0; offset < 28; offset++) {
         const date = new Date(today);
         date.setDate(today.getDate() + offset);
         const dow = date.getDay();
-        const matching = ocrParsedSchedule.find(s => s.dayIndex === dow);
+        const matching = schedules.find(s => s.dayIndex === dow);
         if (matching) {
           const key = dateKey(date.getFullYear(), date.getMonth(), date.getDate());
           const existing = scheduleData[key] || {};
@@ -1593,21 +1684,17 @@
     }
 
     // Apply packing items
-    const packCheckboxes = document.querySelectorAll('.ocr-item-checkbox');
-    packCheckboxes.forEach((cb, idx) => {
-      if (cb.checked && ocrParsedItems[idx]) {
-        const parsedItem = ocrParsedItems[idx];
-        const exists = packingItems.some(i => i.text === parsedItem.text);
-        if (!exists) {
-          packingItems.push({
-            id: 'pkg_' + Date.now() + '_' + idx,
-            text: parsedItem.text,
-            date: parsedItem.deadline || null,
-            checked: false,
-            source: 'ocr',
-          });
-          itemCount++;
-        }
+    items.forEach((text, idx) => {
+      const exists = packingItems.some(i => i.text === text);
+      if (!exists) {
+        packingItems.push({
+          id: 'pkg_' + Date.now() + '_' + idx,
+          text: text,
+          date: null,
+          checked: false,
+          source: 'ocr',
+        });
+        itemCount++;
       }
     });
     if (itemCount > 0) savePackingItems();
@@ -1718,7 +1805,11 @@
   document.getElementById('galleryInput').addEventListener('change', (e) => {
     if (e.target.files[0]) handleImageUpload(e.target.files[0]);
   });
-  document.getElementById('ocrApplyBtn').addEventListener('click', applyOCRResults);
+  document.getElementById('ocrApplyBtn').addEventListener('click', showOCRConfirmation);
+  document.getElementById('ocrConfirmOk').addEventListener('click', applyOCRResults);
+  document.getElementById('ocrConfirmBack').addEventListener('click', () => {
+    document.getElementById('ocrConfirmOverlay').style.display = 'none';
+  });
   document.getElementById('ocrRetryBtn').addEventListener('click', () => {
     resetScanner();
   });
