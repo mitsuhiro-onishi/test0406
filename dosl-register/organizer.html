@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>主催者管理画面 - 登録者データ管理</title>
+  <link rel="stylesheet" href="organizer.css">
+</head>
+<body>
+
+  <header class="org-header">
+    <div class="org-header-left">
+      <h1>登録者データ管理</h1>
+      <span class="org-badge">主催者用</span>
+    </div>
+    <div class="org-header-right">
+      <span class="org-stats" id="totalCount">0件</span>
+      <button class="org-btn-icon" id="toggleScanner" title="QRスキャナー">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 012-2h2"/><path d="M17 3h2a2 2 0 012 2v2"/><path d="M21 17v2a2 2 0 01-2 2h-2"/><path d="M7 21H5a2 2 0 01-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- QR Scanner Modal -->
+  <div class="modal-overlay" id="scannerModal" style="display:none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>QRコード読み取り</h2>
+        <button class="modal-close" id="closeScannerModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="scanner-area" id="scannerArea">
+          <video id="scannerVideo" playsinline></video>
+          <div class="scanner-overlay">
+            <div class="scanner-frame"></div>
+          </div>
+        </div>
+        <p class="scanner-hint">カメラをQRコードにかざしてください</p>
+        <div class="manual-input">
+          <p>または手動でチケットIDを入力：</p>
+          <div class="manual-input-row">
+            <input type="text" id="manualTicketId" placeholder="チケットID（8桁）" maxlength="8">
+            <button class="org-btn org-btn-primary" id="manualCheckInBtn">チェックイン</button>
+          </div>
+        </div>
+      </div>
+      <!-- Check-in Result -->
+      <div class="checkin-result" id="checkinResult" style="display:none;">
+        <div class="checkin-result-icon" id="checkinIcon"></div>
+        <div class="checkin-result-text" id="checkinText"></div>
+        <div class="checkin-result-detail" id="checkinDetail"></div>
+        <button class="org-btn org-btn-primary" id="checkinNextBtn">次のスキャン</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail Modal -->
+  <div class="modal-overlay" id="detailModal" style="display:none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>登録者詳細</h2>
+        <button class="modal-close" id="closeDetailModal">&times;</button>
+      </div>
+      <div class="modal-body" id="detailBody"></div>
+      <div class="modal-footer">
+        <button class="org-btn org-btn-outline" id="detailCloseBtn">閉じる</button>
+        <button class="org-btn org-btn-primary" id="detailCheckInBtn">チェックイン</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="org-main">
+    <!-- Summary Cards -->
+    <div class="summary-cards">
+      <div class="summary-card">
+        <div class="summary-number" id="statTotal">0</div>
+        <div class="summary-label">総登録数</div>
+      </div>
+      <div class="summary-card summary-card-success">
+        <div class="summary-number" id="statCheckedIn">0</div>
+        <div class="summary-label">チェックイン済</div>
+      </div>
+      <div class="summary-card summary-card-warning">
+        <div class="summary-number" id="statPending">0</div>
+        <div class="summary-label">未来場</div>
+      </div>
+      <div class="summary-card summary-card-info">
+        <div class="summary-number" id="statCompanions">0</div>
+        <div class="summary-label">同伴者合計</div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-bar">
+      <input type="text" class="filter-search" id="searchInput" placeholder="会社名・氏名・IDで検索...">
+      <div class="filter-tabs">
+        <button class="filter-tab active" data-filter="all">全て</button>
+        <button class="filter-tab" data-filter="checked">来場済</button>
+        <button class="filter-tab" data-filter="pending">未来場</button>
+      </div>
+    </div>
+
+    <!-- Sort -->
+    <div class="sort-bar">
+      <select class="sort-select" id="sortSelect">
+        <option value="newest">登録日（新しい順）</option>
+        <option value="oldest">登録日（古い順）</option>
+        <option value="company">会社名順</option>
+        <option value="name">氏名順</option>
+        <option value="checkin">チェックイン順</option>
+      </select>
+      <button class="org-btn org-btn-outline org-btn-sm" id="exportBtn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        CSV
+      </button>
+    </div>
+
+    <!-- Registration List -->
+    <div class="reg-list" id="regList"></div>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="organizer.js"></script>
+</body>
+</html>
