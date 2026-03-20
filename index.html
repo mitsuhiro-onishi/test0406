@@ -1028,8 +1028,15 @@
         <p style="font-size:12px;color:var(--text-light);margin-bottom:10px;">プリント読み取り時にバス停の時刻を自動抽出します</p>
         <div style="display:flex;flex-direction:column;gap:10px;">
           <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:14px;min-width:60px;">コース：</span>
-            <select id="busCourseSelect" style="flex:1;padding:8px;border:2px solid var(--border);border-radius:8px;font-size:14px;">
+            <span style="font-size:14px;min-width:80px;">行き：</span>
+            <select id="busGoingCourseSelect" style="flex:1;padding:8px;border:2px solid var(--border);border-radius:8px;font-size:14px;">
+              <option value="">未設定</option>
+              <option value="ほくぶ">ほくぶコース</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:14px;min-width:80px;">帰り：</span>
+            <select id="busReturnCourseSelect" style="flex:1;padding:8px;border:2px solid var(--border);border-radius:8px;font-size:14px;">
               <option value="">未設定</option>
               <option value="なら">ならコース</option>
               <option value="いこま">いこまコース</option>
@@ -1037,7 +1044,7 @@
             </select>
           </div>
           <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:14px;min-width:60px;">バス停：</span>
+            <span style="font-size:14px;min-width:80px;">バス停：</span>
             <input type="text" id="busStopInput" placeholder="例：あやめ池" style="flex:1;padding:8px;border:2px solid var(--border);border-radius:8px;font-size:14px;">
           </div>
         </div>

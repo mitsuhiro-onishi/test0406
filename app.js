@@ -54,7 +54,7 @@
   let currentYear, currentMonth;
   let scheduleData = {};
   let services = [];
-  let settings = { notify: false, notifyHour: 20, notifyMinute: 0, maxDays: MAX_DAYS, busCourse: '', busStop: '' };
+  let settings = { notify: false, notifyHour: 20, notifyMinute: 0, maxDays: MAX_DAYS, busGoingCourse: '', busReturnCourse: '', busStop: '' };
   let selectedDate = null;
   let familyId = null;
   let db = null;
@@ -707,7 +707,8 @@
       if (m === settings.notifyMinute) opt.selected = true;
       notifyMinuteEl.appendChild(opt);
     }
-    document.getElementById('busCourseSelect').value = settings.busCourse || '';
+    document.getElementById('busGoingCourseSelect').value = settings.busGoingCourse || '';
+    document.getElementById('busReturnCourseSelect').value = settings.busReturnCourse || '';
     document.getElementById('busStopInput').value = settings.busStop || '';
     document.getElementById('familyCodeDisplay').textContent = familyId || '未設定';
     document.getElementById('settingsModal').classList.add('active');
@@ -752,7 +753,8 @@
     settings.notifyHour = parseInt(document.getElementById('notifyHour').value);
     settings.notifyMinute = parseInt(document.getElementById('notifyMinute').value);
     settings.maxDays = parseInt(document.getElementById('maxDaysInput').value) || MAX_DAYS;
-    settings.busCourse = document.getElementById('busCourseSelect').value;
+    settings.busGoingCourse = document.getElementById('busGoingCourseSelect').value;
+    settings.busReturnCourse = document.getElementById('busReturnCourseSelect').value;
     settings.busStop = document.getElementById('busStopInput').value.trim();
     saveServices();
     saveSettings();
