@@ -834,12 +834,6 @@
           <div id="ocrEventsList"></div>
         </div>
 
-        <!-- Bus Default Schedule -->
-        <div class="ocr-result-card" id="ocrBusDefaultCard" style="display:none;">
-          <h3>🚌 バス基本スケジュール</h3>
-          <p style="font-size:12px;color:var(--text-light);margin-bottom:10px;">平日のバス時刻を設定すると、この月の該当曜日に一括適用します</p>
-          <div id="ocrBusDefaults"></div>
-        </div>
 
         <!-- Packing Items Results -->
         <div class="ocr-result-card" id="ocrPackingCard" style="display:none;">
@@ -1024,30 +1018,9 @@
         </div>
       </div>
       <div class="settings-section">
-        <h3>🚌 スクールバス設定</h3>
-        <p style="font-size:12px;color:var(--text-light);margin-bottom:10px;">プリント読み取り時にバス停の時刻を自動抽出します</p>
-        <div style="display:flex;flex-direction:column;gap:10px;">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:14px;min-width:80px;">行き：</span>
-            <select id="busGoingCourseSelect" style="flex:1;padding:8px;border:2px solid var(--border);border-radius:8px;font-size:14px;">
-              <option value="">未設定</option>
-              <option value="ほくぶ">ほくぶコース</option>
-            </select>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:14px;min-width:80px;">帰り：</span>
-            <select id="busReturnCourseSelect" style="flex:1;padding:8px;border:2px solid var(--border);border-radius:8px;font-size:14px;">
-              <option value="">未設定</option>
-              <option value="なら">ならコース</option>
-              <option value="いこま">いこまコース</option>
-              <option value="とみお">とみおコース</option>
-            </select>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:14px;min-width:80px;">バス停：</span>
-            <input type="text" id="busStopInput" placeholder="例：あやめ池" style="flex:1;padding:8px;border:2px solid var(--border);border-radius:8px;font-size:14px;">
-          </div>
-        </div>
+        <h3>🚌 帰りのお迎え時間（曜日別）</h3>
+        <p style="font-size:12px;color:var(--text-light);margin-bottom:10px;">曜日ごとのお迎え時間を設定→カレンダーに自動反映。休日はプリント読み取りで自動スキップ。</p>
+        <div id="pickupTimeSettings" style="display:flex;flex-direction:column;gap:6px;"></div>
       </div>
       <div class="settings-section">
         <h3>家族共有</h3>

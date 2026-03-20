@@ -54,7 +54,7 @@
   let currentYear, currentMonth;
   let scheduleData = {};
   let services = [];
-  let settings = { notify: false, notifyHour: 20, notifyMinute: 0, maxDays: MAX_DAYS, busGoingCourse: '', busReturnCourse: '', busStop: '' };
+  let settings = { notify: false, notifyHour: 20, notifyMinute: 0, maxDays: MAX_DAYS, pickupTimes: {} };
   let selectedDate = null;
   let familyId = null;
   let db = null;
@@ -707,13 +707,94 @@
       if (m === settings.notifyMinute) opt.selected = true;
       notifyMinuteEl.appendChild(opt);
     }
-    document.getElementById('busGoingCourseSelect').value = settings.busGoingCourse || '';
-    document.getElementById('busReturnCourseSelect').value = settings.busReturnCourse || '';
-    document.getElementById('busStopInput').value = settings.busStop || '';
+    renderPickupTimeSettings();
     document.getElementById('familyCodeDisplay').textContent = familyId || '未設定';
     document.getElementById('settingsModal').classList.add('active');
   }
   function closeSettings() { document.getElementById('settingsModal').classList.remove('active'); }
+
+  function renderPickupTimeSettings() {
+    const container = document.getElementById('pickupTimeSettings');
+    if (!container) return;
+    container.innerHTML = '';
+    const dowNames = ['日', '月', '火', '水', '木', '金', '土'];
+    const pt = settings.pickupTimes || {};
+
+    [1, 2, 3, 4, 5].forEach(dow => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;';
+
+      const toggle = document.createElement('input');
+      toggle.type = 'checkbox';
+      toggle.className = 'pickup-dow-toggle';
+      toggle.dataset.dow = dow;
+      toggle.checked = pt[dow] ? true : false;
+      toggle.style.cssText = 'width:18px;height:18px;accent-color:var(--primary);';
+
+      const label = document.createElement('span');
+      label.style.cssText = 'font-size:14px;font-weight:600;min-width:30px;';
+      label.textContent = dowNames[dow];
+
+      const timeInput = document.createElement('input');
+      timeInput.type = 'time';
+      timeInput.className = 'pickup-dow-time';
+      timeInput.dataset.dow = dow;
+      timeInput.value = pt[dow] || '15:00';
+      timeInput.style.cssText = 'flex:1;padding:6px 8px;border:2px solid var(--border);border-radius:8px;font-size:14px;';
+
+      row.appendChild(toggle);
+      row.appendChild(label);
+      row.appendChild(timeInput);
+      container.appendChild(row);
+    });
+  }
+
+  function collectPickupTimes() {
+    const result = {};
+    document.querySelectorAll('.pickup-dow-toggle').forEach(toggle => {
+      if (toggle.checked) {
+        const dow = toggle.dataset.dow;
+        const timeInput = document.querySelector(`.pickup-dow-time[data-dow="${dow}"]`);
+        if (timeInput && timeInput.value) {
+          result[dow] = timeInput.value;
+        }
+      }
+    });
+    return result;
+  }
+
+  function applyPickupTimesToCalendar(year, month) {
+    const pt = settings.pickupTimes || {};
+    if (Object.keys(pt).length === 0) return;
+
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(year, month, d);
+      const dow = date.getDay();
+      const key = dateKey(year, month, d);
+
+      if (pt[dow]) {
+        const existing = scheduleData[key] || {};
+        // 休日フラグが立っている日はスキップ
+        if (existing.holiday) continue;
+        scheduleData[key] = {
+          ...existing,
+          service: existing.service || 'none',
+          transport: 'school-bus',
+          transportTime: pt[dow],
+          note: existing.note || '',
+        };
+      } else {
+        // 設定にない曜日でバスが自動設定されていた場合はクリア
+        const existing = scheduleData[key];
+        if (existing && existing.transport === 'school-bus' && !existing.manualEdit) {
+          delete existing.transportTime;
+          existing.transport = 'none';
+        }
+      }
+    }
+    saveSchedule();
+  }
 
   function renderServiceList() {
     const serviceListEl = document.getElementById('serviceList');
@@ -753,11 +834,10 @@
     settings.notifyHour = parseInt(document.getElementById('notifyHour').value);
     settings.notifyMinute = parseInt(document.getElementById('notifyMinute').value);
     settings.maxDays = parseInt(document.getElementById('maxDaysInput').value) || MAX_DAYS;
-    settings.busGoingCourse = document.getElementById('busGoingCourseSelect').value;
-    settings.busReturnCourse = document.getElementById('busReturnCourseSelect').value;
-    settings.busStop = document.getElementById('busStopInput').value.trim();
+    settings.pickupTimes = collectPickupTimes();
     saveServices();
     saveSettings();
+    applyPickupTimesToCalendar(currentYear, currentMonth);
     if (currentView === 'calendar') { renderMonth(); renderLegend(); renderUsageCounter(); }
     setupNotification();
     closeSettings();
@@ -1376,7 +1456,6 @@
 
     if (ocrParsedEvents.length === 0) {
       card.style.display = 'none';
-      renderBusDefaults(false);
       return;
     }
 
@@ -1397,76 +1476,8 @@
       `;
       list.appendChild(row);
     });
-
-    // Show bus defaults UI when event calendar is detected
-    renderBusDefaults(true);
   }
 
-  function renderBusDefaults(show) {
-    const card = document.getElementById('ocrBusDefaultCard');
-    const container = document.getElementById('ocrBusDefaults');
-    if (!card || !container) return;
-
-    if (!show) {
-      card.style.display = 'none';
-      return;
-    }
-
-    card.style.display = 'block';
-    container.innerHTML = '';
-
-    const dowNames = ['日', '月', '火', '水', '木', '金', '土'];
-    // Default weekdays Mon-Fri
-    [1, 2, 3, 4, 5].forEach(dow => {
-      const row = document.createElement('div');
-      row.className = 'bus-default-row';
-      row.dataset.dow = dow;
-      row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);';
-
-      const toggle = document.createElement('input');
-      toggle.type = 'checkbox';
-      toggle.className = 'bus-default-toggle';
-      toggle.checked = true;
-      toggle.style.cssText = 'width:18px;height:18px;accent-color:var(--primary);';
-
-      const label = document.createElement('span');
-      label.style.cssText = 'font-size:14px;font-weight:600;min-width:30px;';
-      label.textContent = dowNames[dow];
-
-      const hourSel = document.createElement('select');
-      hourSel.className = 'bus-hour';
-      hourSel.style.cssText = 'padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:14px;';
-      for (let h = 9; h <= 18; h++) {
-        const opt = document.createElement('option');
-        opt.value = String(h).padStart(2, '0');
-        opt.textContent = String(h).padStart(2, '0');
-        hourSel.appendChild(opt);
-      }
-      hourSel.value = '15'; // Default 15:00
-
-      const sep = document.createElement('span');
-      sep.textContent = ':';
-      sep.style.fontWeight = '700';
-
-      const minSel = document.createElement('select');
-      minSel.className = 'bus-min';
-      minSel.style.cssText = 'padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:14px;';
-      for (let m = 0; m < 60; m += 5) {
-        const opt = document.createElement('option');
-        opt.value = String(m).padStart(2, '0');
-        opt.textContent = String(m).padStart(2, '0');
-        minSel.appendChild(opt);
-      }
-      minSel.value = '00';
-
-      row.appendChild(toggle);
-      row.appendChild(label);
-      row.appendChild(hourSel);
-      row.appendChild(sep);
-      row.appendChild(minSel);
-      container.appendChild(row);
-    });
-  }
 
   function renderOCRPackingItems() {
     const card = document.getElementById('ocrPackingCard');
@@ -1529,30 +1540,17 @@
       }
     });
 
-    // Collect bus defaults
-    const busDefaults = {};
-    const busCard = document.getElementById('ocrBusDefaultCard');
-    if (busCard && busCard.style.display !== 'none') {
-      document.querySelectorAll('.bus-default-row').forEach(row => {
-        const dow = parseInt(row.dataset.dow);
-        const enabled = row.querySelector('.bus-default-toggle').checked;
-        const hourSel = row.querySelector('.bus-hour');
-        const minSel = row.querySelector('.bus-min');
-        if (enabled && hourSel && minSel) {
-          busDefaults[dow] = `${hourSel.value}:${minSel.value}`;
-        }
-      });
-    }
-
-    return { schedules, events, items, busDefaults };
+    return { schedules, events, items };
   }
 
   // Show confirmation modal
   function showOCRConfirmation() {
-    const { schedules, events, items, busDefaults } = collectEditedOCRData();
-    const hasBus = Object.keys(busDefaults).length > 0;
+    const { schedules, events, items } = collectEditedOCRData();
+    const pt = settings.pickupTimes || {};
+    const hasPickup = Object.keys(pt).length > 0;
+    const holidayKeywords = ['休み', '休日', '休校', '休業', '代休', '振替休', '祝日', '閉校'];
 
-    if (schedules.length === 0 && events.length === 0 && items.length === 0 && !hasBus) {
+    if (events.length === 0 && items.length === 0) {
       showToast('反映するデータがありません。項目にチェックを入れてください。');
       return;
     }
@@ -1562,27 +1560,25 @@
     const dowNames = ['日', '月', '火', '水', '木', '金', '土'];
 
     if (events.length > 0) {
+      // 休み日を検出してハイライト
+      const holidayEvents = events.filter(evt => holidayKeywords.some(kw => evt.text.includes(kw)));
       html += '<div class="ocr-confirm-section"><h4>📅 行事予定</h4>';
       events.forEach(evt => {
-        html += `<div class="ocr-confirm-item">${evt.dayNum}日(${evt.day}) ${evt.text}</div>`;
+        const isHol = holidayKeywords.some(kw => evt.text.includes(kw));
+        const style = isHol ? ' style="color:#e74c3c;font-weight:600;"' : '';
+        const badge = isHol ? ' 🚫お迎えなし' : '';
+        html += `<div class="ocr-confirm-item"${style}>${evt.dayNum}日(${evt.day}) ${evt.text}${badge}</div>`;
       });
       html += '</div>';
-    }
 
-    if (hasBus) {
-      html += '<div class="ocr-confirm-section"><h4>🚌 バス基本スケジュール</h4>';
-      Object.entries(busDefaults).forEach(([dow, time]) => {
-        html += `<div class="ocr-confirm-item">${dowNames[dow]}曜日：<strong>${time}</strong></div>`;
-      });
-      html += '</div>';
-    }
-
-    if (schedules.length > 0) {
-      html += '<div class="ocr-confirm-section"><h4>🕐 下校時間スケジュール（4週間分に反映）</h4>';
-      schedules.forEach(s => {
-        html += `<div class="ocr-confirm-item">${s.label}：<strong>${s.time}</strong> 下校</div>`;
-      });
-      html += '</div>';
+      if (hasPickup) {
+        html += '<div class="ocr-confirm-section"><h4>🚌 お迎え自動反映</h4>';
+        html += `<div class="ocr-confirm-item">設定済みの曜日別お迎え時間をカレンダーに反映します</div>`;
+        if (holidayEvents.length > 0) {
+          html += `<div class="ocr-confirm-item" style="color:#e74c3c;">休み${holidayEvents.length}日はお迎えをスキップします</div>`;
+        }
+        html += '</div>';
+      }
     }
 
     if (items.length > 0) {
@@ -1601,17 +1597,21 @@
   function applyOCRResults() {
     document.getElementById('ocrConfirmOverlay').style.display = 'none';
 
-    const { schedules, events, items, busDefaults } = collectEditedOCRData();
+    const { schedules, events, items } = collectEditedOCRData();
     let eventCount = 0;
-    let scheduleCount = 0;
     let itemCount = 0;
     let busCount = 0;
 
-    // Apply event calendar to calendar notes
+    // 休みキーワード: これらが含まれる日はお迎え不要
+    const holidayKeywords = ['休み', '休日', '休校', '休業', '代休', '振替休', '祝日', '閉校'];
+
+    // Apply event calendar to calendar notes + 休み検出
+    const holidayDates = new Set();
     if (events.length > 0) {
       events.forEach(evt => {
         const key = evt.date;
         const existing = scheduleData[key] || {};
+        const isHolidayEvent = holidayKeywords.some(kw => evt.text.includes(kw));
         const newNote = existing.note
           ? (existing.note.includes(evt.text) ? existing.note : existing.note + '\n' + evt.text)
           : evt.text;
@@ -1621,12 +1621,17 @@
           transport: existing.transport || 'none',
           note: newNote,
         };
+        if (isHolidayEvent) {
+          scheduleData[key].holiday = true;
+          holidayDates.add(key);
+        }
         eventCount++;
       });
     }
 
-    // Apply bus default schedule
-    if (Object.keys(busDefaults).length > 0 && ocrParsedEvents.length > 0) {
+    // お迎え時間の自動反映（設定ベース + 休み日スキップ）
+    const pt = settings.pickupTimes || {};
+    if (Object.keys(pt).length > 0 && ocrParsedEvents.length > 0) {
       const firstEvt = ocrParsedEvents[0];
       const d0 = new Date(firstEvt.date);
       const targetYear = d0.getFullYear();
@@ -1636,18 +1641,23 @@
       for (let d = 1; d <= daysInMonth; d++) {
         const date = new Date(targetYear, targetMonth, d);
         const dow = date.getDay();
-        if (dow === 0 || dow === 6) continue;
-        if (!busDefaults[dow]) continue;
-
         const key = dateKey(targetYear, targetMonth, d);
+
+        // 土日はスキップ
+        if (dow === 0 || dow === 6) continue;
+        // 祝日スキップ
         if (isHoliday(key)) continue;
+        // OCRで休みと検出された日はスキップ
+        if (holidayDates.has(key)) continue;
+        // 該当曜日の設定がなければスキップ
+        if (!pt[dow]) continue;
 
         const existing = scheduleData[key] || {};
         scheduleData[key] = {
           ...existing,
           service: existing.service || 'none',
-          transport: existing.transport || 'school-bus',
-          transportTime: existing.transportTime || busDefaults[dow],
+          transport: 'school-bus',
+          transportTime: pt[dow],
           note: existing.note || '',
         };
         busCount++;
@@ -1655,39 +1665,6 @@
     }
 
     if (eventCount > 0 || busCount > 0) saveSchedule();
-
-    // Apply day-of-week schedule (original logic for time-based prints)
-    if (schedules.length > 0) {
-      const today = new Date();
-      for (let offset = 0; offset < 28; offset++) {
-        const date = new Date(today);
-        date.setDate(today.getDate() + offset);
-        const dow = date.getDay();
-        const matching = schedules.find(s => s.dayIndex === dow);
-        if (matching) {
-          const key = dateKey(date.getFullYear(), date.getMonth(), date.getDate());
-          const existing = scheduleData[key] || {};
-          if (!existing.service || existing.service === 'none') {
-            scheduleData[key] = {
-              ...existing,
-              service: existing.service || 'none',
-              transport: existing.transport || 'school-bus',
-              transportTime: matching.time,
-              returnTime: existing.returnTime || null,
-              note: existing.note || `下校 ${matching.time}`,
-            };
-          } else {
-            scheduleData[key] = {
-              ...existing,
-              transportTime: existing.transportTime || matching.time,
-              note: existing.note ? existing.note : `下校 ${matching.time}`,
-            };
-          }
-          scheduleCount++;
-        }
-      }
-      saveSchedule();
-    }
 
     // Apply packing items
     items.forEach((text, idx) => {
@@ -1708,8 +1685,8 @@
     // Show confirmation
     const parts = [];
     if (eventCount > 0) parts.push(`行事${eventCount}件`);
-    if (busCount > 0) parts.push(`バス${busCount}日分`);
-    if (scheduleCount > 0) parts.push(`スケジュール${scheduleCount}件`);
+    if (busCount > 0) parts.push(`お迎え${busCount}日分`);
+    if (holidayDates.size > 0) parts.push(`休み${holidayDates.size}日検出`);
     if (itemCount > 0) parts.push(`持ち物${itemCount}件`);
     const msg = parts.length > 0 ? parts.join('、') + 'を反映しました' : '反映するデータがありませんでした。';
 
@@ -1733,8 +1710,6 @@
     ocrParsedEvents = [];
     const eventsCard = document.getElementById('ocrEventsCard');
     if (eventsCard) eventsCard.style.display = 'none';
-    const busCard = document.getElementById('ocrBusDefaultCard');
-    if (busCard) busCard.style.display = 'none';
   }
 
   // ============================================================
