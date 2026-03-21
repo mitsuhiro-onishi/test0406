@@ -165,6 +165,16 @@ export async function POST(request: NextRequest) {
       await supabaseAdmin.from("seminar_bookings").insert(bookings);
     }
 
+    // 確認メール送信（非同期・失敗しても登録は成功扱い）
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    fetch(`${baseUrl}/api/email/confirmation`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ registration_id: registration.id }),
+    }).catch((emailErr) => {
+      console.error("Auto confirmation email failed:", emailErr);
+    });
+
     return NextResponse.json({
       success: true,
       ticket_code: registration.ticket_code,

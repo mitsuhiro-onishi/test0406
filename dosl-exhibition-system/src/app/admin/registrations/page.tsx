@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import EditRegistrationModal from "@/components/admin/EditRegistrationModal";
 
 interface RegistrationRow {
   id: string;
@@ -19,7 +20,10 @@ interface RegistrationRow {
     email: string;
     company_name: string | null;
     department: string | null;
+    position: string | null;
     phone: string | null;
+    postal_code: string | null;
+    address: string | null;
   };
   exhibition: { id: string; name: string; slug: string };
   registration_type: { name: string; color: string } | null;
@@ -44,8 +48,10 @@ export default function RegistrationsPage() {
     { id: string; name: string }[]
   >([]);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [editingRegistration, setEditingRegistration] =
+    useState<RegistrationRow | null>(null);
+  const [sendingEmail, setSendingEmail] = useState<string | null>(null);
 
-  // 展示会一覧を初期ロード
   useEffect(() => {
     fetch("/api/exhibitions")
       .then((r) => r.json())
@@ -77,7 +83,6 @@ export default function RegistrationsPage() {
     fetchRegistrations();
   }, [fetchRegistrations]);
 
-  // 検索はデバウンス
   const [searchInput, setSearchInput] = useState("");
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -87,15 +92,59 @@ export default function RegistrationsPage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
+  function handleCsvDownload() {
+    const params = new URLSearchParams();
+    if (query) params.set("q", query);
+    if (exhibitionId) params.set("exhibition_id", exhibitionId);
+    if (status) params.set("status", status);
+    window.open(`/api/registrations/csv?${params}`, "_blank");
+  }
+
+  async function handleSendEmail(reg: RegistrationRow) {
+    if (
+      !confirm(
+        `${reg.visitor.last_name} ${reg.visitor.first_name} 様 (${reg.visitor.email}) に確認メールを送信しますか？`,
+      )
+    )
+      return;
+
+    setSendingEmail(reg.id);
+    try {
+      const res = await fetch("/api/email/confirmation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registration_id: reg.id }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        alert("メールを送信しました");
+      } else {
+        alert(`送信失敗: ${result.error}`);
+      }
+    } catch {
+      alert("ネットワークエラー");
+    } finally {
+      setSendingEmail(null);
+    }
+  }
+
   const registrations = data?.registrations || [];
 
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">登録者一覧</h1>
-        <span className="text-sm text-gray-500">
-          {data ? `${data.total}件` : ""}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-500">
+            {data ? `${data.total}件` : ""}
+          </span>
+          <button
+            onClick={handleCsvDownload}
+            className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium hover:bg-gray-50 transition flex items-center gap-1.5"
+          >
+            CSV
+          </button>
+        </div>
       </div>
 
       {/* 検索 & フィルター */}
@@ -159,6 +208,7 @@ export default function RegistrationsPage() {
                     <th className="px-4 py-3">種別</th>
                     <th className="px-4 py-3">ステータス</th>
                     <th className="px-4 py-3">登録日</th>
+                    <th className="px-4 py-3 w-24">操作</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-sm">
@@ -236,11 +286,30 @@ export default function RegistrationsPage() {
                             "ja-JP",
                           )}
                         </td>
+                        <td className="px-4 py-3">
+                          <div
+                            className="flex gap-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              onClick={() => setEditingRegistration(r)}
+                              className="px-2 py-1 text-xs rounded border border-gray-300 text-gray-600 hover:bg-gray-50 transition"
+                            >
+                              編集
+                            </button>
+                            <button
+                              onClick={() => handleSendEmail(r)}
+                              disabled={sendingEmail === r.id}
+                              className="px-2 py-1 text-xs rounded border border-blue-200 text-blue-600 hover:bg-blue-50 transition disabled:opacity-50"
+                            >
+                              {sendingEmail === r.id ? "..." : "通知"}
+                            </button>
+                          </div>
+                        </td>
                       </tr>
-                      {/* 展開行: 詳細情報 */}
                       {expandedRow === r.id && (
                         <tr key={`${r.id}-detail`}>
-                          <td colSpan={8} className="bg-gray-50 px-8 py-4">
+                          <td colSpan={9} className="bg-gray-50 px-8 py-4">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                               {r.visitor.department && (
                                 <div>
@@ -248,6 +317,14 @@ export default function RegistrationsPage() {
                                     部署
                                   </span>
                                   <p>{r.visitor.department}</p>
+                                </div>
+                              )}
+                              {r.visitor.position && (
+                                <div>
+                                  <span className="text-gray-400 text-xs">
+                                    役職
+                                  </span>
+                                  <p>{r.visitor.position}</p>
                                 </div>
                               )}
                               {r.visitor.phone && (
@@ -266,14 +343,15 @@ export default function RegistrationsPage() {
                                   <p>{r.industry}</p>
                                 </div>
                               )}
-                              {r.visit_purpose && r.visit_purpose.length > 0 && (
-                                <div>
-                                  <span className="text-gray-400 text-xs">
-                                    来場目的
-                                  </span>
-                                  <p>{r.visit_purpose.join(", ")}</p>
-                                </div>
-                              )}
+                              {r.visit_purpose &&
+                                r.visit_purpose.length > 0 && (
+                                  <div>
+                                    <span className="text-gray-400 text-xs">
+                                      来場目的
+                                    </span>
+                                    <p>{r.visit_purpose.join(", ")}</p>
+                                  </div>
+                                )}
                               {r.companions.length > 0 && (
                                 <div className="col-span-2">
                                   <span className="text-gray-400 text-xs">
@@ -292,6 +370,17 @@ export default function RegistrationsPage() {
                                   </p>
                                 </div>
                               )}
+                              {r.visitor.postal_code && (
+                                <div className="col-span-2">
+                                  <span className="text-gray-400 text-xs">
+                                    住所
+                                  </span>
+                                  <p>
+                                    〒{r.visitor.postal_code}{" "}
+                                    {r.visitor.address}
+                                  </p>
+                                </div>
+                              )}
                               <div>
                                 <span className="text-gray-400 text-xs">
                                   展示会
@@ -307,7 +396,7 @@ export default function RegistrationsPage() {
                   {registrations.length === 0 && (
                     <tr>
                       <td
-                        colSpan={8}
+                        colSpan={9}
                         className="px-4 py-12 text-center text-gray-400"
                       >
                         {query
@@ -320,12 +409,10 @@ export default function RegistrationsPage() {
               </table>
             </div>
 
-            {/* ページネーション */}
             {data && data.total_pages > 1 && (
               <div className="flex items-center justify-between px-6 py-4 border-t">
                 <p className="text-sm text-gray-500">
-                  {data.total}件中{" "}
-                  {(page - 1) * data.per_page + 1}-
+                  {data.total}件中 {(page - 1) * data.per_page + 1}-
                   {Math.min(page * data.per_page, data.total)}件
                 </p>
                 <div className="flex gap-2">
@@ -352,6 +439,18 @@ export default function RegistrationsPage() {
           </>
         )}
       </div>
+
+      {/* 編集モーダル */}
+      {editingRegistration && (
+        <EditRegistrationModal
+          registration={editingRegistration}
+          onClose={() => setEditingRegistration(null)}
+          onSaved={() => {
+            setEditingRegistration(null);
+            fetchRegistrations();
+          }}
+        />
+      )}
     </div>
   );
 }
