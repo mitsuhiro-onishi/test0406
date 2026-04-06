@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>展示会ドキュメント管理 - 管理者ダッシュボード</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Roboto', 'Noto Sans JP', sans-serif;
+      background: #f5f5f5;
+      color: #212121;
+    }
+
+    /* AppBar */
+    .appbar {
+      background: #1565c0;
+      color: white;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      height: 56px;
+    }
+    .appbar .menu-toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      margin-right: 12px;
+      padding: 4px;
+    }
+    .appbar h1 { font-size: 18px; font-weight: 500; flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .appbar .user-area { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+    .appbar .notification {
+      position: relative;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 50%;
+    }
+    .appbar .notification:hover { background: rgba(255,255,255,0.15); }
+    .appbar .badge {
+      position: absolute;
+      top: 0;
+      right: 0;
+      background: #f44336;
+      color: white;
+      font-size: 10px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .appbar .user-name { font-size: 14px; opacity: 0.9; }
+
+    /* Sidebar */
+    .sidebar {
+      position: fixed;
+      top: 56px;
+      left: 0;
+      bottom: 0;
+      width: 240px;
+      background: white;
+      box-shadow: 2px 0 4px rgba(0,0,0,0.08);
+      z-index: 90;
+      overflow-y: auto;
+      transition: transform 0.3s;
+    }
+    .sidebar-nav { padding: 8px 0; }
+    .sidebar-item {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 24px;
+      font-size: 14px;
+      color: #616161;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      font-family: inherit;
+    }
+    .sidebar-item:hover { background: #f5f5f5; color: #212121; }
+    .sidebar-item.active { background: #e3f2fd; color: #1565c0; font-weight: 500; }
+    .sidebar-item .material-icons { font-size: 22px; }
+    .sidebar-divider { height: 1px; background: #e0e0e0; margin: 8px 16px; }
+    .sidebar-link {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 24px;
+      font-size: 14px;
+      color: #1565c0;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+    .sidebar-link:hover { background: #f5f5f5; }
+    .sidebar-link .material-icons { font-size: 22px; }
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 56px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 89;
+    }
+
+    /* Main content */
+    .main {
+      margin-left: 240px;
+      margin-top: 56px;
+      padding: 24px;
+      min-height: calc(100vh - 56px);
+    }
+
+    /* Tab view control */
+    .tab-view { display: none; }
+    .tab-view.active { display: block; }
+
+    /* Cards */
+    .card {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .card h2 {
+      font-size: 20px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    .card .subtitle {
+      font-size: 14px;
+      color: #757575;
+      margin-bottom: 20px;
+    }
+    .page-title {
+      font-size: 22px;
+      font-weight: 500;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Summary cards */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .summary-card {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: box-shadow 0.2s;
+    }
+    .summary-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .summary-card .icon-wrap {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 12px;
+    }
+    .summary-card .icon-wrap .material-icons { color: white; font-size: 24px; }
+    .summary-card .number { font-size: 28px; font-weight: 700; color: #212121; }
+    .summary-card .label { font-size: 13px; color: #757575; margin-top: 4px; }
+
+    /* Activity feed */
+    .activity-list { list-style: none; }
+    .activity-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid #f5f5f5;
+      font-size: 14px;
+    }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-time { color: #9e9e9e; font-size: 12px; white-space: nowrap; min-width: 48px; padding-top: 2px; }
+    .activity-text { flex-grow: 1; color: #424242; line-height: 1.5; }
+    .activity-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .activity-icon .material-icons { font-size: 16px; color: white; }
+
+    /* Progress bars */
+    .progress-table { width: 100%; }
+    .progress-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid #f5f5f5;
+    }
+    .progress-row:last-child { border-bottom: none; }
+    .progress-label { font-size: 14px; min-width: 110px; }
+    .progress-bar-wrap {
+      flex-grow: 1;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+    .progress-count { font-size: 13px; color: #757575; min-width: 60px; text-align: right; }
+    .progress-pct { font-size: 13px; font-weight: 500; min-width: 40px; text-align: right; }
+
+    /* Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    thead { background: #fafafa; }
+    th {
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #616161;
+      border-bottom: 1px solid #e0e0e0;
+      white-space: nowrap;
+    }
+    td {
+      padding: 10px 12px;
+      font-size: 14px;
+      border-bottom: 1px solid #f5f5f5;
+    }
+    tr:last-child td { border-bottom: none; }
+
+    /* Chips */
+    .chip-status {
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      display: inline-block;
+    }
+    .status-received { background: #e3f2fd; color: #1565c0; }
+    .status-confirmed { background: #e8f5e9; color: #2e7d32; }
+    .status-review { background: #fff3e0; color: #e65100; }
+    .status-analyzing { background: #f3e5f5; color: #7b1fa2; }
+    .status-error { background: #ffebee; color: #c62828; }
+    .chip-category {
+      font-size: 12px;
+      border: 1px solid #e0e0e0;
+      padding: 2px 10px;
+      border-radius: 12px;
+      white-space: nowrap;
+      display: inline-block;
+    }
+    .chip-required {
+      font-size: 11px;
+      background: #ffebee;
+      color: #d32f2f;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 500;
+    }
+    .chip-optional {
+      font-size: 11px;
+      background: #f5f5f5;
+      color: #757575;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 500;
+    }
+
+    /* Buttons */
+    .btn {
+      padding: 8px 20px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: none;
+      transition: all 0.2s;
+    }
+    .btn-contained {
+      background: #1565c0;
+      color: white;
+    }
+    .btn-contained:hover { background: #0d47a1; }
+    .btn-outlined {
+      background: white;
+      border: 1px solid #1565c0;
+      color: #1565c0;
+    }
+    .btn-outlined:hover { background: #e3f2fd; }
+    .btn-text {
+      background: none;
+      color: #757575;
+      border: none;
+    }
+    .btn-text:hover { background: #f5f5f5; }
+    .btn-success { background: #4caf50; color: white; }
+    .btn-success:hover { background: #388e3c; }
+    .btn-danger { background: white; border: 1px solid #f44336; color: #f44336; }
+    .btn-danger:hover { background: #ffebee; }
+    .btn-sm { padding: 4px 12px; font-size: 13px; }
+
+    /* Filter bar */
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 20px;
+      align-items: center;
+    }
+    .filter-bar select, .filter-bar input {
+      padding: 8px 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: inherit;
+      background: white;
+    }
+    .filter-bar select:focus, .filter-bar input:focus {
+      outline: none;
+      border-color: #1565c0;
+    }
+
+    /* Pagination */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 16px;
+      font-size: 13px;
+      color: #757575;
+    }
+    .pagination-pages {
+      display: flex;
+      gap: 4px;
+    }
+    .page-btn {
+      width: 32px;
+      height: 32px;
+      border: 1px solid #e0e0e0;
+      background: white;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 13px;
+      font-family: inherit;
+    }
+    .page-btn:hover { background: #f5f5f5; }
+    .page-btn.active { background: #1565c0; color: white; border-color: #1565c0; }
+
+    /* AI Review split */
+    .review-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    .review-panel {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
+      padding: 24px;
+    }
+    .review-panel h3 {
+      font-size: 16px;
+      font-weight: 500;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .preview-area {
+      background: #fafafa;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      min-height: 300px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      padding: 24px;
+      color: #9e9e9e;
+    }
+    .preview-area .material-icons { font-size: 64px; margin-bottom: 12px; }
+
+    /* Confidence score */
+    .confidence {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding: 16px;
+      border-radius: 8px;
+    }
+    .confidence-high { background: #e8f5e9; }
+    .confidence-mid { background: #fff3e0; }
+    .confidence-low { background: #ffebee; }
+    .confidence-score {
+      font-size: 32px;
+      font-weight: 700;
+    }
+    .confidence-label { font-size: 14px; }
+
+    /* Extracted fields */
+    .field-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid #f5f5f5;
+    }
+    .field-row:last-child { border-bottom: none; }
+    .field-label { font-size: 13px; color: #757575; min-width: 100px; }
+    .field-value { font-size: 14px; flex-grow: 1; }
+    .field-value.low-confidence {
+      background: #fff8e1;
+      border: 1px solid #ffb300;
+      border-radius: 4px;
+      padding: 4px 8px;
+    }
+    .field-warning {
+      font-size: 12px;
+      color: #e65100;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Action buttons row */
+    .action-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      justify-content: flex-end;
+    }
+
+    /* Snackbar */
+    .snackbar {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #323232;
+      color: white;
+      padding: 14px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      z-index: 1000;
+      transition: transform 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .snackbar.show { transform: translateX(-50%) translateY(0); }
+
+    /* Dialog */
+    .dialog-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 200;
+      justify-content: center;
+      align-items: center;
+    }
+    .dialog-overlay.show { display: flex; }
+    .dialog {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      width: 90%;
+      max-width: 480px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+    }
+    .dialog h3 {
+      font-size: 18px;
+      font-weight: 500;
+      margin-bottom: 16px;
+    }
+    .dialog .form-group {
+      margin-bottom: 16px;
+    }
+    .dialog label {
+      display: block;
+      font-size: 13px;
+      color: #757575;
+      margin-bottom: 4px;
+    }
+    .dialog input, .dialog select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    .dialog input:focus, .dialog select:focus {
+      outline: none;
+      border-color: #1565c0;
+    }
+    .dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .summary-grid { grid-template-columns: repeat(2, 1fr); }
+      .review-split { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .appbar .menu-toggle { display: block; }
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-overlay.show { display: block; }
+      .main { margin-left: 0; }
+      .summary-grid { grid-template-columns: 1fr 1fr; }
+      .filter-bar { flex-direction: column; }
+      .filter-bar select, .filter-bar input { width: 100%; }
+      .page-title { font-size: 18px; }
+      .appbar h1 { font-size: 15px; }
+      table { font-size: 13px; }
+      th, td { padding: 8px; }
+      .td-hide-mobile { display: none; }
+      .action-row { flex-direction: column; }
+      .action-row .btn { justify-content: center; }
+    }
+    @media (max-width: 480px) {
+      .summary-grid { grid-template-columns: 1fr; }
+    }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+
+  <!-- AppBar -->
+  <div class="appbar">
+    <button class="menu-toggle" id="menuToggle">
+      <span class="material-icons">menu</span>
+    </button>
+    <h1>展示会ドキュメント管理</h1>
+    <div class="user-area">
+      <div class="notification" title="通知">
+        <span class="material-icons">notifications</span>
+        <span class="badge">3</span>
+      </div>
+      <span class="user-name">田中太郎</span>
+    </div>
+  </div>
+
+  <!-- Sidebar overlay (mobile) -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- Sidebar -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-nav">
+      <button class="sidebar-item active" data-tab="dashboard">
+        <span class="material-icons">dashboard</span>
+        ダッシュボード
+      </button>
+      <button class="sidebar-item" data-tab="documents">
+        <span class="material-icons">description</span>
+        ドキュメント一覧
+      </button>
+      <button class="sidebar-item" data-tab="review">
+        <span class="material-icons">rate_review</span>
+        AIレビュー
+      </button>
+      <button class="sidebar-item" data-tab="categories">
+        <span class="material-icons">category</span>
+        カテゴリ管理
+      </button>
+      <div class="sidebar-divider"></div>
+      <a href="index.html" class="sidebar-link">
+        <span class="material-icons">open_in_new</span>
+        出展社ポータルを見る
+      </a>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <div class="main">
+
+    <!-- ==================== TAB 1: Dashboard ==================== -->
+    <div class="tab-view active" id="tab-dashboard">
+      <div class="page-title">
+        <span class="material-icons">dashboard</span>
+        ダッシュボード
+      </div>
+
+      <!-- Summary cards -->
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="icon-wrap" style="background:#1565c0">
+            <span class="material-icons">inbox</span>
+          </div>
+          <div class="number">312</div>
+          <div class="label">受信数</div>
+        </div>
+        <div class="summary-card">
+          <div class="icon-wrap" style="background:#7b1fa2">
+            <span class="material-icons">psychology</span>
+          </div>
+          <div class="number">280</div>
+          <div class="label">解析済</div>
+        </div>
+        <div class="summary-card">
+          <div class="icon-wrap" style="background:#e65100">
+            <span class="material-icons">pending_actions</span>
+          </div>
+          <div class="number">15</div>
+          <div class="label">要レビュー</div>
+        </div>
+        <div class="summary-card">
+          <div class="icon-wrap" style="background:#2e7d32">
+            <span class="material-icons">check_circle</span>
+          </div>
+          <div class="number">265</div>
+          <div class="label">確認済</div>
+        </div>
+      </div>
+
+      <!-- Activity & Progress row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
+        <!-- Activity feed -->
+        <div class="card" style="margin-bottom:0">
+          <h2>直近のアクティビティ</h2>
+          <p class="subtitle">最新のシステムイベント</p>
+          <ul class="activity-list">
+            <li class="activity-item">
+              <div class="activity-icon" style="background:#1565c0"><span class="material-icons">inbox</span></div>
+              <div>
+                <div class="activity-text">株式会社A の注文書を受信しました</div>
+                <div class="activity-time">10:05</div>
+              </div>
+            </li>
+            <li class="activity-item">
+              <div class="activity-icon" style="background:#7b1fa2"><span class="material-icons">psychology</span></div>
+              <div>
+                <div class="activity-text">ブースB-03の設計書をAI解析完了（信頼度92%）</div>
+                <div class="activity-time">09:52</div>
+              </div>
+            </li>
+            <li class="activity-item">
+              <div class="activity-icon" style="background:#e65100"><span class="material-icons">warning</span></div>
+              <div>
+                <div class="activity-text">株式会社Cの注文書がレビュー待ちです</div>
+                <div class="activity-time">09:30</div>
+              </div>
+            </li>
+            <li class="activity-item">
+              <div class="activity-icon" style="background:#2e7d32"><span class="material-icons">check_circle</span></div>
+              <div>
+                <div class="activity-text">株式会社Dの電気申込書を承認しました</div>
+                <div class="activity-time">09:15</div>
+              </div>
+            </li>
+            <li class="activity-item">
+              <div class="activity-icon" style="background:#1565c0"><span class="material-icons">inbox</span></div>
+              <div>
+                <div class="activity-text">株式会社Eから弁当注文書を受信しました</div>
+                <div class="activity-time">09:00</div>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Submission progress -->
+        <div class="card" style="margin-bottom:0">
+          <h2>書類提出率</h2>
+          <p class="subtitle">第15回 国際産業展示会 ― 98社中 80社提出（82%）</p>
+          <div style="text-align:center;margin-bottom:20px;">
+            <div style="font-size:48px;font-weight:700;color:#1565c0;">82%</div>
+            <div style="font-size:14px;color:#757575;">全体提出率</div>
+          </div>
+          <div style="height:8px;background:#e0e0e0;border-radius:4px;overflow:hidden;margin-bottom:24px;">
+            <div style="width:82%;height:100%;background:#1565c0;border-radius:4px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category progress -->
+      <div class="card">
+        <h2>提出カテゴリ別の提出状況</h2>
+        <p class="subtitle">各カテゴリの提出進捗</p>
+        <div class="progress-row">
+          <span class="progress-label">コマ申込</span>
+          <div class="progress-bar-wrap"><div class="progress-bar" style="width:87%;background:#4caf50"></div></div>
+          <span class="progress-count">85 / 98</span>
+          <span class="progress-pct" style="color:#4caf50">87%</span>
+        </div>
+        <div class="progress-row">
+          <span class="progress-label">電気申込</span>
+          <div class="progress-bar-wrap"><div class="progress-bar" style="width:73%;background:#ff9800"></div></div>
+          <span class="progress-count">72 / 98</span>
+          <span class="progress-pct" style="color:#ff9800">73%</span>
+        </div>
+        <div class="progress-row">
+          <span class="progress-label">弁当注文</span>
+          <div class="progress-bar-wrap"><div class="progress-bar" style="width:61%;background:#ff9800"></div></div>
+          <span class="progress-count">60 / 98</span>
+          <span class="progress-pct" style="color:#ff9800">61%</span>
+        </div>
+        <div class="progress-row">
+          <span class="progress-label">備品レンタル</span>
+          <div class="progress-bar-wrap"><div class="progress-bar" style="width:46%;background:#f44336"></div></div>
+          <span class="progress-count">45 / 98</span>
+          <span class="progress-pct" style="color:#f44336">46%</span>
+        </div>
+        <div class="progress-row">
+          <span class="progress-label">ブース設営</span>
+          <div class="progress-bar-wrap"><div class="progress-bar" style="width:55%;background:#ff9800"></div></div>
+          <span class="progress-count">54 / 98</span>
+          <span class="progress-pct" style="color:#ff9800">55%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 2: Documents ==================== -->
+    <div class="tab-view" id="tab-documents">
+      <div class="page-title">
+        <span class="material-icons">description</span>
+        ドキュメント一覧
+      </div>
+
+      <div class="card">
+        <!-- Filters -->
+        <div class="filter-bar">
+          <select id="filterExhibition">
+            <option>展示会: 第15回 国際産業展示会</option>
+          </select>
+          <select id="filterStatus">
+            <option value="">ステータス: 全て</option>
+            <option value="received">受信済</option>
+            <option value="analyzing">解析中</option>
+            <option value="review">要レビュー</option>
+            <option value="confirmed">確認済</option>
+          </select>
+          <select id="filterCategory">
+            <option value="">カテゴリ: 全て</option>
+            <option>コマ申込</option>
+            <option>電気申込</option>
+            <option>弁当注文</option>
+            <option>備品レンタル</option>
+            <option>ブース設営</option>
+          </select>
+          <select id="filterMethod">
+            <option value="">受信方法: 全て</option>
+            <option>Webアップロード</option>
+          </select>
+        </div>
+
+        <!-- Document table -->
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th><input type="checkbox" id="checkAll" /></th>
+                <th>ファイル名</th>
+                <th>出展社</th>
+                <th>カテゴリ</th>
+                <th>ステータス</th>
+                <th class="td-hide-mobile">受信日時</th>
+                <th class="td-hide-mobile">受信方法</th>
+              </tr>
+            </thead>
+            <tbody id="docTableBody">
+              <tr>
+                <td><input type="checkbox" /></td>
+                <td><span style="display:flex;align-items:center;gap:6px;"><span class="material-icons" style="font-size:18px;color:#4caf50">description</span>注文書_A社.xlsx</span></td>
+                <td>株式会社A</td>
+                <td><span class="chip-category">コマ申込</span></td>
+                <td><span class="chip-status status-confirmed">確認済</span></td>
+                <td class="td-hide-mobile">04/20 10:00</td>
+                <td class="td-hide-mobile">Web</td>
+              </tr>
+              <tr>
+                <td><input type="checkbox" /></td>
+                <td><span style="display:flex;align-items:center;gap:6px;"><span class="material-icons" style="font-size:18px;color:#f44336">picture_as_pdf</span>設計図_B社.pdf</span></td>
+                <td>株式会社B</td>
+                <td><span class="chip-category">ブース設営</span></td>
+                <td><span class="chip-status status-review">要レビュー</span></td>
+                <td class="td-hide-mobile">04/20 09:52</td>
+                <td class="td-hide-mobile">Web</td>
+              </tr>
+              <tr>
+                <td><input type="checkbox" /></td>
+                <td><span style="display:flex;align-items:center;gap:6px;"><span class="material-icons" style="font-size:18px;color:#1565c0">description</span>order_C.docx</span></td>
+                <td>株式会社C</td>
+                <td><span class="chip-category">電気申込</span></td>
+                <td><span class="chip-status status-analyzing">解析中</span></td>
+                <td class="td-hide-mobile">04/20 09:30</td>
+                <td class="td-hide-mobile">Web</td>
+              </tr>
+              <tr>
+                <td><input type="checkbox" /></td>
+                <td><span style="display:flex;align-items:center;gap:6px;"><span class="material-icons" style="font-size:18px;color:#4caf50">description</span>弁当注文_D社.xlsx</span></td>
+                <td>株式会社D</td>
+                <td><span class="chip-category">弁当注文</span></td>
+                <td><span class="chip-status status-confirmed">確認済</span></td>
+                <td class="td-hide-mobile">04/19 16:20</td>
+                <td class="td-hide-mobile">Web</td>
+              </tr>
+              <tr>
+                <td><input type="checkbox" /></td>
+                <td><span style="display:flex;align-items:center;gap:6px;"><span class="material-icons" style="font-size:18px;color:#ff9800">image</span>撮影_備品_E社.jpg</span></td>
+                <td>株式会社E</td>
+                <td><span class="chip-category">備品レンタル</span></td>
+                <td><span class="chip-status status-received">受信済</span></td>
+                <td class="td-hide-mobile">04/19 15:00</td>
+                <td class="td-hide-mobile">Web</td>
+              </tr>
+              <tr>
+                <td><input type="checkbox" /></td>
+                <td><span style="display:flex;align-items:center;gap:6px;"><span class="material-icons" style="font-size:18px;color:#f44336">picture_as_pdf</span>電気工事_F社.pdf</span></td>
+                <td>株式会社F</td>
+                <td><span class="chip-category">電気申込</span></td>
+                <td><span class="chip-status status-confirmed">確認済</span></td>
+                <td class="td-hide-mobile">04/19 14:30</td>
+                <td class="td-hide-mobile">Web</td>
+              </tr>
+              <tr>
+                <td><input type="checkbox" /></td>
+                <td><span style="display:flex;align-items:center;gap:6px;"><span class="material-icons" style="font-size:18px;color:#4caf50">description</span>コマ申込_G社.xlsx</span></td>
+                <td>株式会社G</td>
+                <td><span class="chip-category">コマ申込</span></td>
+                <td><span class="chip-status status-review">要レビュー</span></td>
+                <td class="td-hide-mobile">04/19 13:45</td>
+                <td class="td-hide-mobile">Web</td>
+              </tr>
+              <tr>
+                <td><input type="checkbox" /></td>
+                <td><span style="display:flex;align-items:center;gap:6px;"><span class="material-icons" style="font-size:18px;color:#1565c0">description</span>設営計画_H社.docx</span></td>
+                <td>株式会社H</td>
+                <td><span class="chip-category">ブース設営</span></td>
+                <td><span class="chip-status status-confirmed">確認済</span></td>
+                <td class="td-hide-mobile">04/19 11:20</td>
+                <td class="td-hide-mobile">Web</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination">
+          <span>全340件中 1-20件表示</span>
+          <div class="pagination-pages">
+            <button class="page-btn"><span class="material-icons" style="font-size:16px">chevron_left</span></button>
+            <button class="page-btn active">1</button>
+            <button class="page-btn">2</button>
+            <button class="page-btn">3</button>
+            <button class="page-btn">...</button>
+            <button class="page-btn">17</button>
+            <button class="page-btn"><span class="material-icons" style="font-size:16px">chevron_right</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 3: AI Review ==================== -->
+    <div class="tab-view" id="tab-review">
+      <div class="page-title">
+        <span class="material-icons">rate_review</span>
+        AIレビュー
+      </div>
+
+      <!-- Review queue summary -->
+      <div class="card" style="margin-bottom:24px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+          <div>
+            <h2 style="margin-bottom:4px;">レビュー待ち: 15件</h2>
+            <p style="font-size:14px;color:#757575;">低信頼度のAI解析結果を確認してください</p>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-outlined btn-sm" onclick="showReviewItem('prev')">
+              <span class="material-icons" style="font-size:16px">chevron_left</span> 前へ
+            </button>
+            <span style="font-size:14px;color:#757575;display:flex;align-items:center;">3 / 15</span>
+            <button class="btn btn-outlined btn-sm" onclick="showReviewItem('next')">
+              次へ <span class="material-icons" style="font-size:16px">chevron_right</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Split view -->
+      <div class="review-split">
+        <!-- Left: Original preview -->
+        <div class="review-panel">
+          <h3>
+            <span class="material-icons">image</span>
+            原本プレビュー
+          </h3>
+          <div class="preview-area">
+            <span class="material-icons">description</span>
+            <div style="font-size:16px;margin-bottom:8px;color:#424242;">注文書</div>
+            <div style="font-size:14px;color:#9e9e9e;text-align:center;line-height:2;">
+              株式会社C<br />
+              ブース番号: A-15<br /><br />
+              <table style="border:1px solid #ddd;margin:0 auto;text-align:left;border-collapse:collapse;width:80%;">
+                <tr style="background:#f5f5f5;"><th style="padding:6px 12px;border:1px solid #ddd;font-size:13px;">品名</th><th style="padding:6px 12px;border:1px solid #ddd;font-size:13px;">数量</th><th style="padding:6px 12px;border:1px solid #ddd;font-size:13px;">単価</th></tr>
+                <tr><td style="padding:6px 12px;border:1px solid #ddd;font-size:13px;">パネル</td><td style="padding:6px 12px;border:1px solid #ddd;font-size:13px;">8</td><td style="padding:6px 12px;border:1px solid #ddd;font-size:13px;color:#ccc;">????</td></tr>
+                <tr><td style="padding:6px 12px;border:1px solid #ddd;font-size:13px;">照明</td><td style="padding:6px 12px;border:1px solid #ddd;font-size:13px;">4</td><td style="padding:6px 12px;border:1px solid #ddd;font-size:13px;">3,000</td></tr>
+              </table>
+              <div style="margin-top:12px;font-size:12px;color:#bbb;">（一部かすれて読み取り不可）</div>
+            </div>
+          </div>
+          <div style="margin-top:12px;">
+            <button class="btn btn-outlined btn-sm">
+              <span class="material-icons" style="font-size:16px">download</span> ダウンロード
+            </button>
+          </div>
+        </div>
+
+        <!-- Right: AI extraction result -->
+        <div class="review-panel">
+          <h3>
+            <span class="material-icons">psychology</span>
+            AI解析結果
+          </h3>
+
+          <!-- Confidence score -->
+          <div class="confidence confidence-mid">
+            <div>
+              <div class="confidence-score" style="color:#e65100;">65%</div>
+              <div class="confidence-label" style="color:#e65100;">信頼度: 中</div>
+            </div>
+            <div style="flex-grow:1;font-size:13px;color:#795548;">
+              一部フィールドの読み取り精度が低いため、手動確認が必要です。
+            </div>
+          </div>
+
+          <!-- Extracted fields -->
+          <div class="field-row">
+            <span class="field-label">検出種別</span>
+            <span class="field-value">注文書</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">検出企業</span>
+            <span class="field-value">株式会社C</span>
+          </div>
+          <div class="field-row">
+            <span class="field-label">検出ブース</span>
+            <span class="field-value">A-15</span>
+          </div>
+
+          <h3 style="margin-top:20px;">
+            <span class="material-icons">table_chart</span>
+            注文明細
+          </h3>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>品名</th>
+                  <th>数量</th>
+                  <th>単価</th>
+                  <th>信頼度</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>パネル</td>
+                  <td>8</td>
+                  <td class="field-value low-confidence" style="padding:4px 8px;">
+                    <input type="text" placeholder="読取不可" style="border:none;background:transparent;font-size:14px;width:80px;font-family:inherit;" />
+                  </td>
+                  <td>
+                    <div class="field-warning">
+                      <span class="material-icons" style="font-size:14px">warning</span> 読取不可
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>照明</td>
+                  <td>4</td>
+                  <td>3,000</td>
+                  <td><span style="color:#2e7d32;font-size:13px;">OK</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Low confidence fields note -->
+          <div style="margin-top:16px;padding:12px;background:#fff8e1;border-radius:4px;font-size:13px;color:#e65100;display:flex;align-items:flex-start;gap:8px;">
+            <span class="material-icons" style="font-size:18px;">info</span>
+            <div>
+              <strong>低信頼度フィールド:</strong><br />
+              単価（パネル）: 原本がかすれており読み取りできませんでした。手動で値を入力してください。
+            </div>
+          </div>
+
+          <!-- Memo -->
+          <div style="margin-top:16px;">
+            <label style="font-size:13px;color:#757575;display:block;margin-bottom:4px;">メモ</label>
+            <textarea style="width:100%;padding:10px;border:1px solid #e0e0e0;border-radius:4px;font-size:14px;font-family:inherit;resize:vertical;min-height:60px;" placeholder="レビューメモを入力..."></textarea>
+          </div>
+
+          <!-- Actions -->
+          <div class="action-row">
+            <button class="btn btn-danger" onclick="reviewAction('reject')">
+              <span class="material-icons" style="font-size:18px">close</span> 却下
+            </button>
+            <button class="btn btn-success" onclick="reviewAction('approve')">
+              <span class="material-icons" style="font-size:18px">check</span> 修正して承認
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TAB 4: Categories ==================== -->
+    <div class="tab-view" id="tab-categories">
+      <div class="page-title">
+        <span class="material-icons">category</span>
+        提出カテゴリ管理
+      </div>
+
+      <div class="card" style="margin-bottom:16px;padding:16px 24px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+          <div style="font-size:14px;color:#757575;">
+            展示会: <strong style="color:#212121;">第15回 国際産業展示会</strong>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-outlined btn-sm" onclick="showCopyDialog()">
+              <span class="material-icons" style="font-size:16px">content_copy</span> 過去展示会からコピー
+            </button>
+            <button class="btn btn-contained btn-sm" onclick="showAddCategoryDialog()">
+              <span class="material-icons" style="font-size:16px">add</span> 追加
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>カテゴリ名</th>
+                <th>受取先</th>
+                <th>必須/任意</th>
+                <th class="td-hide-mobile">期限</th>
+                <th>提出率</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>コマ申込</strong></td>
+                <td>○○装飾株式会社</td>
+                <td><span class="chip-required">必須</span></td>
+                <td class="td-hide-mobile">2026/05/01</td>
+                <td>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <div style="width:80px;height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">
+                      <div style="width:87%;height:100%;background:#4caf50;border-radius:3px;"></div>
+                    </div>
+                    <span style="font-size:13px;font-weight:500;">87%</span>
+                  </div>
+                </td>
+                <td><button class="btn btn-text btn-sm" onclick="showEditCategoryDialog('コマ申込')">編集</button></td>
+              </tr>
+              <tr>
+                <td><strong>ブース設営</strong></td>
+                <td>○○装飾株式会社</td>
+                <td><span class="chip-required">必須</span></td>
+                <td class="td-hide-mobile">2026/05/05</td>
+                <td>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <div style="width:80px;height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">
+                      <div style="width:55%;height:100%;background:#ff9800;border-radius:3px;"></div>
+                    </div>
+                    <span style="font-size:13px;font-weight:500;">55%</span>
+                  </div>
+                </td>
+                <td><button class="btn btn-text btn-sm" onclick="showEditCategoryDialog('ブース設営')">編集</button></td>
+              </tr>
+              <tr>
+                <td><strong>電気申込</strong></td>
+                <td>△△電気工事株式会社</td>
+                <td><span class="chip-required">必須</span></td>
+                <td class="td-hide-mobile">2026/05/10</td>
+                <td>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <div style="width:80px;height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">
+                      <div style="width:73%;height:100%;background:#ff9800;border-radius:3px;"></div>
+                    </div>
+                    <span style="font-size:13px;font-weight:500;">73%</span>
+                  </div>
+                </td>
+                <td><button class="btn btn-text btn-sm" onclick="showEditCategoryDialog('電気申込')">編集</button></td>
+              </tr>
+              <tr>
+                <td><strong>弁当注文</strong></td>
+                <td>□□フードサービス</td>
+                <td><span class="chip-optional">任意</span></td>
+                <td class="td-hide-mobile">2026/05/15</td>
+                <td>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <div style="width:80px;height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">
+                      <div style="width:61%;height:100%;background:#ff9800;border-radius:3px;"></div>
+                    </div>
+                    <span style="font-size:13px;font-weight:500;">61%</span>
+                  </div>
+                </td>
+                <td><button class="btn btn-text btn-sm" onclick="showEditCategoryDialog('弁当注文')">編集</button></td>
+              </tr>
+              <tr>
+                <td><strong>備品レンタル</strong></td>
+                <td>○○装飾株式会社</td>
+                <td><span class="chip-optional">任意</span></td>
+                <td class="td-hide-mobile">2026/05/15</td>
+                <td>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <div style="width:80px;height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">
+                      <div style="width:46%;height:100%;background:#f44336;border-radius:3px;"></div>
+                    </div>
+                    <span style="font-size:13px;font-weight:500;">46%</span>
+                  </div>
+                </td>
+                <td><button class="btn btn-text btn-sm" onclick="showEditCategoryDialog('備品レンタル')">編集</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div style="margin-top:16px;padding:12px;background:#f5f5f5;border-radius:4px;font-size:13px;color:#757575;display:flex;align-items:center;gap:8px;">
+          <span class="material-icons" style="font-size:18px">info</span>
+          提出カテゴリの一覧は出展社ポータルに表示されます
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /.main -->
+
+  <!-- Snackbar -->
+  <div class="snackbar" id="snackbar">
+    <span class="material-icons" style="font-size:18px">check_circle</span>
+    <span id="snackbarText">操作が完了しました</span>
+  </div>
+
+  <!-- Category Add/Edit Dialog -->
+  <div class="dialog-overlay" id="categoryDialog">
+    <div class="dialog">
+      <h3 id="categoryDialogTitle">カテゴリを追加</h3>
+      <div class="form-group">
+        <label>カテゴリ名</label>
+        <input type="text" id="catName" placeholder="例: コマ申込" />
+      </div>
+      <div class="form-group">
+        <label>受取先（協力会社名）</label>
+        <input type="text" id="catDest" placeholder="例: ○○装飾株式会社" />
+      </div>
+      <div class="form-group">
+        <label>必須/任意</label>
+        <select id="catRequired">
+          <option value="required">必須</option>
+          <option value="optional">任意</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>提出期限</label>
+        <input type="date" id="catDeadline" />
+      </div>
+      <div class="dialog-actions">
+        <button class="btn btn-text" onclick="closeCategoryDialog()">キャンセル</button>
+        <button class="btn btn-contained" onclick="saveCategoryDialog()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Copy Dialog -->
+  <div class="dialog-overlay" id="copyDialog">
+    <div class="dialog">
+      <h3>過去展示会からコピー</h3>
+      <div class="form-group">
+        <label>コピー元の展示会を選択</label>
+        <select id="copySource">
+          <option>第14回 国際産業展示会（2025年）</option>
+          <option>第13回 国際産業展示会（2024年）</option>
+        </select>
+      </div>
+      <p style="font-size:13px;color:#757575;margin-top:8px;">選択した展示会のカテゴリ設定をすべてコピーします。既存のカテゴリは保持されます。</p>
+      <div class="dialog-actions">
+        <button class="btn btn-text" onclick="closeCopyDialog()">キャンセル</button>
+        <button class="btn btn-contained" onclick="executeCopy()">コピー</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Tab navigation ---
+    const sidebarItems = document.querySelectorAll('.sidebar-item[data-tab]');
+    const tabViews = document.querySelectorAll('.tab-view');
+
+    function switchTab(tabId) {
+      sidebarItems.forEach(item => item.classList.toggle('active', item.dataset.tab === tabId));
+      tabViews.forEach(view => view.classList.toggle('active', view.id === 'tab-' + tabId));
+      // Close mobile sidebar
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('sidebarOverlay').classList.remove('show');
+    }
+
+    sidebarItems.forEach(item => {
+      item.addEventListener('click', () => switchTab(item.dataset.tab));
+    });
+
+    // --- Mobile sidebar toggle ---
+    document.getElementById('menuToggle').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('sidebarOverlay').classList.toggle('show');
+    });
+    document.getElementById('sidebarOverlay').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('sidebarOverlay').classList.remove('show');
+    });
+
+    // --- Snackbar ---
+    function showSnackbar(text) {
+      const sb = document.getElementById('snackbar');
+      document.getElementById('snackbarText').textContent = text;
+      sb.classList.add('show');
+      setTimeout(() => sb.classList.remove('show'), 3000);
+    }
+
+    // --- Review actions ---
+    function reviewAction(action) {
+      if (action === 'approve') {
+        showSnackbar('ドキュメントを承認しました');
+      } else {
+        showSnackbar('ドキュメントを却下しました');
+      }
+    }
+
+    function showReviewItem(direction) {
+      showSnackbar(direction === 'next' ? '次のレビュー項目を表示' : '前のレビュー項目を表示');
+    }
+
+    // --- Category dialog ---
+    function showAddCategoryDialog() {
+      document.getElementById('categoryDialogTitle').textContent = 'カテゴリを追加';
+      document.getElementById('catName').value = '';
+      document.getElementById('catDest').value = '';
+      document.getElementById('catRequired').value = 'required';
+      document.getElementById('catDeadline').value = '';
+      document.getElementById('categoryDialog').classList.add('show');
+    }
+
+    function showEditCategoryDialog(name) {
+      document.getElementById('categoryDialogTitle').textContent = 'カテゴリを編集: ' + name;
+      document.getElementById('catName').value = name;
+      document.getElementById('categoryDialog').classList.add('show');
+    }
+
+    function closeCategoryDialog() {
+      document.getElementById('categoryDialog').classList.remove('show');
+    }
+
+    function saveCategoryDialog() {
+      closeCategoryDialog();
+      showSnackbar('カテゴリを保存しました');
+    }
+
+    // --- Copy dialog ---
+    function showCopyDialog() {
+      document.getElementById('copyDialog').classList.add('show');
+    }
+
+    function closeCopyDialog() {
+      document.getElementById('copyDialog').classList.remove('show');
+    }
+
+    function executeCopy() {
+      closeCopyDialog();
+      showSnackbar('カテゴリをコピーしました');
+    }
+
+    // --- Check all ---
+    document.getElementById('checkAll').addEventListener('change', function() {
+      document.querySelectorAll('#docTableBody input[type="checkbox"]').forEach(cb => cb.checked = this.checked);
+    });
+
+    // --- Filter simulation ---
+    document.getElementById('filterStatus').addEventListener('change', function() {
+      showSnackbar('フィルタを適用しました');
+    });
+    document.getElementById('filterCategory').addEventListener('change', function() {
+      showSnackbar('フィルタを適用しました');
+    });
+  </script>
+
+</body>
+</html>
