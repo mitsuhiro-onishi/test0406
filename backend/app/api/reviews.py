@@ -13,6 +13,7 @@ from app.models.document import Document
 from app.models.notification import Notification
 from app.models.user import User
 from app.schemas.document import ReviewRequest
+from app.services.audit import record_audit
 from app.services.design_spec_builder import create_design_spec_from_analysis
 from app.services.order_builder import create_order_from_analysis
 
@@ -101,6 +102,12 @@ async def review_analysis(
         await create_order_from_analysis(db, document, analysis)
         await create_design_spec_from_analysis(db, document, analysis)
 
+    record_audit(
+        db, user,
+        "review_reject" if body.action == "reject" else "review_approve",
+        "ai_analysis", analysis.id,
+        {"action": body.action, "document_id": str(document.id), "file_name": document.file_name},
+    )
     await db.commit()
 
     # 提出元組織のユーザーへ結果を通知

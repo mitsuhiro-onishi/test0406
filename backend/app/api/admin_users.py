@@ -16,6 +16,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.security import hash_password, require_manager
+from app.services.audit import record_audit
 from app.models.booth import Booth
 from app.models.document import Document
 from app.models.organization import Organization
@@ -166,6 +167,8 @@ async def delete_organization(
             detail=f"この組織には{('・'.join(reasons))}が紐づいているため削除できません。先に紐づけを解除してください",
         )
 
+    record_audit(db, user, "organization_delete", "organization", org.id,
+                 {"name": org.name, "org_type": org.org_type})
     await db.delete(org)
     await db.commit()
     return {"data": {"deleted": True}}
@@ -227,6 +230,8 @@ async def create_user(
         is_active=True,
     )
     db.add(new_user)
+    record_audit(db, user, "user_create", "user", new_user.id,
+                 {"email": email, "role": body.role})
     await db.commit()
     await db.refresh(new_user, ["organization"])
 
@@ -272,7 +277,9 @@ async def update_user(
         target.organization_id = org.id
     if body.name is not None:
         target.name = body.name.strip()
-    if body.is_active is not None:
+    if body.is_active is not None and body.is_active != target.is_active:
+        record_audit(db, user, "user_activate" if body.is_active else "user_deactivate",
+                     "user", target.id, {"email": target.email})
         target.is_active = body.is_active
     await db.commit()
     await db.refresh(target, ["organization"])
@@ -291,6 +298,7 @@ async def reset_password(
 
     new_password = secrets.token_urlsafe(9)
     target.hashed_password = hash_password(new_password)
+    record_audit(db, user, "user_reset_password", "user", target.id, {"email": target.email})
     await db.commit()
     return {
         "data": {
