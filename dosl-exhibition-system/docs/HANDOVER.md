@@ -1,4 +1,16 @@
-# DOSL GATE 引き継ぎ（2026-07-07 作成）
+# DOSL GATE 引き継ぎ（2026-07-07 作成 / 2026-07-08 本番化完了で更新）
+
+## 【2026-07-08 本番化完了】
+
+- **本番URL: https://dosl-gate.vercel.app**（Vercelプロジェクト `dosl-gate`）
+- Supabase本番: プロジェクト `dosl-gate-setup`（ref: fosvjwwqafeflygsbrkm・東京リージョン・無料枠）
+  - migrations 001〜004 + seed 適用済み。管理者ユーザー作成・admin_users紐付け済み
+  - 管理者ログイン: mituhi3216@gmail.com（パスワードは大西さん保管）
+- Vercel環境変数4つ設定済み（Production）。**RESEND_API_KEY のみ未設定**（メール送信は後日: Resendキー取得＋送信ドメイン認証とセット）
+- 本番で通し確認済み: 登録→QRチケット→管理ログイン→ダッシュボード→チェックイン→CSV。テストデータは掃除済み（DBはseed状態）
+- 本番化作業中に致命バグ2件を発見・修正: ①RLS無限再帰（migration 004・9bf7594）②再登録時の来場者情報null上書き（9a569cf）。詳細は requirements.md 20章 #13/#14
+- デプロイ手順: `git archive` でブランチをクリーン書き出し → `npx vercel deploy --prod`（作業ツリー直デプロイは未コミットファイル混入の恐れがあるため不可）
+- 注意: `exhibition/gate-options` ブランチで別途GATEオプション開発が進行中。マージ時に 004_gate_options.sql → 005 へのリネームと、ffdaedf に混入した 004_fix の重複解消が必要
 
 ## プロジェクト概要
 
