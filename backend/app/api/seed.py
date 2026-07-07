@@ -2,10 +2,11 @@
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import hash_password
 from app.models.organization import Organization
@@ -30,6 +31,8 @@ DEMO_USERS = [
 
 @router.post("")
 async def seed_data(db: AsyncSession = Depends(get_db)):
+    if not settings.enable_seed:
+        raise HTTPException(status_code=404, detail="Not Found")
     existing = (await db.execute(select(func.count()).select_from(Exhibition))).scalar() or 0
     if existing:
         return {"message": "シード済みのためスキップしました"}

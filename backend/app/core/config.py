@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     # 信頼度がこの値以上なら自動承認、未満ならレビュー待ちにする
     auto_approve_threshold: float = 0.85
 
+    # デモデータ投入API (/api/seed) の有効化。本番では必ずfalseにする
+    # （シードのデモアカウントはパスワードがリポジトリに公開されているため）
+    enable_seed: bool = False
+
     class Config:
         env_file = ".env"
 
