@@ -84,14 +84,24 @@ DBはSQLite（backend/exhibition.db）。ファイルはbackend/uploads/に保�
 ### 主要ファイル
 ```
 backend/app/
-  core/security.py           JWT・パスワード・ロール依存
+  core/security.py           JWT・パスワード・ロール依存（require_manager等）
   services/ai_analyzer.py    AI解析パイプライン（プロバイダ3種）
   services/order_builder.py  承認済み解析→orders/order_items生成
   api/auth.py documents.py exhibitions.py reviews.py orders.py notifications.py seed.py
+  api/applications.py        出展申込（公開+管理）
+  models/exhibitor_application.py  出展申込モデル
 web/
   login.html index.html(出展社) admin.html(管理) app.js(共通APIクライアント)
-run_dev.sh                   起動スクリプト
+  apply.html                 出展申込の公開フォーム（?exhibition=<id>必須）
+test_documents/              実AI解析テスト書類3種＋run_real_ai_test.sh
+run_dev.sh                   起動スクリプト（ENABLE_SEED=true自動設定）
 ```
+
+### ローカル環境の状態（このMac固有・gitに含まれない）
+- backend/.env に ANTHROPIC_API_KEY 設定済み（実AI解析が有効。git管理外）
+- backend/exhibition.db に accepting_applications カラムをALTER済み
+  （新規DBなら create_all で自動作成されるので対応不要）
+- ローカルDBには実AIテストの書類・出展申込テストデータ（ナニワ精密機械・大和路金属工業等）が入っている
 
 ---
 
