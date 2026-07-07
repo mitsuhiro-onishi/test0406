@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>展示会ドキュメント管理 - 管理者ダッシュボード</title>
+  <title>DOSL HUB - 管理ダッシュボード</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
   <style>
@@ -16,52 +16,86 @@
 
     /* AppBar */
     .appbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 56px;
       background: #1565c0;
       color: white;
-      padding: 12px 24px;
+      padding: 0 16px;
       display: flex;
       align-items: center;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
+      gap: 12px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
       z-index: 100;
-      height: 56px;
     }
     .appbar .menu-toggle {
       display: none;
-      background: none;
-      border: none;
-      color: white;
       cursor: pointer;
-      margin-right: 12px;
-      padding: 4px;
+      padding: 8px;
+      border-radius: 50%;
     }
-    .appbar h1 { font-size: 18px; font-weight: 500; flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .appbar .user-area { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+    .appbar .menu-toggle:hover { background: rgba(255,255,255,0.15); }
+    .appbar h1 { font-size: 17px; font-weight: 500; flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .appbar .user-area { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
     .appbar .notification {
       position: relative;
       cursor: pointer;
-      padding: 4px;
+      padding: 8px;
       border-radius: 50%;
+      display: flex;
     }
     .appbar .notification:hover { background: rgba(255,255,255,0.15); }
     .appbar .badge {
       position: absolute;
-      top: 0;
-      right: 0;
+      top: 2px; right: 2px;
       background: #f44336;
       color: white;
       font-size: 10px;
-      width: 16px;
+      font-weight: 700;
+      min-width: 16px;
       height: 16px;
-      border-radius: 50%;
+      border-radius: 8px;
+      padding: 0 4px;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    .appbar .user-name { font-size: 14px; opacity: 0.9; }
+    .appbar .user-name { font-size: 13px; opacity: 0.9; white-space: nowrap; }
+    .appbar .logout { cursor: pointer; padding: 8px; border-radius: 50%; display: flex; }
+    .appbar .logout:hover { background: rgba(255,255,255,0.15); }
+
+    /* Notification dropdown */
+    .notif-panel {
+      display: none;
+      position: fixed;
+      top: 58px;
+      right: 12px;
+      width: 360px;
+      max-width: calc(100vw - 24px);
+      max-height: 420px;
+      overflow-y: auto;
+      background: white;
+      color: #212121;
+      border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+      z-index: 200;
+    }
+    .notif-panel.show { display: block; }
+    .notif-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .notif-head button { border: none; background: none; color: #1565c0; font-size: 12px; cursor: pointer; font-family: inherit; }
+    .notif-item { padding: 10px 16px; border-bottom: 1px solid #f5f5f5; font-size: 13px; }
+    .notif-item.unread { background: #f0f7ff; }
+    .notif-item .t { font-weight: 500; }
+    .notif-item .m { color: #757575; margin-top: 2px; }
+    .notif-item .d { color: #9e9e9e; font-size: 11px; margin-top: 2px; }
 
     /* Sidebar */
     .sidebar {
@@ -95,26 +129,25 @@
     .sidebar-item:hover { background: #f5f5f5; color: #212121; }
     .sidebar-item.active { background: #e3f2fd; color: #1565c0; font-weight: 500; }
     .sidebar-item .material-icons { font-size: 22px; }
-    .sidebar-divider { height: 1px; background: #e0e0e0; margin: 8px 16px; }
-    .sidebar-link {
-      display: flex;
+    .sidebar-item .count-chip {
+      margin-left: auto;
+      background: #ff9800;
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      min-width: 20px;
+      height: 20px;
+      border-radius: 10px;
+      display: none;
       align-items: center;
-      gap: 16px;
-      padding: 12px 24px;
-      font-size: 14px;
-      color: #1565c0;
-      text-decoration: none;
-      transition: all 0.15s;
+      justify-content: center;
+      padding: 0 6px;
     }
-    .sidebar-link:hover { background: #f5f5f5; }
-    .sidebar-link .material-icons { font-size: 22px; }
+    .sidebar-divider { height: 1px; background: #e0e0e0; margin: 8px 16px; }
     .sidebar-overlay {
       display: none;
       position: fixed;
-      top: 56px;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      top: 56px; left: 0; right: 0; bottom: 0;
       background: rgba(0,0,0,0.4);
       z-index: 89;
     }
@@ -126,10 +159,18 @@
       padding: 24px;
       min-height: calc(100vh - 56px);
     }
-
-    /* Tab view control */
     .tab-view { display: none; }
     .tab-view.active { display: block; }
+    .page-title {
+      font-size: 22px;
+      font-weight: 500;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .page-title .spacer { flex-grow: 1; }
 
     /* Cards */
     .card {
@@ -139,24 +180,7 @@
       padding: 24px;
       margin-bottom: 24px;
     }
-    .card h2 {
-      font-size: 20px;
-      font-weight: 500;
-      margin-bottom: 4px;
-    }
-    .card .subtitle {
-      font-size: 14px;
-      color: #757575;
-      margin-bottom: 20px;
-    }
-    .page-title {
-      font-size: 22px;
-      font-weight: 500;
-      margin-bottom: 24px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+    .card h2 { font-size: 17px; font-weight: 500; margin-bottom: 16px; }
 
     /* Summary cards */
     .summary-grid {
@@ -176,8 +200,7 @@
     }
     .summary-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
     .summary-card .icon-wrap {
-      width: 48px;
-      height: 48px;
+      width: 48px; height: 48px;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -199,21 +222,10 @@
       font-size: 14px;
     }
     .activity-item:last-child { border-bottom: none; }
-    .activity-time { color: #9e9e9e; font-size: 12px; white-space: nowrap; min-width: 48px; padding-top: 2px; }
+    .activity-time { color: #9e9e9e; font-size: 12px; white-space: nowrap; min-width: 78px; padding-top: 2px; }
     .activity-text { flex-grow: 1; color: #424242; line-height: 1.5; }
-    .activity-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-    .activity-icon .material-icons { font-size: 16px; color: white; }
 
     /* Progress bars */
-    .progress-table { width: 100%; }
     .progress-row {
       display: flex;
       align-items: center;
@@ -230,15 +242,12 @@
       border-radius: 4px;
       overflow: hidden;
     }
-    .progress-bar {
-      height: 100%;
-      border-radius: 4px;
-      transition: width 0.5s ease;
-    }
+    .progress-bar { height: 100%; border-radius: 4px; transition: width 0.5s ease; background: #1565c0; }
     .progress-count { font-size: 13px; color: #757575; min-width: 60px; text-align: right; }
-    .progress-pct { font-size: 13px; font-weight: 500; min-width: 40px; text-align: right; }
+    .progress-pct { font-size: 13px; font-weight: 500; min-width: 44px; text-align: right; }
 
     /* Table */
+    .table-wrap { overflow-x: auto; }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -262,6 +271,8 @@
       border-bottom: 1px solid #f5f5f5;
     }
     tr:last-child td { border-bottom: none; }
+    tbody tr.clickable { cursor: pointer; }
+    tbody tr.clickable:hover { background: #f8fbff; }
 
     /* Chips */
     .chip-status {
@@ -285,22 +296,8 @@
       white-space: nowrap;
       display: inline-block;
     }
-    .chip-required {
-      font-size: 11px;
-      background: #ffebee;
-      color: #d32f2f;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-weight: 500;
-    }
-    .chip-optional {
-      font-size: 11px;
-      background: #f5f5f5;
-      color: #757575;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-weight: 500;
-    }
+    .chip-required { font-size: 11px; background: #ffebee; color: #d32f2f; padding: 2px 8px; border-radius: 12px; font-weight: 500; }
+    .chip-optional { font-size: 11px; background: #f5f5f5; color: #757575; padding: 2px 8px; border-radius: 12px; font-weight: 500; }
 
     /* Buttons */
     .btn {
@@ -315,28 +312,29 @@
       border: none;
       transition: all 0.2s;
     }
-    .btn-contained {
-      background: #1565c0;
-      color: white;
-    }
+    .btn-contained { background: #1565c0; color: white; }
     .btn-contained:hover { background: #0d47a1; }
-    .btn-outlined {
-      background: white;
-      border: 1px solid #1565c0;
-      color: #1565c0;
-    }
+    .btn-contained:disabled { background: #bdbdbd; cursor: not-allowed; }
+    .btn-outlined { background: white; border: 1px solid #1565c0; color: #1565c0; }
     .btn-outlined:hover { background: #e3f2fd; }
-    .btn-text {
-      background: none;
-      color: #757575;
-      border: none;
-    }
+    .btn-text { background: none; color: #757575; border: none; }
     .btn-text:hover { background: #f5f5f5; }
     .btn-success { background: #4caf50; color: white; }
     .btn-success:hover { background: #388e3c; }
+    .btn-success:disabled { background: #bdbdbd; cursor: not-allowed; }
     .btn-danger { background: white; border: 1px solid #f44336; color: #f44336; }
     .btn-danger:hover { background: #ffebee; }
     .btn-sm { padding: 4px 12px; font-size: 13px; }
+    .icon-btn {
+      border: none;
+      background: none;
+      cursor: pointer;
+      color: #757575;
+      padding: 4px;
+      border-radius: 50%;
+      display: inline-flex;
+    }
+    .icon-btn:hover { background: #eee; color: #1565c0; }
 
     /* Filter bar */
     .filter-bar {
@@ -354,12 +352,8 @@
       font-family: inherit;
       background: white;
     }
-    .filter-bar select:focus, .filter-bar input:focus {
-      outline: none;
-      border-color: #1565c0;
-    }
+    .filter-bar select:focus, .filter-bar input:focus { outline: none; border-color: #1565c0; }
 
-    /* Pagination */
     .pagination {
       display: flex;
       align-items: center;
@@ -368,110 +362,101 @@
       font-size: 13px;
       color: #757575;
     }
-    .pagination-pages {
-      display: flex;
-      gap: 4px;
-    }
-    .page-btn {
-      width: 32px;
-      height: 32px;
-      border: 1px solid #e0e0e0;
+
+    /* AI Review */
+    .review-layout { display: grid; grid-template-columns: 320px 1fr; gap: 20px; }
+    .queue-list {
       background: white;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      overflow: hidden;
+      align-self: start;
+    }
+    .queue-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid #f5f5f5;
       cursor: pointer;
       font-size: 13px;
-      font-family: inherit;
     }
-    .page-btn:hover { background: #f5f5f5; }
-    .page-btn.active { background: #1565c0; color: white; border-color: #1565c0; }
-
-    /* AI Review split */
-    .review-split {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 24px;
-    }
+    .queue-item:hover { background: #f8fbff; }
+    .queue-item.active { background: #e3f2fd; border-left: 3px solid #1565c0; }
+    .queue-item .f { font-weight: 500; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .queue-item .s { color: #757575; margin-top: 2px; }
+    .review-split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     .review-panel {
       background: white;
       border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
-      padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      padding: 20px;
     }
-    .review-panel h3 {
-      font-size: 16px;
-      font-weight: 500;
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+    .review-panel h3 { font-size: 15px; font-weight: 500; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
     .preview-area {
       background: #fafafa;
       border: 1px solid #e0e0e0;
       border-radius: 8px;
-      min-height: 300px;
+      min-height: 320px;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-direction: column;
-      padding: 24px;
+      padding: 12px;
       color: #9e9e9e;
+      overflow: hidden;
     }
+    .preview-area img { max-width: 100%; max-height: 480px; border-radius: 4px; }
+    .preview-area iframe { width: 100%; height: 480px; border: none; border-radius: 4px; background: white; }
     .preview-area .material-icons { font-size: 64px; margin-bottom: 12px; }
 
-    /* Confidence score */
     .confidence {
       display: flex;
       align-items: center;
       gap: 12px;
-      margin-bottom: 20px;
-      padding: 16px;
+      margin-bottom: 16px;
+      padding: 14px 16px;
       border-radius: 8px;
     }
     .confidence-high { background: #e8f5e9; }
     .confidence-mid { background: #fff3e0; }
     .confidence-low { background: #ffebee; }
-    .confidence-score {
-      font-size: 32px;
-      font-weight: 700;
-    }
-    .confidence-label { font-size: 14px; }
+    .confidence-score { font-size: 30px; font-weight: 700; }
+    .confidence-label { font-size: 13px; }
 
-    /* Extracted fields */
     .field-row {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 10px 0;
+      padding: 8px 0;
       border-bottom: 1px solid #f5f5f5;
     }
     .field-row:last-child { border-bottom: none; }
-    .field-label { font-size: 13px; color: #757575; min-width: 100px; }
+    .field-label { font-size: 13px; color: #757575; min-width: 96px; }
     .field-value { font-size: 14px; flex-grow: 1; }
-    .field-value.low-confidence {
-      background: #fff8e1;
-      border: 1px solid #ffb300;
+    .field-value input {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #e0e0e0;
       border-radius: 4px;
-      padding: 4px 8px;
+      font-size: 14px;
+      font-family: inherit;
     }
-    .field-warning {
-      font-size: 12px;
-      color: #e65100;
-      display: flex;
-      align-items: center;
-      gap: 4px;
+    .field-value input.low { background: #fff8e1; border-color: #ffb300; }
+    .items-table input {
+      width: 100%;
+      padding: 4px 6px;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: inherit;
     }
-
-    /* Action buttons row */
-    .action-row {
-      display: flex;
-      gap: 12px;
-      margin-top: 20px;
-      justify-content: flex-end;
+    .items-table input.low { background: #fff8e1; border-color: #ffb300; }
+    .action-row { display: flex; gap: 12px; margin-top: 18px; justify-content: flex-end; flex-wrap: wrap; }
+    .empty-state {
+      text-align: center;
+      color: #9e9e9e;
+      padding: 48px 24px;
+      font-size: 14px;
     }
+    .empty-state .material-icons { font-size: 56px; margin-bottom: 8px; color: #c8e6c9; }
 
     /* Snackbar */
     .snackbar {
@@ -498,801 +483,851 @@
       display: none;
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.4);
-      z-index: 200;
+      background: rgba(0,0,0,0.45);
+      z-index: 300;
       justify-content: center;
       align-items: center;
+      padding: 16px;
     }
     .dialog-overlay.show { display: flex; }
     .dialog {
       background: white;
       border-radius: 12px;
-      padding: 24px;
-      width: 90%;
-      max-width: 480px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-    }
-    .dialog h3 {
-      font-size: 18px;
-      font-weight: 500;
-      margin-bottom: 16px;
-    }
-    .dialog .form-group {
-      margin-bottom: 16px;
-    }
-    .dialog label {
-      display: block;
-      font-size: 13px;
-      color: #757575;
-      margin-bottom: 4px;
-    }
-    .dialog input, .dialog select {
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
       width: 100%;
-      padding: 10px 12px;
-      border: 1px solid #e0e0e0;
+      max-width: 560px;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 24px;
+    }
+    .dialog h3 { font-size: 17px; font-weight: 500; margin-bottom: 18px; }
+    .dialog .field { margin-bottom: 14px; }
+    .dialog .field label { display: block; font-size: 13px; color: #616161; margin-bottom: 4px; }
+    .dialog .field input, .dialog .field select, .dialog .field textarea {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1px solid #ccc;
       border-radius: 4px;
       font-size: 14px;
       font-family: inherit;
     }
-    .dialog input:focus, .dialog select:focus {
+    .dialog .field input:focus, .dialog .field select:focus, .dialog .field textarea:focus {
       outline: none;
       border-color: #1565c0;
     }
-    .dialog-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 12px;
-      margin-top: 20px;
-    }
+    .dialog .check-row { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 
     /* Responsive */
-    @media (max-width: 1024px) {
-      .summary-grid { grid-template-columns: repeat(2, 1fr); }
-      .review-split { grid-template-columns: 1fr; }
-    }
-    @media (max-width: 768px) {
-      .appbar .menu-toggle { display: block; }
+    @media (max-width: 960px) {
+      .appbar .menu-toggle { display: flex; }
       .sidebar { transform: translateX(-100%); }
       .sidebar.open { transform: translateX(0); }
       .sidebar-overlay.show { display: block; }
-      .main { margin-left: 0; }
-      .summary-grid { grid-template-columns: 1fr 1fr; }
-      .filter-bar { flex-direction: column; }
-      .filter-bar select, .filter-bar input { width: 100%; }
-      .page-title { font-size: 18px; }
-      .appbar h1 { font-size: 15px; }
-      table { font-size: 13px; }
-      th, td { padding: 8px; }
-      .td-hide-mobile { display: none; }
-      .action-row { flex-direction: column; }
-      .action-row .btn { justify-content: center; }
+      .main { margin-left: 0; padding: 16px; }
+      .summary-grid { grid-template-columns: repeat(2, 1fr); }
+      .review-layout { grid-template-columns: 1fr; }
+      .review-split { grid-template-columns: 1fr; }
+      .appbar .user-name { display: none; }
     }
-    @media (max-width: 480px) {
-      .summary-grid { grid-template-columns: 1fr; }
-    }
-
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
 
   <!-- AppBar -->
   <div class="appbar">
-    <button class="menu-toggle" id="menuToggle">
-      <span class="material-icons">menu</span>
-    </button>
-    <h1>展示会ドキュメント管理</h1>
+    <span class="menu-toggle material-icons" id="menuToggle">menu</span>
+    <h1 id="appTitle">DOSL HUB 管理ダッシュボード</h1>
     <div class="user-area">
-      <div class="notification" title="通知">
+      <div class="notification" id="btnNotif">
         <span class="material-icons">notifications</span>
-        <span class="badge">3</span>
+        <span class="badge" id="notifBadge" style="display:none">0</span>
       </div>
-      <span class="user-name">田中太郎</span>
+      <span class="user-name" id="userLabel"></span>
+      <span class="logout material-icons" id="btnLogout" title="ログアウト">logout</span>
     </div>
   </div>
 
-  <!-- Sidebar overlay (mobile) -->
-  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+  <!-- Notification panel -->
+  <div class="notif-panel" id="notifPanel">
+    <div class="notif-head">
+      <span>通知</span>
+      <button id="btnReadAll">全て既読にする</button>
+    </div>
+    <div id="notifList"></div>
+  </div>
 
   <!-- Sidebar -->
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-nav">
       <button class="sidebar-item active" data-tab="dashboard">
-        <span class="material-icons">dashboard</span>
-        ダッシュボード
+        <span class="material-icons">dashboard</span>ダッシュボード
       </button>
       <button class="sidebar-item" data-tab="documents">
-        <span class="material-icons">description</span>
-        ドキュメント一覧
+        <span class="material-icons">folder</span>書類一覧
       </button>
       <button class="sidebar-item" data-tab="review">
-        <span class="material-icons">rate_review</span>
-        AIレビュー
+        <span class="material-icons">fact_check</span>AIレビュー
+        <span class="count-chip" id="reviewCountChip">0</span>
       </button>
-      <button class="sidebar-item" data-tab="categories">
-        <span class="material-icons">category</span>
-        カテゴリ管理
+      <button class="sidebar-item" data-tab="orders">
+        <span class="material-icons">receipt_long</span>注文集計
+      </button>
+      <button class="sidebar-item" data-tab="categories" id="navCategories">
+        <span class="material-icons">category</span>カテゴリ管理
       </button>
       <div class="sidebar-divider"></div>
-      <a href="index.html" class="sidebar-link">
-        <span class="material-icons">open_in_new</span>
-        出展社ポータルを見る
-      </a>
+      <button class="sidebar-item" onclick="location.href='index.html'">
+        <span class="material-icons">open_in_new</span>出展社ポータルを見る
+      </button>
     </div>
   </nav>
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-  <!-- Main content -->
-  <div class="main">
+  <!-- Main -->
+  <main class="main">
 
-    <!-- ==================== TAB 1: Dashboard ==================== -->
-    <div class="tab-view active" id="tab-dashboard">
-      <div class="page-title">
-        <span class="material-icons">dashboard</span>
-        ダッシュボード
-      </div>
-
-      <!-- Summary cards -->
-      <div class="summary-grid">
-        <div class="summary-card">
-          <div class="icon-wrap" style="background:#1565c0">
-            <span class="material-icons">inbox</span>
-          </div>
-          <div class="number">312</div>
-          <div class="label">受信数</div>
-        </div>
-        <div class="summary-card">
-          <div class="icon-wrap" style="background:#7b1fa2">
-            <span class="material-icons">psychology</span>
-          </div>
-          <div class="number">280</div>
-          <div class="label">解析済</div>
-        </div>
-        <div class="summary-card">
-          <div class="icon-wrap" style="background:#e65100">
-            <span class="material-icons">pending_actions</span>
-          </div>
-          <div class="number">15</div>
-          <div class="label">要レビュー</div>
-        </div>
-        <div class="summary-card">
-          <div class="icon-wrap" style="background:#2e7d32">
-            <span class="material-icons">check_circle</span>
-          </div>
-          <div class="number">265</div>
-          <div class="label">確認済</div>
-        </div>
-      </div>
-
-      <!-- Activity & Progress row -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
-        <!-- Activity feed -->
-        <div class="card" style="margin-bottom:0">
-          <h2>直近のアクティビティ</h2>
-          <p class="subtitle">最新のシステムイベント</p>
-          <ul class="activity-list">
-            <li class="activity-item">
-              <div class="activity-icon" style="background:#1565c0"><span class="material-icons">inbox</span></div>
-              <div>
-                <div class="activity-text">株式会社A の注文書を受信しました</div>
-                <div class="activity-time">10:05</div>
-              </div>
-            </li>
-            <li class="activity-item">
-              <div class="activity-icon" style="background:#7b1fa2"><span class="material-icons">psychology</span></div>
-              <div>
-                <div class="activity-text">ブースB-03の設計書をAI解析完了（信頼度92%）</div>
-                <div class="activity-time">09:52</div>
-              </div>
-            </li>
-            <li class="activity-item">
-              <div class="activity-icon" style="background:#e65100"><span class="material-icons">warning</span></div>
-              <div>
-                <div class="activity-text">株式会社Cの注文書がレビュー待ちです</div>
-                <div class="activity-time">09:30</div>
-              </div>
-            </li>
-            <li class="activity-item">
-              <div class="activity-icon" style="background:#2e7d32"><span class="material-icons">check_circle</span></div>
-              <div>
-                <div class="activity-text">株式会社Dの電気申込書を承認しました</div>
-                <div class="activity-time">09:15</div>
-              </div>
-            </li>
-            <li class="activity-item">
-              <div class="activity-icon" style="background:#1565c0"><span class="material-icons">inbox</span></div>
-              <div>
-                <div class="activity-text">株式会社Eから弁当注文書を受信しました</div>
-                <div class="activity-time">09:00</div>
-              </div>
-            </li>
-          </ul>
-        </div>
-
-        <!-- Submission progress -->
-        <div class="card" style="margin-bottom:0">
-          <h2>書類提出率</h2>
-          <p class="subtitle">第15回 国際産業展示会 ― 98社中 80社提出（82%）</p>
-          <div style="text-align:center;margin-bottom:20px;">
-            <div style="font-size:48px;font-weight:700;color:#1565c0;">82%</div>
-            <div style="font-size:14px;color:#757575;">全体提出率</div>
-          </div>
-          <div style="height:8px;background:#e0e0e0;border-radius:4px;overflow:hidden;margin-bottom:24px;">
-            <div style="width:82%;height:100%;background:#1565c0;border-radius:4px;"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Category progress -->
+    <!-- ─── Dashboard ─── -->
+    <section class="tab-view active" id="tab-dashboard">
+      <div class="page-title">ダッシュボード</div>
+      <div class="summary-grid" id="summaryGrid"></div>
       <div class="card">
         <h2>提出カテゴリ別の提出状況</h2>
-        <p class="subtitle">各カテゴリの提出進捗</p>
-        <div class="progress-row">
-          <span class="progress-label">コマ申込</span>
-          <div class="progress-bar-wrap"><div class="progress-bar" style="width:87%;background:#4caf50"></div></div>
-          <span class="progress-count">85 / 98</span>
-          <span class="progress-pct" style="color:#4caf50">87%</span>
-        </div>
-        <div class="progress-row">
-          <span class="progress-label">電気申込</span>
-          <div class="progress-bar-wrap"><div class="progress-bar" style="width:73%;background:#ff9800"></div></div>
-          <span class="progress-count">72 / 98</span>
-          <span class="progress-pct" style="color:#ff9800">73%</span>
-        </div>
-        <div class="progress-row">
-          <span class="progress-label">弁当注文</span>
-          <div class="progress-bar-wrap"><div class="progress-bar" style="width:61%;background:#ff9800"></div></div>
-          <span class="progress-count">60 / 98</span>
-          <span class="progress-pct" style="color:#ff9800">61%</span>
-        </div>
-        <div class="progress-row">
-          <span class="progress-label">備品レンタル</span>
-          <div class="progress-bar-wrap"><div class="progress-bar" style="width:46%;background:#f44336"></div></div>
-          <span class="progress-count">45 / 98</span>
-          <span class="progress-pct" style="color:#f44336">46%</span>
-        </div>
-        <div class="progress-row">
-          <span class="progress-label">ブース設営</span>
-          <div class="progress-bar-wrap"><div class="progress-bar" style="width:55%;background:#ff9800"></div></div>
-          <span class="progress-count">54 / 98</span>
-          <span class="progress-pct" style="color:#ff9800">55%</span>
-        </div>
+        <div id="categoryProgress"></div>
       </div>
-    </div>
-
-    <!-- ==================== TAB 2: Documents ==================== -->
-    <div class="tab-view" id="tab-documents">
-      <div class="page-title">
-        <span class="material-icons">description</span>
-        ドキュメント一覧
-      </div>
-
       <div class="card">
-        <!-- Filters -->
-        <div class="filter-bar">
-          <select id="filterExhibition">
-            <option>展示会: 第15回 国際産業展示会</option>
-          </select>
-          <select id="filterStatus">
-            <option value="">ステータス: 全て</option>
-            <option value="received">受信済</option>
-            <option value="analyzing">解析中</option>
-            <option value="review">要レビュー</option>
-            <option value="confirmed">確認済</option>
-          </select>
-          <select id="filterCategory">
-            <option value="">カテゴリ: 全て</option>
-            <option>コマ申込</option>
-            <option>電気申込</option>
-            <option>弁当注文</option>
-            <option>備品レンタル</option>
-            <option>ブース設営</option>
-          </select>
-          <select id="filterMethod">
-            <option value="">受信方法: 全て</option>
-            <option>Webアップロード</option>
-          </select>
-        </div>
+        <h2>最近の受信書類</h2>
+        <ul class="activity-list" id="activityList"></ul>
+      </div>
+    </section>
 
-        <!-- Document table -->
-        <div style="overflow-x:auto;">
+    <!-- ─── Documents ─── -->
+    <section class="tab-view" id="tab-documents">
+      <div class="page-title">
+        書類一覧
+        <span class="spacer"></span>
+        <button class="btn btn-outlined btn-sm" id="btnDocsCsv">
+          <span class="material-icons" style="font-size:16px">download</span>CSV出力
+        </button>
+      </div>
+      <div class="card">
+        <div class="filter-bar">
+          <select id="filterStatus">
+            <option value="">全ステータス</option>
+            <option value="received">受信</option>
+            <option value="processing">AI解析中</option>
+            <option value="analyzed">解析済</option>
+            <option value="review_needed">要レビュー</option>
+            <option value="confirmed">確認済</option>
+            <option value="error">差し戻し</option>
+          </select>
+          <select id="filterCategory"><option value="">全カテゴリ</option></select>
+          <input type="text" id="filterQ" placeholder="ファイル名・出展社名で検索" style="flex-grow:1;min-width:180px" />
+          <button class="btn btn-contained btn-sm" id="btnDocSearch">検索</button>
+        </div>
+        <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th><input type="checkbox" id="checkAll" /></th>
-                <th>ファイル名</th>
+                <th>受信日時</th>
                 <th>出展社</th>
+                <th>ブース</th>
                 <th>カテゴリ</th>
-                <th>ステータス</th>
-                <th class="td-hide-mobile">受信日時</th>
-                <th class="td-hide-mobile">受信方法</th>
+                <th>ファイル名</th>
+                <th>AI信頼度</th>
+                <th>状態</th>
+                <th></th>
               </tr>
             </thead>
-            <tbody id="docTableBody">
-              <tr>
-                <td><input type="checkbox" /></td>
-                <td><span style="display:flex;align-items:center;gap:6px;"><span class="material-icons" style="font-size:18px;color:#4caf50">description</span>注文書_A社.xlsx</span></td>
-                <td>株式会社A</td>
-                <td><span class="chip-category">コマ申込</span></td>
-                <td><span class="chip-status status-confirmed">確認済</span></td>
-                <td class="td-hide-mobile">04/20 10:00</td>
-                <td class="td-hide-mobile">Web</td>
-              </tr>
-              <tr>
-                <td><input type="checkbox" /></td>
-                <td><span style="display:flex;align-items:center;gap:6px;"><span class="material-icons" style="font-size:18px;color:#f44336">picture_as_pdf</span>設計図_B社.pdf</span></td>
-                <td>株式会社B</td>
-                <td><span class="chip-category">ブース設営</span></td>
-                <td><span class="chip-status status-review">要レビュー</span></td>
-                <td class="td-hide-mobile">04/20 09:52</td>
-                <td class="td-hide-mobile">Web</td>
-              </tr>
-              <tr>
-                <td><input type="checkbox" /></td>
-                <td><span style="display:flex;align-items:center;gap:6px;"><span class="material-icons" style="font-size:18px;color:#1565c0">description</span>order_C.docx</span></td>
-                <td>株式会社C</td>
-                <td><span class="chip-category">電気申込</span></td>
-                <td><span class="chip-status status-analyzing">解析中</span></td>
-                <td class="td-hide-mobile">04/20 09:30</td>
-                <td class="td-hide-mobile">Web</td>
-              </tr>
-              <tr>
-                <td><input type="checkbox" /></td>
-                <td><span style="display:flex;align-items:center;gap:6px;"><span class="material-icons" style="font-size:18px;color:#4caf50">description</span>弁当注文_D社.xlsx</span></td>
-                <td>株式会社D</td>
-                <td><span class="chip-category">弁当注文</span></td>
-                <td><span class="chip-status status-confirmed">確認済</span></td>
-                <td class="td-hide-mobile">04/19 16:20</td>
-                <td class="td-hide-mobile">Web</td>
-              </tr>
-              <tr>
-                <td><input type="checkbox" /></td>
-                <td><span style="display:flex;align-items:center;gap:6px;"><span class="material-icons" style="font-size:18px;color:#ff9800">image</span>撮影_備品_E社.jpg</span></td>
-                <td>株式会社E</td>
-                <td><span class="chip-category">備品レンタル</span></td>
-                <td><span class="chip-status status-received">受信済</span></td>
-                <td class="td-hide-mobile">04/19 15:00</td>
-                <td class="td-hide-mobile">Web</td>
-              </tr>
-              <tr>
-                <td><input type="checkbox" /></td>
-                <td><span style="display:flex;align-items:center;gap:6px;"><span class="material-icons" style="font-size:18px;color:#f44336">picture_as_pdf</span>電気工事_F社.pdf</span></td>
-                <td>株式会社F</td>
-                <td><span class="chip-category">電気申込</span></td>
-                <td><span class="chip-status status-confirmed">確認済</span></td>
-                <td class="td-hide-mobile">04/19 14:30</td>
-                <td class="td-hide-mobile">Web</td>
-              </tr>
-              <tr>
-                <td><input type="checkbox" /></td>
-                <td><span style="display:flex;align-items:center;gap:6px;"><span class="material-icons" style="font-size:18px;color:#4caf50">description</span>コマ申込_G社.xlsx</span></td>
-                <td>株式会社G</td>
-                <td><span class="chip-category">コマ申込</span></td>
-                <td><span class="chip-status status-review">要レビュー</span></td>
-                <td class="td-hide-mobile">04/19 13:45</td>
-                <td class="td-hide-mobile">Web</td>
-              </tr>
-              <tr>
-                <td><input type="checkbox" /></td>
-                <td><span style="display:flex;align-items:center;gap:6px;"><span class="material-icons" style="font-size:18px;color:#1565c0">description</span>設営計画_H社.docx</span></td>
-                <td>株式会社H</td>
-                <td><span class="chip-category">ブース設営</span></td>
-                <td><span class="chip-status status-confirmed">確認済</span></td>
-                <td class="td-hide-mobile">04/19 11:20</td>
-                <td class="td-hide-mobile">Web</td>
-              </tr>
-            </tbody>
+            <tbody id="docsTableBody"></tbody>
           </table>
         </div>
-
-        <!-- Pagination -->
         <div class="pagination">
-          <span>全340件中 1-20件表示</span>
-          <div class="pagination-pages">
-            <button class="page-btn"><span class="material-icons" style="font-size:16px">chevron_left</span></button>
-            <button class="page-btn active">1</button>
-            <button class="page-btn">2</button>
-            <button class="page-btn">3</button>
-            <button class="page-btn">...</button>
-            <button class="page-btn">17</button>
-            <button class="page-btn"><span class="material-icons" style="font-size:16px">chevron_right</span></button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ==================== TAB 3: AI Review ==================== -->
-    <div class="tab-view" id="tab-review">
-      <div class="page-title">
-        <span class="material-icons">rate_review</span>
-        AIレビュー
-      </div>
-
-      <!-- Review queue summary -->
-      <div class="card" style="margin-bottom:24px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+          <span id="docsPageInfo"></span>
           <div>
-            <h2 style="margin-bottom:4px;">レビュー待ち: 15件</h2>
-            <p style="font-size:14px;color:#757575;">低信頼度のAI解析結果を確認してください</p>
-          </div>
-          <div style="display:flex;gap:8px;">
-            <button class="btn btn-outlined btn-sm" onclick="showReviewItem('prev')">
-              <span class="material-icons" style="font-size:16px">chevron_left</span> 前へ
-            </button>
-            <span style="font-size:14px;color:#757575;display:flex;align-items:center;">3 / 15</span>
-            <button class="btn btn-outlined btn-sm" onclick="showReviewItem('next')">
-              次へ <span class="material-icons" style="font-size:16px">chevron_right</span>
-            </button>
+            <button class="btn btn-text btn-sm" id="btnDocsPrev">前へ</button>
+            <button class="btn btn-text btn-sm" id="btnDocsNext">次へ</button>
           </div>
         </div>
       </div>
+    </section>
 
-      <!-- Split view -->
-      <div class="review-split">
-        <!-- Left: Original preview -->
-        <div class="review-panel">
-          <h3>
-            <span class="material-icons">image</span>
-            原本プレビュー
-          </h3>
-          <div class="preview-area">
-            <span class="material-icons">description</span>
-            <div style="font-size:16px;margin-bottom:8px;color:#424242;">注文書</div>
-            <div style="font-size:14px;color:#9e9e9e;text-align:center;line-height:2;">
-              株式会社C<br />
-              ブース番号: A-15<br /><br />
-              <table style="border:1px solid #ddd;margin:0 auto;text-align:left;border-collapse:collapse;width:80%;">
-                <tr style="background:#f5f5f5;"><th style="padding:6px 12px;border:1px solid #ddd;font-size:13px;">品名</th><th style="padding:6px 12px;border:1px solid #ddd;font-size:13px;">数量</th><th style="padding:6px 12px;border:1px solid #ddd;font-size:13px;">単価</th></tr>
-                <tr><td style="padding:6px 12px;border:1px solid #ddd;font-size:13px;">パネル</td><td style="padding:6px 12px;border:1px solid #ddd;font-size:13px;">8</td><td style="padding:6px 12px;border:1px solid #ddd;font-size:13px;color:#ccc;">????</td></tr>
-                <tr><td style="padding:6px 12px;border:1px solid #ddd;font-size:13px;">照明</td><td style="padding:6px 12px;border:1px solid #ddd;font-size:13px;">4</td><td style="padding:6px 12px;border:1px solid #ddd;font-size:13px;">3,000</td></tr>
-              </table>
-              <div style="margin-top:12px;font-size:12px;color:#bbb;">（一部かすれて読み取り不可）</div>
-            </div>
-          </div>
-          <div style="margin-top:12px;">
-            <button class="btn btn-outlined btn-sm">
-              <span class="material-icons" style="font-size:16px">download</span> ダウンロード
-            </button>
-          </div>
-        </div>
-
-        <!-- Right: AI extraction result -->
-        <div class="review-panel">
-          <h3>
-            <span class="material-icons">psychology</span>
-            AI解析結果
-          </h3>
-
-          <!-- Confidence score -->
-          <div class="confidence confidence-mid">
-            <div>
-              <div class="confidence-score" style="color:#e65100;">65%</div>
-              <div class="confidence-label" style="color:#e65100;">信頼度: 中</div>
-            </div>
-            <div style="flex-grow:1;font-size:13px;color:#795548;">
-              一部フィールドの読み取り精度が低いため、手動確認が必要です。
-            </div>
-          </div>
-
-          <!-- Extracted fields -->
-          <div class="field-row">
-            <span class="field-label">検出種別</span>
-            <span class="field-value">注文書</span>
-          </div>
-          <div class="field-row">
-            <span class="field-label">検出企業</span>
-            <span class="field-value">株式会社C</span>
-          </div>
-          <div class="field-row">
-            <span class="field-label">検出ブース</span>
-            <span class="field-value">A-15</span>
-          </div>
-
-          <h3 style="margin-top:20px;">
-            <span class="material-icons">table_chart</span>
-            注文明細
-          </h3>
-          <div style="overflow-x:auto;">
-            <table>
-              <thead>
-                <tr>
-                  <th>品名</th>
-                  <th>数量</th>
-                  <th>単価</th>
-                  <th>信頼度</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>パネル</td>
-                  <td>8</td>
-                  <td class="field-value low-confidence" style="padding:4px 8px;">
-                    <input type="text" placeholder="読取不可" style="border:none;background:transparent;font-size:14px;width:80px;font-family:inherit;" />
-                  </td>
-                  <td>
-                    <div class="field-warning">
-                      <span class="material-icons" style="font-size:14px">warning</span> 読取不可
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td>照明</td>
-                  <td>4</td>
-                  <td>3,000</td>
-                  <td><span style="color:#2e7d32;font-size:13px;">OK</span></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <!-- Low confidence fields note -->
-          <div style="margin-top:16px;padding:12px;background:#fff8e1;border-radius:4px;font-size:13px;color:#e65100;display:flex;align-items:flex-start;gap:8px;">
-            <span class="material-icons" style="font-size:18px;">info</span>
-            <div>
-              <strong>低信頼度フィールド:</strong><br />
-              単価（パネル）: 原本がかすれており読み取りできませんでした。手動で値を入力してください。
-            </div>
-          </div>
-
-          <!-- Memo -->
-          <div style="margin-top:16px;">
-            <label style="font-size:13px;color:#757575;display:block;margin-bottom:4px;">メモ</label>
-            <textarea style="width:100%;padding:10px;border:1px solid #e0e0e0;border-radius:4px;font-size:14px;font-family:inherit;resize:vertical;min-height:60px;" placeholder="レビューメモを入力..."></textarea>
-          </div>
-
-          <!-- Actions -->
-          <div class="action-row">
-            <button class="btn btn-danger" onclick="reviewAction('reject')">
-              <span class="material-icons" style="font-size:18px">close</span> 却下
-            </button>
-            <button class="btn btn-success" onclick="reviewAction('approve')">
-              <span class="material-icons" style="font-size:18px">check</span> 修正して承認
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ==================== TAB 4: Categories ==================== -->
-    <div class="tab-view" id="tab-categories">
+    <!-- ─── AI Review ─── -->
+    <section class="tab-view" id="tab-review">
       <div class="page-title">
-        <span class="material-icons">category</span>
-        提出カテゴリ管理
+        AIレビュー
+        <span class="spacer"></span>
+        <button class="btn btn-outlined btn-sm" id="btnQueueReload">
+          <span class="material-icons" style="font-size:16px">refresh</span>更新
+        </button>
       </div>
-
-      <div class="card" style="margin-bottom:16px;padding:16px 24px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
-          <div style="font-size:14px;color:#757575;">
-            展示会: <strong style="color:#212121;">第15回 国際産業展示会</strong>
-          </div>
-          <div style="display:flex;gap:8px;">
-            <button class="btn btn-outlined btn-sm" onclick="showCopyDialog()">
-              <span class="material-icons" style="font-size:16px">content_copy</span> 過去展示会からコピー
-            </button>
-            <button class="btn btn-contained btn-sm" onclick="showAddCategoryDialog()">
-              <span class="material-icons" style="font-size:16px">add</span> 追加
-            </button>
+      <div class="review-layout">
+        <div class="queue-list" id="queueList"></div>
+        <div id="reviewDetail">
+          <div class="card empty-state">
+            <span class="material-icons">task_alt</span>
+            <p>左のリストからレビューする書類を選択してください</p>
           </div>
         </div>
       </div>
+    </section>
 
+    <!-- ─── Orders ─── -->
+    <section class="tab-view" id="tab-orders">
+      <div class="page-title">
+        注文集計
+        <span class="spacer"></span>
+        <button class="btn btn-outlined btn-sm" id="btnOrdersCsv">
+          <span class="material-icons" style="font-size:16px">download</span>CSV出力
+        </button>
+      </div>
+      <div class="summary-grid" id="orderSummaryGrid" style="grid-template-columns:repeat(2,1fr)"></div>
       <div class="card">
-        <div style="overflow-x:auto;">
+        <h2>出展社別の注文金額</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>出展社</th><th>ブース</th><th>注文数</th><th>金額</th></tr>
+            </thead>
+            <tbody id="ordersByExhibitor"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <h2>注文一覧</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>受信日時</th><th>出展社</th><th>ブース</th><th>元ファイル</th><th>品目数</th><th>金額</th><th>希望納期</th></tr>
+            </thead>
+            <tbody id="ordersTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── Categories ─── -->
+    <section class="tab-view" id="tab-categories">
+      <div class="page-title">
+        カテゴリ管理
+        <span class="spacer"></span>
+        <button class="btn btn-contained btn-sm" id="btnAddCategory">
+          <span class="material-icons" style="font-size:16px">add</span>カテゴリを追加
+        </button>
+      </div>
+      <div class="card">
+        <p style="font-size:13px;color:#757575;margin-bottom:16px;">
+          出展社がアップロード時に選択する提出カテゴリと、その受取先を設定します。
+        </p>
+        <div class="table-wrap">
           <table>
             <thead>
               <tr>
+                <th>表示順</th>
                 <th>カテゴリ名</th>
                 <th>受取先</th>
-                <th>必須/任意</th>
-                <th class="td-hide-mobile">期限</th>
-                <th>提出率</th>
-                <th>操作</th>
+                <th>必須</th>
+                <th>提出書類数</th>
+                <th>提出済み出展社</th>
+                <th></th>
               </tr>
             </thead>
-            <tbody>
-              <tr>
-                <td><strong>コマ申込</strong></td>
-                <td>○○装飾株式会社</td>
-                <td><span class="chip-required">必須</span></td>
-                <td class="td-hide-mobile">2026/05/01</td>
-                <td>
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    <div style="width:80px;height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">
-                      <div style="width:87%;height:100%;background:#4caf50;border-radius:3px;"></div>
-                    </div>
-                    <span style="font-size:13px;font-weight:500;">87%</span>
-                  </div>
-                </td>
-                <td><button class="btn btn-text btn-sm" onclick="showEditCategoryDialog('コマ申込')">編集</button></td>
-              </tr>
-              <tr>
-                <td><strong>ブース設営</strong></td>
-                <td>○○装飾株式会社</td>
-                <td><span class="chip-required">必須</span></td>
-                <td class="td-hide-mobile">2026/05/05</td>
-                <td>
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    <div style="width:80px;height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">
-                      <div style="width:55%;height:100%;background:#ff9800;border-radius:3px;"></div>
-                    </div>
-                    <span style="font-size:13px;font-weight:500;">55%</span>
-                  </div>
-                </td>
-                <td><button class="btn btn-text btn-sm" onclick="showEditCategoryDialog('ブース設営')">編集</button></td>
-              </tr>
-              <tr>
-                <td><strong>電気申込</strong></td>
-                <td>△△電気工事株式会社</td>
-                <td><span class="chip-required">必須</span></td>
-                <td class="td-hide-mobile">2026/05/10</td>
-                <td>
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    <div style="width:80px;height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">
-                      <div style="width:73%;height:100%;background:#ff9800;border-radius:3px;"></div>
-                    </div>
-                    <span style="font-size:13px;font-weight:500;">73%</span>
-                  </div>
-                </td>
-                <td><button class="btn btn-text btn-sm" onclick="showEditCategoryDialog('電気申込')">編集</button></td>
-              </tr>
-              <tr>
-                <td><strong>弁当注文</strong></td>
-                <td>□□フードサービス</td>
-                <td><span class="chip-optional">任意</span></td>
-                <td class="td-hide-mobile">2026/05/15</td>
-                <td>
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    <div style="width:80px;height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">
-                      <div style="width:61%;height:100%;background:#ff9800;border-radius:3px;"></div>
-                    </div>
-                    <span style="font-size:13px;font-weight:500;">61%</span>
-                  </div>
-                </td>
-                <td><button class="btn btn-text btn-sm" onclick="showEditCategoryDialog('弁当注文')">編集</button></td>
-              </tr>
-              <tr>
-                <td><strong>備品レンタル</strong></td>
-                <td>○○装飾株式会社</td>
-                <td><span class="chip-optional">任意</span></td>
-                <td class="td-hide-mobile">2026/05/15</td>
-                <td>
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    <div style="width:80px;height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">
-                      <div style="width:46%;height:100%;background:#f44336;border-radius:3px;"></div>
-                    </div>
-                    <span style="font-size:13px;font-weight:500;">46%</span>
-                  </div>
-                </td>
-                <td><button class="btn btn-text btn-sm" onclick="showEditCategoryDialog('備品レンタル')">編集</button></td>
-              </tr>
-            </tbody>
+            <tbody id="categoriesTableBody"></tbody>
           </table>
         </div>
+      </div>
+    </section>
 
-        <div style="margin-top:16px;padding:12px;background:#f5f5f5;border-radius:4px;font-size:13px;color:#757575;display:flex;align-items:center;gap:8px;">
-          <span class="material-icons" style="font-size:18px">info</span>
-          提出カテゴリの一覧は出展社ポータルに表示されます
-        </div>
+  </main>
+
+  <!-- Category dialog -->
+  <div class="dialog-overlay" id="categoryDialog">
+    <div class="dialog">
+      <h3 id="categoryDialogTitle">カテゴリを追加</h3>
+      <div class="field">
+        <label>カテゴリ名 *</label>
+        <input type="text" id="catName" placeholder="例: 電気申込" />
+      </div>
+      <div class="field">
+        <label>説明</label>
+        <textarea id="catDesc" rows="2" placeholder="出展社に表示される説明文"></textarea>
+      </div>
+      <div class="field">
+        <label>受取先組織 *</label>
+        <select id="catRecipient"></select>
+      </div>
+      <div class="field">
+        <label>表示順</label>
+        <input type="number" id="catSort" value="0" />
+      </div>
+      <div class="field check-row">
+        <input type="checkbox" id="catRequired" checked style="width:auto" />
+        <label for="catRequired" style="margin:0">全出展社に必須の提出物にする</label>
+      </div>
+      <div class="action-row">
+        <button class="btn btn-text" onclick="closeCategoryDialog()">キャンセル</button>
+        <button class="btn btn-contained" id="btnSaveCategory">保存</button>
       </div>
     </div>
+  </div>
 
-  </div><!-- /.main -->
+  <!-- Document detail dialog -->
+  <div class="dialog-overlay" id="docDialog">
+    <div class="dialog" style="max-width:640px">
+      <h3 id="docDialogTitle">書類の詳細</h3>
+      <div id="docDialogBody"></div>
+      <div class="action-row">
+        <button class="btn btn-text" onclick="closeDocDialog()">閉じる</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Snackbar -->
   <div class="snackbar" id="snackbar">
     <span class="material-icons" style="font-size:18px">check_circle</span>
-    <span id="snackbarText">操作が完了しました</span>
+    <span id="snackbarText"></span>
   </div>
 
-  <!-- Category Add/Edit Dialog -->
-  <div class="dialog-overlay" id="categoryDialog">
-    <div class="dialog">
-      <h3 id="categoryDialogTitle">カテゴリを追加</h3>
-      <div class="form-group">
-        <label>カテゴリ名</label>
-        <input type="text" id="catName" placeholder="例: コマ申込" />
-      </div>
-      <div class="form-group">
-        <label>受取先（協力会社名）</label>
-        <input type="text" id="catDest" placeholder="例: ○○装飾株式会社" />
-      </div>
-      <div class="form-group">
-        <label>必須/任意</label>
-        <select id="catRequired">
-          <option value="required">必須</option>
-          <option value="optional">任意</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>提出期限</label>
-        <input type="date" id="catDeadline" />
-      </div>
-      <div class="dialog-actions">
-        <button class="btn btn-text" onclick="closeCategoryDialog()">キャンセル</button>
-        <button class="btn btn-contained" onclick="saveCategoryDialog()">保存</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Copy Dialog -->
-  <div class="dialog-overlay" id="copyDialog">
-    <div class="dialog">
-      <h3>過去展示会からコピー</h3>
-      <div class="form-group">
-        <label>コピー元の展示会を選択</label>
-        <select id="copySource">
-          <option>第14回 国際産業展示会（2025年）</option>
-          <option>第13回 国際産業展示会（2024年）</option>
-        </select>
-      </div>
-      <p style="font-size:13px;color:#757575;margin-top:8px;">選択した展示会のカテゴリ設定をすべてコピーします。既存のカテゴリは保持されます。</p>
-      <div class="dialog-actions">
-        <button class="btn btn-text" onclick="closeCopyDialog()">キャンセル</button>
-        <button class="btn btn-contained" onclick="executeCopy()">コピー</button>
-      </div>
-    </div>
-  </div>
-
+  <script src="app.js"></script>
   <script>
-    // --- Tab navigation ---
-    const sidebarItems = document.querySelectorAll('.sidebar-item[data-tab]');
-    const tabViews = document.querySelectorAll('.tab-view');
+    // ──── Auth ────
+    const currentUser = requireAuth(['admin', 'organizer', 'partner', 'viewer']);
+    const isManager = currentUser && ['admin', 'organizer'].includes(currentUser.role);
 
-    function switchTab(tabId) {
-      sidebarItems.forEach(item => item.classList.toggle('active', item.dataset.tab === tabId));
-      tabViews.forEach(view => view.classList.toggle('active', view.id === 'tab-' + tabId));
-      // Close mobile sidebar
-      document.getElementById('sidebar').classList.remove('open');
-      document.getElementById('sidebarOverlay').classList.remove('show');
+    // ──── State ────
+    let exhibition = null;
+    let categories = [];
+    let organizations = [];
+    let queue = [];
+    let activeAnalysis = null;
+    let docsOffset = 0;
+    const DOCS_LIMIT = 20;
+    let docsTotal = 0;
+    let previewObjectUrl = null;
+
+    document.getElementById('userLabel').textContent =
+      currentUser.organization_name + ' / ' + currentUser.name;
+    document.getElementById('btnLogout').addEventListener('click', logout);
+
+    // partner/viewerはカテゴリ管理タブを隠す（レビューは閲覧可・操作はサーバー側で拒否）
+    if (!isManager) {
+      document.getElementById('navCategories').style.display = 'none';
     }
 
-    sidebarItems.forEach(item => {
+    // ──── Sidebar / tabs ────
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    document.getElementById('menuToggle').addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+      sidebarOverlay.classList.toggle('show');
+    });
+    sidebarOverlay.addEventListener('click', () => {
+      sidebar.classList.remove('open');
+      sidebarOverlay.classList.remove('show');
+    });
+
+    document.querySelectorAll('.sidebar-item[data-tab]').forEach(item => {
       item.addEventListener('click', () => switchTab(item.dataset.tab));
     });
 
-    // --- Mobile sidebar toggle ---
-    document.getElementById('menuToggle').addEventListener('click', () => {
-      document.getElementById('sidebar').classList.toggle('open');
-      document.getElementById('sidebarOverlay').classList.toggle('show');
-    });
-    document.getElementById('sidebarOverlay').addEventListener('click', () => {
-      document.getElementById('sidebar').classList.remove('open');
-      document.getElementById('sidebarOverlay').classList.remove('show');
-    });
+    function switchTab(tabId) {
+      document.querySelectorAll('.sidebar-item[data-tab]').forEach(i =>
+        i.classList.toggle('active', i.dataset.tab === tabId));
+      document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
+      document.getElementById('tab-' + tabId).classList.add('active');
+      sidebar.classList.remove('open');
+      sidebarOverlay.classList.remove('show');
 
-    // --- Snackbar ---
-    function showSnackbar(text) {
-      const sb = document.getElementById('snackbar');
-      document.getElementById('snackbarText').textContent = text;
-      sb.classList.add('show');
-      setTimeout(() => sb.classList.remove('show'), 3000);
+      if (tabId === 'dashboard') loadDashboard();
+      if (tabId === 'documents') loadDocs();
+      if (tabId === 'review') loadQueue();
+      if (tabId === 'orders') loadOrders();
+      if (tabId === 'categories') loadCategories();
     }
 
-    // --- Review actions ---
-    function reviewAction(action) {
-      if (action === 'approve') {
-        showSnackbar('ドキュメントを承認しました');
-      } else {
-        showSnackbar('ドキュメントを却下しました');
+    // ──── Init ────
+    async function init() {
+      try {
+        const exhibitions = await api('/api/exhibitions');
+        if (!exhibitions.length) { showSnackbar('展示会がありません'); return; }
+        exhibition = exhibitions[0];
+        document.getElementById('appTitle').textContent = exhibition.name + ' - 管理';
+        document.title = 'DOSL HUB 管理 - ' + exhibition.name;
+
+        categories = await api('/api/exhibitions/' + exhibition.id + '/submission-categories?include_inactive=' + isManager);
+        const sel = document.getElementById('filterCategory');
+        sel.innerHTML = '<option value="">全カテゴリ</option>' + categories
+          .filter(c => c.is_active)
+          .map(c => '<option value="' + c.id + '">' + escapeHtml(c.name) + '</option>').join('');
+
+        if (isManager) {
+          const res = await api('/api/organizations');
+          organizations = res.data;
+        }
+
+        await loadDashboard();
+        loadNotifications();
+        refreshQueueCount();
+      } catch (err) {
+        showSnackbar(err.message);
       }
     }
 
-    function showReviewItem(direction) {
-      showSnackbar(direction === 'next' ? '次のレビュー項目を表示' : '前のレビュー項目を表示');
+    // ──── Dashboard ────
+    const SUMMARY_DEFS = [
+      { key: 'total', icon: 'inbox', color: '#1565c0', label: '受信書類数' },
+      { key: 'analyzed', icon: 'auto_awesome', color: '#7b1fa2', label: '解析済（未確認）' },
+      { key: 'review_needed', icon: 'rate_review', color: '#ef6c00', label: '要レビュー' },
+      { key: 'confirmed', icon: 'verified', color: '#2e7d32', label: '確認済' },
+    ];
+
+    async function loadDashboard() {
+      if (!exhibition) return;
+      const res = await api('/api/exhibitions/' + exhibition.id + '/summary');
+      const d = res.data;
+      const values = {
+        total: d.total_documents,
+        analyzed: d.documents_by_status.analyzed,
+        review_needed: d.documents_by_status.review_needed,
+        confirmed: d.documents_by_status.confirmed,
+      };
+      document.getElementById('summaryGrid').innerHTML = SUMMARY_DEFS.map(s => `
+        <div class="summary-card" onclick="jumpToDocs('${s.key}')">
+          <div class="icon-wrap" style="background:${s.color}">
+            <span class="material-icons">${s.icon}</span>
+          </div>
+          <div class="number">${values[s.key]}</div>
+          <div class="label">${s.label}</div>
+        </div>
+      `).join('');
+
+      document.getElementById('categoryProgress').innerHTML = d.category_progress.map(c => `
+        <div class="progress-row">
+          <span class="progress-label">${escapeHtml(c.name)} ${c.is_required ? '<span class="chip-required">必須</span>' : ''}</span>
+          <div class="progress-bar-wrap"><div class="progress-bar" style="width:${Math.min(c.rate * 100, 100)}%"></div></div>
+          <span class="progress-count">${c.submitted_org_count}/${c.expected_org_count}社</span>
+          <span class="progress-pct">${Math.round(c.rate * 100)}%</span>
+        </div>
+      `).join('') || '<p style="color:#9e9e9e;font-size:13px">カテゴリが設定されていません</p>';
+
+      document.getElementById('activityList').innerHTML = d.recent_documents.map(doc => `
+        <li class="activity-item">
+          <span class="activity-time">${formatDateTime(doc.created_at)}</span>
+          <span class="activity-text">
+            <strong>${escapeHtml(doc.uploaded_by_org_name || '')}</strong> が
+            <span class="chip-category">${escapeHtml(doc.category_name || '')}</span>
+            「${escapeHtml(doc.file_name)}」を提出
+            ${doc.confidence_score != null ? '（AI信頼度 ' + Math.round(doc.confidence_score * 100) + '%）' : ''}
+          </span>
+          ${statusChip(doc.status)}
+        </li>
+      `).join('') || '<li class="activity-item"><span class="activity-text" style="color:#9e9e9e">まだ書類がありません</span></li>';
     }
 
-    // --- Category dialog ---
-    function showAddCategoryDialog() {
+    function jumpToDocs(key) {
+      switchTab('documents');
+      const sel = document.getElementById('filterStatus');
+      sel.value = (key === 'total') ? '' : key;
+      docsOffset = 0;
+      loadDocs();
+    }
+
+    // ──── Documents ────
+    async function loadDocs() {
+      if (!exhibition) return;
+      const params = new URLSearchParams({
+        exhibition_id: exhibition.id,
+        limit: DOCS_LIMIT,
+        offset: docsOffset,
+      });
+      const status = document.getElementById('filterStatus').value;
+      const cat = document.getElementById('filterCategory').value;
+      const q = document.getElementById('filterQ').value.trim();
+      if (status) params.set('status', status);
+      if (cat) params.set('submission_category_id', cat);
+      if (q) params.set('q', q);
+
+      const res = await api('/api/documents?' + params);
+      docsTotal = res.total;
+      const tbody = document.getElementById('docsTableBody');
+      if (!res.data.length) {
+        tbody.innerHTML = '<tr><td colspan="8" style="color:#9e9e9e;text-align:center;padding:24px">該当する書類がありません</td></tr>';
+      } else {
+        tbody.innerHTML = res.data.map(doc => `
+          <tr class="clickable" onclick="showDocDetail('${doc.id}')">
+            <td style="white-space:nowrap">${formatDateTime(doc.created_at)}</td>
+            <td>${escapeHtml(doc.uploaded_by_org_name || '')}</td>
+            <td>${escapeHtml(doc.booth_number || '—')}</td>
+            <td><span class="chip-category">${escapeHtml(doc.submission_category_name || '')}</span></td>
+            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(doc.file_name)}">${escapeHtml(doc.file_name)}</td>
+            <td>${doc.confidence_score != null ? Math.round(doc.confidence_score * 100) + '%' : '—'}</td>
+            <td>${statusChip(doc.status)}</td>
+            <td style="white-space:nowrap" onclick="event.stopPropagation()">
+              <button class="icon-btn" title="ダウンロード" onclick="downloadDoc('${doc.id}', '${escapeHtml(doc.file_name)}')">
+                <span class="material-icons" style="font-size:18px">download</span>
+              </button>
+              ${isManager ? `
+              <button class="icon-btn" title="再解析" onclick="reanalyzeDoc('${doc.id}')">
+                <span class="material-icons" style="font-size:18px">autorenew</span>
+              </button>` : ''}
+            </td>
+          </tr>
+        `).join('');
+      }
+      const from = docsTotal === 0 ? 0 : docsOffset + 1;
+      const to = Math.min(docsOffset + DOCS_LIMIT, docsTotal);
+      document.getElementById('docsPageInfo').textContent = `${from}〜${to}件 / 全${docsTotal}件`;
+      document.getElementById('btnDocsPrev').disabled = docsOffset === 0;
+      document.getElementById('btnDocsNext').disabled = to >= docsTotal;
+    }
+
+    document.getElementById('btnDocSearch').addEventListener('click', () => { docsOffset = 0; loadDocs(); });
+    document.getElementById('filterQ').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { docsOffset = 0; loadDocs(); }
+    });
+    document.getElementById('btnDocsPrev').addEventListener('click', () => {
+      docsOffset = Math.max(0, docsOffset - DOCS_LIMIT); loadDocs();
+    });
+    document.getElementById('btnDocsNext').addEventListener('click', () => {
+      docsOffset += DOCS_LIMIT; loadDocs();
+    });
+    document.getElementById('btnDocsCsv').addEventListener('click', () =>
+      apiDownload('/api/exhibitions/' + exhibition.id + '/reports/documents.csv', 'documents.csv')
+        .catch(e => showSnackbar(e.message)));
+
+    async function downloadDoc(id, name) {
+      try { await apiDownload('/api/documents/' + id + '/download', name); }
+      catch (e) { showSnackbar(e.message); }
+    }
+
+    async function reanalyzeDoc(id) {
+      try {
+        await api('/api/documents/' + id + '/reanalyze', { method: 'POST' });
+        showSnackbar('再解析を開始しました');
+        setTimeout(loadDocs, 2500);
+      } catch (e) { showSnackbar(e.message); }
+    }
+
+    async function showDocDetail(id) {
+      try {
+        const doc = await api('/api/documents/' + id);
+        const a = doc.ai_analysis;
+        const sd = a ? (a.structured_data || {}) : {};
+        document.getElementById('docDialogTitle').textContent = doc.file_name;
+        document.getElementById('docDialogBody').innerHTML = `
+          <div class="field-row"><span class="field-label">出展社</span><span class="field-value">${escapeHtml(doc.uploaded_by_org_name || '')}（ブース: ${escapeHtml(doc.booth_number || '—')}）</span></div>
+          <div class="field-row"><span class="field-label">カテゴリ</span><span class="field-value">${escapeHtml(doc.submission_category_name || '')} → ${escapeHtml(doc.recipient_org_name || '')}</span></div>
+          <div class="field-row"><span class="field-label">状態</span><span class="field-value">${statusChip(doc.status)}</span></div>
+          <div class="field-row"><span class="field-label">受信日時</span><span class="field-value">${formatDateTime(doc.created_at)}（${doc.source_channel === 'camera_capture' ? 'カメラ撮影' : 'Webアップロード'}）</span></div>
+          ${a ? `
+          <div class="field-row"><span class="field-label">AI信頼度</span><span class="field-value">${Math.round(a.confidence_score * 100)}%（${escapeHtml(a.llm_model || '')}）</span></div>
+          <div class="field-row"><span class="field-label">AI要約</span><span class="field-value">${escapeHtml(sd.summary || '—')}</span></div>
+          ${sd.order_items && sd.order_items.length ? `
+          <div style="margin-top:12px">
+            <div class="field-label" style="margin-bottom:6px">読み取った品目</div>
+            <div class="table-wrap"><table>
+              <thead><tr><th>品目</th><th>数量</th><th>単価</th><th>金額</th></tr></thead>
+              <tbody>${sd.order_items.map(i => `
+                <tr><td>${escapeHtml(i.item_name)}</td><td>${i.quantity ?? ''}${escapeHtml(i.unit || '')}</td>
+                <td>${i.unit_price != null ? formatYen(i.unit_price) : '—'}</td>
+                <td>${i.total_price != null ? formatYen(i.total_price) : '—'}</td></tr>`).join('')}
+              </tbody>
+            </table></div>
+            <p style="font-size:14px;margin-top:8px;text-align:right">合計: <strong>${formatYen(sd.total_amount)}</strong></p>
+          </div>` : ''}
+          ${a.review_notes ? `<div class="field-row"><span class="field-label">レビューメモ</span><span class="field-value">${escapeHtml(a.review_notes)}</span></div>` : ''}
+          ` : '<p style="color:#9e9e9e;font-size:13px;margin-top:12px">AI解析結果はまだありません</p>'}
+        `;
+        document.getElementById('docDialog').classList.add('show');
+      } catch (e) { showSnackbar(e.message); }
+    }
+    function closeDocDialog() { document.getElementById('docDialog').classList.remove('show'); }
+
+    // ──── AI Review ────
+    async function refreshQueueCount() {
+      try {
+        const res = await api('/api/ai-analyses/review-queue?exhibition_id=' + exhibition.id);
+        const chip = document.getElementById('reviewCountChip');
+        chip.textContent = res.data.length;
+        chip.style.display = res.data.length ? 'flex' : 'none';
+      } catch {}
+    }
+
+    async function loadQueue() {
+      const res = await api('/api/ai-analyses/review-queue?exhibition_id=' + exhibition.id);
+      queue = res.data;
+      refreshQueueCount();
+      const list = document.getElementById('queueList');
+      if (!queue.length) {
+        list.innerHTML = '<div class="empty-state"><span class="material-icons">task_alt</span><p>レビュー待ちはありません</p></div>';
+        document.getElementById('reviewDetail').innerHTML =
+          '<div class="card empty-state"><span class="material-icons">celebration</span><p>すべてのレビューが完了しています</p></div>';
+        return;
+      }
+      list.innerHTML = queue.map((a, i) => `
+        <div class="queue-item" data-i="${i}" onclick="selectQueueItem(${i})">
+          <div class="f">${escapeHtml(a.document.file_name)}</div>
+          <div class="s">${escapeHtml(a.document.uploaded_by_org_name || '')} / ${escapeHtml(a.document.submission_category_name || '')}</div>
+          <div class="s">信頼度 ${Math.round(a.confidence_score * 100)}% ・ ${formatDateTime(a.created_at)}</div>
+        </div>
+      `).join('');
+      selectQueueItem(0);
+    }
+
+    async function selectQueueItem(i) {
+      activeAnalysis = queue[i];
+      document.querySelectorAll('.queue-item').forEach(el =>
+        el.classList.toggle('active', Number(el.dataset.i) === i));
+      renderReviewDetail();
+      loadOriginalPreview();
+    }
+
+    function confidenceClass(score) {
+      if (score >= 0.85) return 'confidence-high';
+      if (score >= 0.7) return 'confidence-mid';
+      return 'confidence-low';
+    }
+
+    function renderReviewDetail() {
+      const a = activeAnalysis;
+      const sd = a.structured_data || {};
+      const low = a.low_confidence_fields || [];
+      const items = sd.order_items || [];
+      const pct = Math.round(a.confidence_score * 100);
+
+      document.getElementById('reviewDetail').innerHTML = `
+        <div class="review-split">
+          <div class="review-panel">
+            <h3><span class="material-icons" style="font-size:20px">description</span>原本プレビュー</h3>
+            <div class="preview-area" id="previewArea">
+              <span class="material-icons">hourglass_empty</span>
+              <p>読み込み中...</p>
+            </div>
+            <div class="action-row">
+              <button class="btn btn-outlined btn-sm" onclick="downloadDoc('${a.document.id}', '${escapeHtml(a.document.file_name)}')">
+                <span class="material-icons" style="font-size:16px">download</span>原本をダウンロード
+              </button>
+            </div>
+          </div>
+          <div class="review-panel">
+            <h3><span class="material-icons" style="font-size:20px">auto_awesome</span>AI解析結果</h3>
+            <div class="confidence ${confidenceClass(a.confidence_score)}">
+              <span class="confidence-score">${pct}%</span>
+              <span class="confidence-label">
+                AI信頼度<br />
+                ${low.length ? '<span style="color:#e65100">要確認: ' + low.map(escapeHtml).join(', ') + '</span>' : '全フィールド良好'}
+              </span>
+            </div>
+            <div class="field-row"><span class="field-label">書類種別</span><span class="field-value">${escapeHtml(sd.document_type || '—')}</span></div>
+            <div class="field-row"><span class="field-label">会社名</span><span class="field-value">${escapeHtml(sd.detected_company_name || '—')}</span></div>
+            <div class="field-row"><span class="field-label">要約</span><span class="field-value">${escapeHtml(sd.summary || '—')}</span></div>
+            <div class="field-row">
+              <span class="field-label">合計金額</span>
+              <span class="field-value"><input type="number" id="editTotal" class="${low.includes('total_amount') ? 'low' : ''}" value="${sd.total_amount ?? ''}" ${isManager ? '' : 'disabled'} /></span>
+            </div>
+            <div class="field-row">
+              <span class="field-label">希望納期</span>
+              <span class="field-value"><input type="date" id="editDelivery" class="${low.includes('delivery_date') ? 'low' : ''}" value="${sd.delivery_date || ''}" ${isManager ? '' : 'disabled'} /></span>
+            </div>
+            ${items.length ? `
+            <div style="margin-top:14px">
+              <div class="field-label" style="margin-bottom:6px">品目（修正できます）</div>
+              <div class="table-wrap"><table class="items-table" id="editItems">
+                <thead><tr><th>品目名</th><th style="width:70px">数量</th><th style="width:60px">単位</th><th style="width:90px">単価</th><th style="width:90px">金額</th></tr></thead>
+                <tbody>
+                  ${items.map((it, idx) => `
+                    <tr data-idx="${idx}">
+                      <td><input data-f="item_name" value="${escapeHtml(it.item_name || '')}" ${isManager ? '' : 'disabled'} /></td>
+                      <td><input data-f="quantity" type="number" class="${low.includes('order_items') ? 'low' : ''}" value="${it.quantity ?? ''}" ${isManager ? '' : 'disabled'} /></td>
+                      <td><input data-f="unit" value="${escapeHtml(it.unit || '')}" ${isManager ? '' : 'disabled'} /></td>
+                      <td><input data-f="unit_price" type="number" class="${low.includes('order_items') ? 'low' : ''}" value="${it.unit_price ?? ''}" ${isManager ? '' : 'disabled'} /></td>
+                      <td><input data-f="total_price" type="number" value="${it.total_price ?? ''}" ${isManager ? '' : 'disabled'} /></td>
+                    </tr>`).join('')}
+                </tbody>
+              </table></div>
+            </div>` : ''}
+            ${sd.extraction_notes ? `<p style="font-size:12px;color:#757575;margin-top:10px">AIメモ: ${escapeHtml(sd.extraction_notes)}</p>` : ''}
+            <div class="field" style="margin-top:14px">
+              <input type="text" id="reviewNotes" placeholder="レビューメモ（任意）" style="width:100%;padding:8px 12px;border:1px solid #e0e0e0;border-radius:4px;font-family:inherit;font-size:14px" ${isManager ? '' : 'disabled'} />
+            </div>
+            ${isManager ? `
+            <div class="action-row">
+              <button class="btn btn-danger" onclick="submitReview('reject')">
+                <span class="material-icons" style="font-size:16px">close</span>差し戻し
+              </button>
+              <button class="btn btn-outlined" onclick="submitReview('approve_with_corrections')">
+                <span class="material-icons" style="font-size:16px">edit</span>修正して承認
+              </button>
+              <button class="btn btn-success" onclick="submitReview('approve')">
+                <span class="material-icons" style="font-size:16px">check</span>このまま承認
+              </button>
+            </div>` : '<p style="font-size:12px;color:#9e9e9e;margin-top:14px">承認・差し戻しは主催者アカウントで行えます</p>'}
+          </div>
+        </div>
+      `;
+    }
+
+    async function loadOriginalPreview() {
+      const a = activeAnalysis;
+      const area = document.getElementById('previewArea');
+      if (previewObjectUrl) { URL.revokeObjectURL(previewObjectUrl); previewObjectUrl = null; }
+      const type = (a.document.file_type || '');
+      const isImage = type.startsWith('image/');
+      const isPdf = type === 'application/pdf';
+      if (!isImage && !isPdf) {
+        area.innerHTML = '<span class="material-icons">description</span><p>' +
+          escapeHtml(a.document.file_name) + '</p><p style="font-size:12px">この形式はプレビューできません。原本をダウンロードして確認してください。</p>';
+        return;
+      }
+      try {
+        const res = await fetch('/api/documents/' + a.document.id + '/download', {
+          headers: { Authorization: 'Bearer ' + getToken() },
+        });
+        if (!res.ok) throw new Error();
+        const blob = await res.blob();
+        previewObjectUrl = URL.createObjectURL(blob);
+        area.innerHTML = isImage
+          ? '<img src="' + previewObjectUrl + '" alt="原本" />'
+          : '<iframe src="' + previewObjectUrl + '"></iframe>';
+      } catch {
+        area.innerHTML = '<span class="material-icons">error_outline</span><p>プレビューを読み込めませんでした</p>';
+      }
+    }
+
+    function collectCorrections() {
+      const sd = activeAnalysis.structured_data || {};
+      const corrections = {};
+      const total = document.getElementById('editTotal').value;
+      const delivery = document.getElementById('editDelivery').value;
+      corrections.total_amount = total === '' ? null : Number(total);
+      corrections.delivery_date = delivery || null;
+      const table = document.getElementById('editItems');
+      if (table) {
+        const items = [];
+        table.querySelectorAll('tbody tr').forEach(tr => {
+          const get = f => tr.querySelector('[data-f="' + f + '"]').value;
+          const name = get('item_name').trim();
+          if (!name) return;
+          items.push({
+            item_name: name,
+            quantity: Number(get('quantity')) || 0,
+            unit: get('unit') || null,
+            unit_price: get('unit_price') === '' ? null : Number(get('unit_price')),
+            total_price: get('total_price') === '' ? null : Number(get('total_price')),
+          });
+        });
+        corrections.order_items = items;
+      }
+      return corrections;
+    }
+
+    async function submitReview(action) {
+      if (!activeAnalysis) return;
+      const body = { action, notes: document.getElementById('reviewNotes').value || null };
+      if (action === 'approve_with_corrections') body.corrected_data = collectCorrections();
+      try {
+        await api('/api/ai-analyses/' + activeAnalysis.id + '/review', { method: 'PUT', body });
+        showSnackbar(action === 'reject' ? '差し戻しました' : '承認しました');
+        await loadQueue();
+        loadNotifications();
+      } catch (e) { showSnackbar(e.message); }
+    }
+
+    document.getElementById('btnQueueReload').addEventListener('click', loadQueue);
+
+    // ──── Orders ────
+    async function loadOrders() {
+      const [summaryRes, listRes] = await Promise.all([
+        api('/api/orders/summary?exhibition_id=' + exhibition.id),
+        api('/api/orders?exhibition_id=' + exhibition.id + '&limit=100'),
+      ]);
+      const s = summaryRes.data;
+      document.getElementById('orderSummaryGrid').innerHTML = `
+        <div class="summary-card">
+          <div class="icon-wrap" style="background:#1565c0"><span class="material-icons">receipt_long</span></div>
+          <div class="number">${s.total_orders}</div>
+          <div class="label">確定注文数</div>
+        </div>
+        <div class="summary-card">
+          <div class="icon-wrap" style="background:#2e7d32"><span class="material-icons">payments</span></div>
+          <div class="number">${Number(s.total_amount).toLocaleString('ja-JP')}<span style="font-size:15px">円</span></div>
+          <div class="label">注文金額合計</div>
+        </div>
+      `;
+      document.getElementById('ordersByExhibitor').innerHTML = s.by_exhibitor.map(e => `
+        <tr><td>${escapeHtml(e.exhibitor_name)}</td><td>${escapeHtml(e.booth || '—')}</td>
+        <td>${e.count}</td><td>${formatYen(e.amount)}</td></tr>
+      `).join('') || '<tr><td colspan="4" style="color:#9e9e9e;text-align:center;padding:24px">確定注文はまだありません</td></tr>';
+
+      document.getElementById('ordersTableBody').innerHTML = listRes.data.map(o => `
+        <tr>
+          <td style="white-space:nowrap">${formatDateTime(o.created_at)}</td>
+          <td>${escapeHtml(o.exhibitor_name || '')}</td>
+          <td>${escapeHtml(o.booth_number || '—')}</td>
+          <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(o.file_name || '')}</td>
+          <td>${o.items.length}</td>
+          <td>${formatYen(o.total_amount)}</td>
+          <td>${o.delivery_date || '—'}</td>
+        </tr>
+      `).join('') || '<tr><td colspan="7" style="color:#9e9e9e;text-align:center;padding:24px">確定注文はまだありません</td></tr>';
+    }
+
+    document.getElementById('btnOrdersCsv').addEventListener('click', () =>
+      apiDownload('/api/orders/export.csv?exhibition_id=' + exhibition.id, 'orders.csv')
+        .catch(e => showSnackbar(e.message)));
+
+    // ──── Categories ────
+    let editingCategoryId = null;
+
+    async function loadCategories() {
+      categories = await api('/api/exhibitions/' + exhibition.id + '/submission-categories?include_inactive=true');
+      document.getElementById('categoriesTableBody').innerHTML = categories.map(cat => `
+        <tr style="${cat.is_active ? '' : 'opacity:0.5'}">
+          <td>${cat.sort_order}</td>
+          <td>${escapeHtml(cat.name)}${cat.is_active ? '' : '（無効）'}</td>
+          <td>${escapeHtml(cat.recipient_org_name || '')}</td>
+          <td>${cat.is_required ? '<span class="chip-required">必須</span>' : '<span class="chip-optional">任意</span>'}</td>
+          <td>${cat.document_count}件</td>
+          <td>${cat.submitted_org_count}社</td>
+          <td style="white-space:nowrap">
+            <button class="icon-btn" title="編集" onclick="showEditCategory('${cat.id}')">
+              <span class="material-icons" style="font-size:18px">edit</span>
+            </button>
+            <button class="icon-btn" title="削除" onclick="deleteCategory('${cat.id}')">
+              <span class="material-icons" style="font-size:18px">delete</span>
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function fillRecipientOptions(selectedId) {
+      const targets = organizations.filter(o => o.org_type !== 'exhibitor');
+      document.getElementById('catRecipient').innerHTML = targets.map(o =>
+        `<option value="${o.id}" ${o.id === selectedId ? 'selected' : ''}>${escapeHtml(o.name)}</option>`
+      ).join('');
+    }
+
+    document.getElementById('btnAddCategory').addEventListener('click', () => {
+      editingCategoryId = null;
       document.getElementById('categoryDialogTitle').textContent = 'カテゴリを追加';
       document.getElementById('catName').value = '';
-      document.getElementById('catDest').value = '';
-      document.getElementById('catRequired').value = 'required';
-      document.getElementById('catDeadline').value = '';
+      document.getElementById('catDesc').value = '';
+      document.getElementById('catSort').value = categories.length + 1;
+      document.getElementById('catRequired').checked = true;
+      fillRecipientOptions();
       document.getElementById('categoryDialog').classList.add('show');
-    }
+    });
 
-    function showEditCategoryDialog(name) {
-      document.getElementById('categoryDialogTitle').textContent = 'カテゴリを編集: ' + name;
-      document.getElementById('catName').value = name;
+    function showEditCategory(id) {
+      const cat = categories.find(c => c.id === id);
+      if (!cat) return;
+      editingCategoryId = id;
+      document.getElementById('categoryDialogTitle').textContent = 'カテゴリを編集';
+      document.getElementById('catName').value = cat.name;
+      document.getElementById('catDesc').value = cat.description || '';
+      document.getElementById('catSort').value = cat.sort_order;
+      document.getElementById('catRequired').checked = cat.is_required;
+      fillRecipientOptions(cat.recipient_org_id);
       document.getElementById('categoryDialog').classList.add('show');
     }
 
@@ -1300,37 +1335,82 @@
       document.getElementById('categoryDialog').classList.remove('show');
     }
 
-    function saveCategoryDialog() {
-      closeCategoryDialog();
-      showSnackbar('カテゴリを保存しました');
-    }
-
-    // --- Copy dialog ---
-    function showCopyDialog() {
-      document.getElementById('copyDialog').classList.add('show');
-    }
-
-    function closeCopyDialog() {
-      document.getElementById('copyDialog').classList.remove('show');
-    }
-
-    function executeCopy() {
-      closeCopyDialog();
-      showSnackbar('カテゴリをコピーしました');
-    }
-
-    // --- Check all ---
-    document.getElementById('checkAll').addEventListener('change', function() {
-      document.querySelectorAll('#docTableBody input[type="checkbox"]').forEach(cb => cb.checked = this.checked);
+    document.getElementById('btnSaveCategory').addEventListener('click', async () => {
+      const body = {
+        name: document.getElementById('catName').value.trim(),
+        description: document.getElementById('catDesc').value.trim() || null,
+        recipient_org_id: document.getElementById('catRecipient').value,
+        is_required: document.getElementById('catRequired').checked,
+        sort_order: Number(document.getElementById('catSort').value) || 0,
+      };
+      if (!body.name) { showSnackbar('カテゴリ名を入力してください'); return; }
+      try {
+        if (editingCategoryId) {
+          await api('/api/exhibitions/' + exhibition.id + '/submission-categories/' + editingCategoryId, { method: 'PUT', body });
+        } else {
+          await api('/api/exhibitions/' + exhibition.id + '/submission-categories', { method: 'POST', body });
+        }
+        closeCategoryDialog();
+        showSnackbar('保存しました');
+        loadCategories();
+      } catch (e) { showSnackbar(e.message); }
     });
 
-    // --- Filter simulation ---
-    document.getElementById('filterStatus').addEventListener('change', function() {
-      showSnackbar('フィルタを適用しました');
+    async function deleteCategory(id) {
+      const cat = categories.find(c => c.id === id);
+      if (!cat) return;
+      if (!confirm('カテゴリ「' + cat.name + '」を削除しますか？\n（提出済み書類がある場合は無効化されます）')) return;
+      try {
+        await api('/api/exhibitions/' + exhibition.id + '/submission-categories/' + id, { method: 'DELETE' });
+        showSnackbar('削除しました');
+        loadCategories();
+      } catch (e) { showSnackbar(e.message); }
+    }
+
+    // ──── Notifications ────
+    async function loadNotifications() {
+      try {
+        const res = await api('/api/notifications?limit=20');
+        const badge = document.getElementById('notifBadge');
+        badge.textContent = res.unread_count;
+        badge.style.display = res.unread_count ? 'flex' : 'none';
+        document.getElementById('notifList').innerHTML = res.data.map(n => `
+          <div class="notif-item ${n.is_read ? '' : 'unread'}">
+            <div class="t">${escapeHtml(n.title)}</div>
+            ${n.message ? '<div class="m">' + escapeHtml(n.message) + '</div>' : ''}
+            <div class="d">${formatDateTime(n.created_at)}</div>
+          </div>
+        `).join('') || '<div class="notif-item" style="color:#9e9e9e">通知はありません</div>';
+      } catch {}
+    }
+
+    document.getElementById('btnNotif').addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.getElementById('notifPanel').classList.toggle('show');
     });
-    document.getElementById('filterCategory').addEventListener('change', function() {
-      showSnackbar('フィルタを適用しました');
+    document.addEventListener('click', (e) => {
+      const panel = document.getElementById('notifPanel');
+      if (panel.classList.contains('show') && !panel.contains(e.target)) {
+        panel.classList.remove('show');
+      }
     });
+    document.getElementById('btnReadAll').addEventListener('click', async () => {
+      try {
+        await api('/api/notifications/read-all', { method: 'PUT' });
+        loadNotifications();
+      } catch (e) { showSnackbar(e.message); }
+    });
+
+    // ──── Snackbar ────
+    function showSnackbar(text) {
+      const sb = document.getElementById('snackbar');
+      document.getElementById('snackbarText').textContent = text;
+      sb.classList.add('show');
+      setTimeout(() => sb.classList.remove('show'), 3000);
+    }
+
+    // ──── Start ────
+    init();
   </script>
 
 </body>
