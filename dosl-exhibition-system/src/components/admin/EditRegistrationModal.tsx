@@ -158,6 +158,7 @@ export default function EditRegistrationModal({
               </label>
               <input
                 type="text"
+                maxLength={50}
                 value={form.last_name}
                 onChange={(e) => update("last_name", e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -169,6 +170,7 @@ export default function EditRegistrationModal({
               </label>
               <input
                 type="text"
+                maxLength={50}
                 value={form.first_name}
                 onChange={(e) => update("first_name", e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -180,6 +182,7 @@ export default function EditRegistrationModal({
               </label>
               <input
                 type="text"
+                maxLength={50}
                 value={form.last_name_kana}
                 onChange={(e) => update("last_name_kana", e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -191,6 +194,7 @@ export default function EditRegistrationModal({
               </label>
               <input
                 type="text"
+                maxLength={50}
                 value={form.first_name_kana}
                 onChange={(e) => update("first_name_kana", e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -221,6 +225,7 @@ export default function EditRegistrationModal({
             </label>
             <input
               type="text"
+              maxLength={100}
               value={form.company_name}
               onChange={(e) => update("company_name", e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -233,6 +238,7 @@ export default function EditRegistrationModal({
               </label>
               <input
                 type="text"
+                maxLength={100}
                 value={form.department}
                 onChange={(e) => update("department", e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -244,6 +250,7 @@ export default function EditRegistrationModal({
               </label>
               <input
                 type="text"
+                maxLength={100}
                 value={form.position}
                 onChange={(e) => update("position", e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -258,6 +265,8 @@ export default function EditRegistrationModal({
               </label>
               <input
                 type="tel"
+                maxLength={20}
+                pattern="[0-9\\-]*"
                 value={form.phone}
                 onChange={(e) => update("phone", e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -269,6 +278,7 @@ export default function EditRegistrationModal({
               </label>
               <input
                 type="text"
+                maxLength={50}
                 value={form.industry}
                 onChange={(e) => update("industry", e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -283,6 +293,8 @@ export default function EditRegistrationModal({
               </label>
               <input
                 type="text"
+                maxLength={8}
+                placeholder="100-0001"
                 value={form.postal_code}
                 onChange={(e) => update("postal_code", e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -295,6 +307,7 @@ export default function EditRegistrationModal({
             </label>
             <input
               type="text"
+              maxLength={200}
               value={form.address}
               onChange={(e) => update("address", e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"

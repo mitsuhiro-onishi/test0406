@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
+import { NextResponse } from "next/server";
 
 export interface AdminSession {
   user_id: string;
@@ -11,15 +12,15 @@ export interface AdminSession {
 }
 
 /**
- * サーバーコンポーネントで管理者セッションを取得する。
- * 未ログインの場合はログインページにリダイレクト。
+ * Cookieのアクセストークンから管理者セッションを取得する。
+ * 未ログイン・権限なしの場合は null。
  */
-export async function requireAdmin(): Promise<AdminSession> {
+export async function getAdminSession(): Promise<AdminSession | null> {
   const cookieStore = cookies();
   const accessToken = cookieStore.get("sb-access-token")?.value;
 
   if (!accessToken) {
-    redirect("/admin/login");
+    return null;
   }
 
   const supabase = createClient(
@@ -33,7 +34,7 @@ export async function requireAdmin(): Promise<AdminSession> {
   } = await supabase.auth.getUser(accessToken);
 
   if (error || !user) {
-    redirect("/admin/login");
+    return null;
   }
 
   // admin_users を確認
@@ -50,7 +51,7 @@ export async function requireAdmin(): Promise<AdminSession> {
     .single();
 
   if (!adminUser) {
-    redirect("/admin/login");
+    return null;
   }
 
   return {
@@ -60,4 +61,36 @@ export async function requireAdmin(): Promise<AdminSession> {
     role: adminUser.role,
     organization_id: adminUser.organization_id,
   };
+}
+
+/**
+ * サーバーコンポーネントで管理者セッションを取得する。
+ * 未ログインの場合はログインページにリダイレクト。
+ */
+export async function requireAdmin(): Promise<AdminSession> {
+  const session = await getAdminSession();
+  if (!session) {
+    redirect("/admin/login");
+  }
+  return session;
+}
+
+/**
+ * API Route で管理者セッションを検証する。
+ * 未ログイン・権限なしの場合は 401 レスポンスを返す。
+ *
+ * 使い方:
+ *   const auth = await requireAdminApi();
+ *   if (auth instanceof NextResponse) return auth;
+ *   // auth は AdminSession
+ */
+export async function requireAdminApi(): Promise<AdminSession | NextResponse> {
+  const session = await getAdminSession();
+  if (!session) {
+    return NextResponse.json(
+      { success: false, error: "認証が必要です" },
+      { status: 401 },
+    );
+  }
+  return session;
 }

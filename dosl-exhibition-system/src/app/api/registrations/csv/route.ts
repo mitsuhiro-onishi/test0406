@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requireAdminApi } from "@/lib/auth";
+import { REGISTRATION_STATUSES, sanitizeSearchTerm } from "@/lib/validation";
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAdminApi();
+  if (auth instanceof NextResponse) return auth;
+
   const { searchParams } = new URL(request.url);
   const exhibition_id = searchParams.get("exhibition_id");
   const status = searchParams.get("status");
@@ -21,14 +26,17 @@ export async function GET(request: NextRequest) {
   if (exhibition_id) {
     query = query.eq("exhibition_id", exhibition_id);
   }
-  if (status) {
+  if (status && (REGISTRATION_STATUSES as readonly string[]).includes(status)) {
     query = query.eq("status", status);
   }
   if (q) {
-    query = query.or(
-      `last_name.ilike.%${q}%,first_name.ilike.%${q}%,company_name.ilike.%${q}%,email.ilike.%${q}%`,
-      { foreignTable: "visitors" },
-    );
+    const term = sanitizeSearchTerm(q);
+    if (term) {
+      query = query.or(
+        `last_name.ilike.%${term}%,first_name.ilike.%${term}%,company_name.ilike.%${term}%,email.ilike.%${term}%`,
+        { foreignTable: "visitors" },
+      );
+    }
   }
 
   query = query.order("registered_at", { ascending: false });
@@ -70,8 +78,13 @@ export async function GET(request: NextRequest) {
 
   function csvEscape(val: string | null | undefined): string {
     if (val == null) return "";
-    const s = String(val);
-    if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+    let s = String(val);
+    // Excel数式インジェクション対策: 先頭が = + - @ の場合はタブを前置しない方式でなく
+    // シングルクォートを前置して数式評価を防ぐ
+    if (/^[=+\-@]/.test(s)) {
+      s = `'${s}`;
+    }
+    if (s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")) {
       return `"${s.replace(/"/g, '""')}"`;
     }
     return s;
@@ -85,7 +98,9 @@ export async function GET(request: NextRequest) {
         ? "登録済"
         : r.status === "cancelled"
           ? "キャンセル"
-          : r.status,
+          : r.status === "waitlisted"
+            ? "ウェイトリスト"
+            : r.status,
       v.last_name,
       v.first_name,
       v.last_name_kana,
@@ -115,7 +130,11 @@ export async function GET(request: NextRequest) {
   const bom = "\uFEFF";
   const csv = bom + headers.map(csvEscape).join(",") + "\n" + csvRows.join("\n");
 
-  const filename = `registrations_${new Date().toISOString().slice(0, 10)}.csv`;
+  // ファイル名の日付はJST基準
+  const jstDate = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Tokyo",
+  }).format(new Date());
+  const filename = `registrations_${jstDate}.csv`;
 
   return new NextResponse(csv, {
     headers: {

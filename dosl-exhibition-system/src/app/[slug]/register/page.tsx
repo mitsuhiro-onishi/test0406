@@ -271,6 +271,7 @@ export default function RegisterPage({
               <input
                 type="email"
                 required
+                maxLength={254}
                 value={form.email}
                 onChange={(e) => updateForm("email", e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -284,6 +285,7 @@ export default function RegisterPage({
               <input
                 type="text"
                 required
+                maxLength={50}
                 value={form.last_name}
                 onChange={(e) => updateForm("last_name", e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -296,6 +298,7 @@ export default function RegisterPage({
               <input
                 type="text"
                 required
+                maxLength={50}
                 value={form.first_name}
                 onChange={(e) => updateForm("first_name", e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -307,6 +310,7 @@ export default function RegisterPage({
               </label>
               <input
                 type="text"
+                maxLength={50}
                 value={form.last_name_kana}
                 onChange={(e) => updateForm("last_name_kana", e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -319,6 +323,7 @@ export default function RegisterPage({
               </label>
               <input
                 type="text"
+                maxLength={50}
                 value={form.first_name_kana}
                 onChange={(e) => updateForm("first_name_kana", e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -339,6 +344,7 @@ export default function RegisterPage({
               <input
                 type="text"
                 required={ff.company_name.required}
+                maxLength={100}
                 value={form.company_name}
                 onChange={(e) => updateForm("company_name", e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -357,6 +363,7 @@ export default function RegisterPage({
               <input
                 type="text"
                 required={ff.company_kana.required}
+                maxLength={100}
                 value={form.company_kana}
                 onChange={(e) => updateForm("company_kana", e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -372,6 +379,7 @@ export default function RegisterPage({
                 </label>
                 <input
                   type="text"
+                  maxLength={100}
                   value={form.department}
                   onChange={(e) => updateForm("department", e.target.value)}
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -385,6 +393,7 @@ export default function RegisterPage({
                 </label>
                 <input
                   type="text"
+                  maxLength={100}
                   value={form.position}
                   onChange={(e) => updateForm("position", e.target.value)}
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -396,10 +405,15 @@ export default function RegisterPage({
           {ff.phone?.visible && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                電話番号
+                電話番号{" "}
+                {ff.phone.required && <span className="text-red-500">*</span>}
               </label>
               <input
                 type="tel"
+                required={ff.phone.required}
+                maxLength={20}
+                pattern="[0-9\-]*"
+                title="半角数字とハイフンで入力してください"
                 value={form.phone}
                 onChange={(e) => updateForm("phone", e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -408,13 +422,60 @@ export default function RegisterPage({
             </div>
           )}
 
+          {/* 郵便番号・住所 */}
+          {(ff.postal_code?.visible || ff.address?.visible) && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {ff.postal_code?.visible && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    郵便番号{" "}
+                    {ff.postal_code.required && (
+                      <span className="text-red-500">*</span>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    required={ff.postal_code.required}
+                    maxLength={8}
+                    pattern="\d{3}-?\d{4}"
+                    title="XXX-XXXXの形式で入力してください"
+                    value={form.postal_code}
+                    onChange={(e) => updateForm("postal_code", e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="100-0001"
+                  />
+                </div>
+              )}
+              {ff.address?.visible && (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    住所{" "}
+                    {ff.address.required && (
+                      <span className="text-red-500">*</span>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    required={ff.address.required}
+                    maxLength={200}
+                    value={form.address}
+                    onChange={(e) => updateForm("address", e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* 業種 */}
           {ff.industry?.visible && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                業種
+                業種{" "}
+                {ff.industry.required && <span className="text-red-500">*</span>}
               </label>
               <select
+                required={ff.industry.required}
                 value={form.industry}
                 onChange={(e) => updateForm("industry", e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -520,6 +581,8 @@ export default function RegisterPage({
                     <input
                       type="text"
                       placeholder="氏名"
+                      required
+                      maxLength={50}
                       value={c.name}
                       onChange={(e) =>
                         updateCompanion(i, "name", e.target.value)
@@ -528,7 +591,18 @@ export default function RegisterPage({
                     />
                     <input
                       type="text"
+                      placeholder="カナ（任意）"
+                      maxLength={50}
+                      value={c.name_kana || ""}
+                      onChange={(e) =>
+                        updateCompanion(i, "name_kana", e.target.value)
+                      }
+                      className="w-full rounded border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="text"
                       placeholder="会社名（任意）"
+                      maxLength={100}
                       value={c.company || ""}
                       onChange={(e) =>
                         updateCompanion(i, "company", e.target.value)

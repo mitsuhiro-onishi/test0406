@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requireAdminApi } from "@/lib/auth";
+import { REGISTRATION_STATUSES, sanitizeSearchTerm } from "@/lib/validation";
+
+const MAX_PER_PAGE = 100;
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAdminApi();
+  if (auth instanceof NextResponse) return auth;
+
   const { searchParams } = new URL(request.url);
   const exhibition_id = searchParams.get("exhibition_id");
   const status = searchParams.get("status");
   const q = searchParams.get("q")?.trim();
-  const page = parseInt(searchParams.get("page") || "1");
-  const per_page = parseInt(searchParams.get("per_page") || "50");
+  const page = Math.max(1, parseInt(searchParams.get("page") || "1") || 1);
+  const per_page = Math.min(
+    MAX_PER_PAGE,
+    Math.max(1, parseInt(searchParams.get("per_page") || "50") || 50),
+  );
   const sort = searchParams.get("sort") || "registered_at";
   const order = searchParams.get("order") || "desc";
 
@@ -27,16 +37,19 @@ export async function GET(request: NextRequest) {
   if (exhibition_id) {
     query = query.eq("exhibition_id", exhibition_id);
   }
-  if (status) {
+  if (status && (REGISTRATION_STATUSES as readonly string[]).includes(status)) {
     query = query.eq("status", status);
   }
 
   // テキスト検索（visitor の名前・会社名・メール）
   if (q) {
-    query = query.or(
-      `last_name.ilike.%${q}%,first_name.ilike.%${q}%,company_name.ilike.%${q}%,email.ilike.%${q}%`,
-      { foreignTable: "visitors" },
-    );
+    const term = sanitizeSearchTerm(q);
+    if (term) {
+      query = query.or(
+        `last_name.ilike.%${term}%,first_name.ilike.%${term}%,company_name.ilike.%${term}%,email.ilike.%${term}%`,
+        { foreignTable: "visitors" },
+      );
+    }
   }
 
   // ソート

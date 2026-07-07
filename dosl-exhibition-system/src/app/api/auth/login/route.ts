@@ -1,15 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { getClientIp, rateLimit } from "@/lib/rate-limit";
+import { cleanText, isValidEmail, MAX_LEN } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password } = await request.json();
+    // レート制限: ブルートフォース対策（IPごと 10回/15分）
+    const ip = getClientIp(request);
+    const rl = rateLimit(`login:${ip}`, 10, 15 * 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "ログイン試行が多すぎます。しばらくしてからお試しください",
+        },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } },
+      );
+    }
+
+    const body = await request.json();
+    const email = cleanText(body.email)?.toLowerCase() ?? null;
+    const password = typeof body.password === "string" ? body.password : "";
 
     if (!email || !password) {
       return NextResponse.json(
         { success: false, error: "メールアドレスとパスワードを入力してください" },
         { status: 400 },
+      );
+    }
+    if (!isValidEmail(email) || password.length > MAX_LEN.password) {
+      return NextResponse.json(
+        { success: false, error: "メールアドレスまたはパスワードが正しくありません" },
+        { status: 401 },
       );
     }
 
@@ -52,17 +75,19 @@ export async function POST(request: NextRequest) {
     }
 
     // セッション情報をcookieに保存
+    // アクセストークンはJWTの有効期限に合わせ、失効前はmiddlewareがリフレッシュする
     const cookieStore = cookies();
+    const secure = process.env.NODE_ENV === "production";
     cookieStore.set("sb-access-token", data.session.access_token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure,
       sameSite: "lax",
-      maxAge: 60 * 60 * 24, // 24時間
+      maxAge: data.session.expires_in || 60 * 60,
       path: "/",
     });
     cookieStore.set("sb-refresh-token", data.session.refresh_token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure,
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 7, // 7日間
       path: "/",
