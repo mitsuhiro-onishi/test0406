@@ -66,6 +66,16 @@ export function isValidTicketCode(code: string): boolean {
   return /^[A-Z0-9]{8}$/.test(code);
 }
 
+/** UUID形式チェック（不正値をDBに渡すと実Postgresでは22P02になるため事前検証） */
+export function isValidUuid(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      value,
+    )
+  );
+}
+
 export const REGISTRATION_STATUSES = [
   "confirmed",
   "cancelled",

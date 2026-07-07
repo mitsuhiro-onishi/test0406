@@ -1,0 +1,58 @@
+import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase/server";
+import { requireAdminApi } from "@/lib/auth";
+import { isValidUuid } from "@/lib/validation";
+
+// 聴講実績: セミナーの予約一覧（GATEオプション）
+
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: { id: string } },
+) {
+  const auth = await requireAdminApi();
+  if (auth instanceof NextResponse) return auth;
+
+  if (!isValidUuid(params.id)) {
+    return NextResponse.json(
+      { error: "セミナーが見つかりません" },
+      { status: 404 },
+    );
+  }
+
+  const { data: seminar } = await supabaseAdmin
+    .from("seminars")
+    .select("id, title, capacity, starts_at, ends_at, status, venue_name")
+    .eq("id", params.id)
+    .maybeSingle();
+
+  if (!seminar) {
+    return NextResponse.json(
+      { error: "セミナーが見つかりません" },
+      { status: 404 },
+    );
+  }
+
+  const { data: bookings, error } = await supabaseAdmin
+    .from("seminar_bookings")
+    .select(
+      `
+      id, status, checked_in_at, booked_at,
+      registration:registrations!inner(
+        id, ticket_code, status,
+        visitor:visitors!inner(last_name, first_name, last_name_kana, first_name_kana, company_name, email)
+      )
+    `,
+    )
+    .eq("seminar_id", params.id)
+    .order("booked_at", { ascending: true });
+
+  if (error) {
+    console.error("Seminar bookings query error:", error);
+    return NextResponse.json(
+      { error: "データの取得に失敗しました" },
+      { status: 500 },
+    );
+  }
+
+  return NextResponse.json({ seminar, bookings: bookings || [] });
+}
