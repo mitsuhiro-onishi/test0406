@@ -80,7 +80,7 @@ INSERT INTO registrations (id, exhibition_id, visitor_id, ticket_code, status, i
 VALUES
     ('00000000-0000-0000-0000-000000000300', '00000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-000000000200', 'TEST1234', 'confirmed', '製造業', ARRAY['情報収集', '新製品確認']);
 
--- 7. テスト用出展社（リードリトリーバル・オプション。004適用後に有効）
+-- 7. テスト用出展社（リードリトリーバル・オプション。005適用後に有効）
 INSERT INTO exhibitors (id, exhibition_id, name, booth_number, contact_name, access_code)
 VALUES
     ('00000000-0000-0000-0000-000000000700', '00000000-0000-0000-0000-000000000010', 'サンプル出展社', 'A-12', '出展 太郎', 'DEMOBOOTH234');
