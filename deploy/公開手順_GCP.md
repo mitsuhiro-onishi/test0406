@@ -32,9 +32,15 @@ STAGE=$(mktemp -d)/dosl-hub-deploy && mkdir -p $STAGE
 rsync -a --exclude='.venv' --exclude='__pycache__' --exclude='exhibition.db' \
       --exclude='uploads' --exclude='.env' backend $STAGE/
 rsync -a web deploy $STAGE/
+# 転送先の残骸を必ず消してからscpする（残っているとscpが ~/dosl-hub-update/dosl-hub-deploy/ に
+# 入れ子コピーしてしまい、cpしても本番ファイルが更新されない。2026-07-08に実際に発生）
+gcloud compute ssh dosl-hub --zone=us-west1-b --project=dosl-hub-01 --command="rm -rf ~/dosl-hub-update"
 gcloud compute scp --recurse $STAGE dosl-hub:~/dosl-hub-update --zone=us-west1-b --project=dosl-hub-01
 gcloud compute ssh dosl-hub --zone=us-west1-b --project=dosl-hub-01 --command="
-  sudo cp -r ~/dosl-hub-update/. /opt/dosl-hub/ && sudo systemctl restart dosl-hub"
+  sudo cp -r ~/dosl-hub-update/. /opt/dosl-hub/ && sudo systemctl restart dosl-hub && rm -rf ~/dosl-hub-update"
+# デプロイ後は必ずハッシュで反映を確認する（curlのHTTP 200だけでは旧コードでも通る）
+shasum -a 256 web/admin.html
+curl -s https://34-168-97-181.sslip.io/admin.html | shasum -a 256   # ↑と一致すること
 ```
 ※ 本番 .env（/opt/dosl-hub/backend/.env）は上書きしないこと。データは /opt/dosl-hub/data にあるためコード上書きで消えない。
 ※ requirements.txt を変えた場合はVMで `cd /opt/dosl-hub/backend && sudo ./.venv/bin/pip install -r requirements.txt` も実行。
