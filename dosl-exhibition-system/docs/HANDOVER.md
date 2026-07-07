@@ -84,20 +84,28 @@
 
 ---
 
-## 新セッション用キックオフ文面（コピペ用）
+## 新セッション用キックオフ文面（コピペ用・2026-07-08更新）
 
 ```
-DOSL GATE（展示会事前登録システム）の本番化作業を引き継ぎます。
+DOSL GATE（展示会事前登録システム）の運用フェーズを引き継ぎます。
 
 引き継ぎmd: Projects/exhibition-systems/registration-system/dosl-exhibition-system/docs/HANDOVER.md
 を読んでから作業を開始してください。
 
-状況: コードは開発完了・コミット済み（5defbdc）。残りは本番化のみ。
-やること（順に）:
-1. Supabaseプロジェクト作成 → migrations 001〜003 + seed 適用 → 管理者ユーザー作成とadmin_users更新
-2. .env.local を実値化してローカルで通し確認（登録→メール→QRチケット→管理画面→チェックイン→CSV）
-3. Vercelデプロイ → 本番URLで再確認
+状況: 2026-07-08に本番公開済み（https://dosl-gate.vercel.app）。
+Supabase本番（ref: fosvjwwqafeflygsbrkm）はmigrations 001〜004+seed適用済み・通し確認済み。
+ブランチは exhibition/registration-system（origin にpush済み）。
+
+残タスク（着手指示があったものから）:
+1. メール送信の有効化: Resend APIキー取得 → Vercel環境変数 RESEND_API_KEY 追加 →
+   送信ドメイン認証（SPF/DKIM）→ 登録して受信確認（認証前はResendのテスト送信先制限あり）
+2. 実展示会の登録: 作成UIが無いため、SupabaseダッシュボードのSQLで
+   organizations/exhibitions/registration_types を登録する（seed.sql が雛形）
+3. GATEオプション（exhibition/gate-options ブランチ・別開発）のマージ対応:
+   004_gate_options.sql→005リネーム / ffdaedfに混入した004_fixの重複解消 /
+   9a569cf（再登録null上書き修正）の取り込み
 
 注意: 変更は1つずつ・検証してから次へ。git pushや外部影響操作は事前に私に確認。
-Supabaseの各キーは私が用意するので、必要になったら聞いてください。
+デプロイは git archive でクリーン書き出し→ npx vercel deploy --prod（作業ツリー直は禁止）。
+Supabase/Vercelのキー・トークンは私が用意するので、必要になったら聞いてください。
 ```
