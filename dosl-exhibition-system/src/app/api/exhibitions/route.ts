@@ -9,7 +9,7 @@ export async function GET() {
 
   const { data, error } = await supabaseAdmin
     .from("exhibitions")
-    .select("id, name, slug, status, start_date, end_date")
+    .select("id, name, slug, status, start_date, end_date, features")
     .order("start_date", { ascending: false });
 
   if (error) {

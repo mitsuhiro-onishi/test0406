@@ -38,6 +38,18 @@ export default async function AdminLayout({
           >
             受付（QR読取）
           </Link>
+          <Link
+            href="/admin/seminars"
+            className="block px-4 py-2.5 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition"
+          >
+            セミナー管理
+          </Link>
+          <Link
+            href="/admin/seminars/checkin"
+            className="block px-4 py-2.5 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition"
+          >
+            セミナー受付
+          </Link>
         </nav>
 
         {/* ユーザー情報 & ログアウト */}

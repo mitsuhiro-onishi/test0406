@@ -403,11 +403,24 @@ function evalCond(row, col, op, rawVal) {
   }
 }
 
+const DATEISH = /^\d{4}-\d{2}-\d{2}[T ]/;
+
 function compare(a, b) {
   if (a == null) return -1;
   const na = Number(a);
   const nb = Number(b);
   if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+  // タイムゾーン表記が違う日時同士（+09:00 vs Z）は文字列比較できないため時刻で比較
+  if (
+    typeof a === "string" &&
+    typeof b === "string" &&
+    DATEISH.test(a) &&
+    DATEISH.test(b)
+  ) {
+    const ta = Date.parse(a);
+    const tb = Date.parse(b);
+    if (!Number.isNaN(ta) && !Number.isNaN(tb)) return ta - tb;
+  }
   return String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0;
 }
 
