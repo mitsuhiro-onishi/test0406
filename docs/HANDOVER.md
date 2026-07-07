@@ -25,6 +25,15 @@
 - **管理ダッシュボード** (admin.html): サマリー統計・カテゴリ別提出率・受信フィード／書類一覧（フィルタ・検索・ページネーション・詳細・原本DL・再解析）／**AIレビュー画面**（原本プレビュー+解析結果の左右比較、品目編集、承認・修正して承認・差し戻し）／注文集計（出展社別金額・一覧）／カテゴリ管理CRUD／通知（ベル・未読バッジ）
 - **権限分離**: 出展社=自社の書類のみ／協力会社=自社宛カテゴリのみ／主催者=全件
 - **CSV出力**: 注文一覧（品目明細つき）・書類提出状況（BOM付きUTF-8）
+- **出展申込（2026-07-07追加・オプション機能）**: 展示会ごとにON/OFF可能なセルフサービス申込
+  - 公開フォーム `apply.html?exhibition=<id>`（認証不要）→ 申込→主催者に通知
+  - 管理画面「出展申込」タブ: 受付ON/OFFトグル・申込ページURLコピー・一覧（状態フィルタ）・承認/却下
+  - 承認すると organization（出展社）+ user（担当者アカウント）+ booth（任意）を自動作成し、
+    初期パスワードを一度だけ画面表示（メール送信はPhase 2で自動化予定）
+  - バリデーション: 受付OFF時403・審査中の同一メール重複409・既存ユーザーemail409・不正email400
+  - API: `/api/public/exhibitions/{id}/application-info`・`/api/public/exhibitions/{id}/applications`（公開）、
+    `/api/exhibitions/{id}/applications`・`/api/applications/{id}/approve|reject`・
+    `/api/exhibitions/{id}/application-settings`（require_manager）
 
 ### 起動方法
 ```bash
@@ -33,6 +42,9 @@
 curl -X POST http://localhost:8710/api/seed
 ```
 DBはSQLite（backend/exhibition.db）。ファイルはbackend/uploads/に保存。
+
+※ /api/seed は環境変数 ENABLE_SEED=true のときだけ有効（run_dev.shが自動設定）。
+本番ではデフォルト無効＝404になる（デモアカウントのパスワードがリポジトリ公開のため）。
 
 ### デモアカウント（パスワードはseed.py参照）
 | ロール | メール | 見えるもの |
@@ -88,7 +100,7 @@ run_dev.sh                   起動スクリプト
 | # | タスク | 備考 |
 |---|--------|------|
 | 1 | ~~実AI解析の動作確認~~ | ✅ **2026-07-07完了**。下記「実AI解析テスト結果」参照 |
-| 2 | GCPデプロイ | Cloud Run + Cloud SQL(PostgreSQL) + GCS。Dockerfileは既存を更新要 |
+| 2 | GCPデプロイ | **保留中（2026-07-07）**。専用VM案（e2-micro・約1,500円/月・AEOツールと同構成）を提示したが、課金発生のためユーザー判断で一旦中止。再開時は課金GOの確認から。デプロイ前調査は完了済み（requirements.txt同期・シードAPIガードは修正済み。残る本番準備=SECRET_KEY生成・ENABLE_SEED運用・デモパスワード変更） |
 | 3 | ファイル保存のGCS化 | 現状ローカルディスク。storage_path抽象化は済んでいる |
 | 4 | 複数展示会UI | APIは対応済み。フロントは先頭の展示会固定 |
 | 5 | ユーザー管理画面 | 現状シードのみ。組織・ユーザーのCRUD画面 |

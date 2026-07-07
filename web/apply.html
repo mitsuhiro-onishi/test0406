@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>出展申込 - DOSL HUB</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Roboto', 'Noto Sans JP', sans-serif;
+      background: linear-gradient(160deg, #1565c0 0%, #1976d2 55%, #42a5f5 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+      padding: 36px 32px;
+      width: 100%;
+      max-width: 520px;
+      margin: 24px auto;
+    }
+    .brand { text-align: center; margin-bottom: 8px; }
+    .brand .logo {
+      width: 56px; height: 56px;
+      background: #1976d2;
+      border-radius: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      margin-bottom: 12px;
+    }
+    .brand h1 { font-size: 20px; font-weight: 700; color: #212121; }
+    .exhibition-info {
+      text-align: center;
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #eee;
+    }
+    .exhibition-info h2 { font-size: 17px; font-weight: 500; color: #1565c0; margin-top: 8px; }
+    .exhibition-info p { font-size: 13px; color: #757575; margin-top: 4px; }
+    .field { margin-bottom: 16px; }
+    .field label { display: block; font-size: 13px; color: #616161; margin-bottom: 6px; }
+    .field label .req { color: #c62828; margin-left: 3px; }
+    .field input, .field textarea, .field select {
+      width: 100%;
+      padding: 12px 14px;
+      font-size: 15px;
+      font-family: inherit;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .field textarea { resize: vertical; min-height: 88px; }
+    .field input:focus, .field textarea:focus, .field select:focus {
+      border-color: #1976d2; box-shadow: 0 0 0 3px rgba(25,118,210,0.15);
+    }
+    .btn-submit {
+      width: 100%;
+      padding: 13px;
+      background: #1976d2;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 15px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background 0.15s;
+    }
+    .btn-submit:hover { background: #1565c0; }
+    .btn-submit:disabled { background: #bdbdbd; cursor: not-allowed; }
+    .error {
+      display: none;
+      background: #ffebee;
+      color: #c62828;
+      font-size: 13px;
+      padding: 10px 14px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+    }
+    .error.show { display: block; }
+    .notice {
+      text-align: center;
+      padding: 28px 8px;
+      color: #616161;
+      font-size: 14px;
+      line-height: 1.8;
+    }
+    .notice .material-icons { font-size: 52px; color: #bdbdbd; margin-bottom: 10px; }
+    .done { display: none; text-align: center; padding: 20px 8px; }
+    .done .material-icons { font-size: 60px; color: #2e7d32; margin-bottom: 12px; }
+    .done h2 { font-size: 18px; color: #212121; margin-bottom: 10px; }
+    .done p { font-size: 14px; color: #616161; line-height: 1.8; }
+    .footer-note { text-align: center; font-size: 12px; color: #9e9e9e; margin-top: 20px; }
+    .footer-note a { color: #1976d2; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <div class="logo"><span class="material-icons" style="font-size:30px">hub</span></div>
+      <h1>出展申込</h1>
+    </div>
+
+    <div id="loadingBox" class="notice">読み込み中...</div>
+
+    <div id="closedBox" class="notice" style="display:none">
+      <span class="material-icons">event_busy</span><br>
+      <span id="closedText">現在この展示会は出展申込を受け付けていません。</span>
+    </div>
+
+    <div id="formBox" style="display:none">
+      <div class="exhibition-info">
+        <h2 id="exName"></h2>
+        <p id="exMeta"></p>
+      </div>
+      <div class="error" id="errorBox"></div>
+      <form id="applyForm">
+        <div class="field">
+          <label for="companyName">会社名<span class="req">*</span></label>
+          <input type="text" id="companyName" required maxlength="200" placeholder="株式会社〇〇" />
+        </div>
+        <div class="field">
+          <label for="contactName">ご担当者名<span class="req">*</span></label>
+          <input type="text" id="contactName" required maxlength="100" placeholder="展示 太郎" />
+        </div>
+        <div class="field">
+          <label for="email">メールアドレス<span class="req">*</span></label>
+          <input type="email" id="email" required maxlength="255" placeholder="you@example.com" />
+        </div>
+        <div class="field">
+          <label for="phone">電話番号</label>
+          <input type="tel" id="phone" maxlength="20" placeholder="06-1234-5678" />
+        </div>
+        <div class="field">
+          <label for="boothCount">希望コマ数<span class="req">*</span></label>
+          <select id="boothCount">
+            <option value="1">1コマ</option>
+            <option value="2">2コマ</option>
+            <option value="3">3コマ</option>
+            <option value="4">4コマ</option>
+            <option value="6">6コマ</option>
+            <option value="8">8コマ以上（詳細は連絡事項へ）</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="message">連絡事項</label>
+          <textarea id="message" maxlength="2000" placeholder="角ブース希望、出展内容など"></textarea>
+        </div>
+        <button type="submit" class="btn-submit" id="btnSubmit">申込を送信</button>
+      </form>
+      <p class="footer-note">送信後、主催事務局が内容を確認し、ご担当者様へご連絡します。</p>
+    </div>
+
+    <div id="doneBox" class="done">
+      <span class="material-icons">check_circle</span>
+      <h2>申込を受け付けました</h2>
+      <p>
+        主催事務局にて内容を確認のうえ、<br>
+        ご記入いただいたメールアドレス宛にご連絡します。<br>
+        承認後、書類提出用のアカウントが発行されます。
+      </p>
+    </div>
+
+    <p class="footer-note">すでにアカウントをお持ちの方は <a href="login.html">ログイン</a></p>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    const exhibitionId = new URLSearchParams(location.search).get('exhibition');
+    const loadingBox = document.getElementById('loadingBox');
+    const closedBox = document.getElementById('closedBox');
+    const formBox = document.getElementById('formBox');
+
+    async function init() {
+      if (!exhibitionId) {
+        loadingBox.style.display = 'none';
+        document.getElementById('closedText').textContent =
+          '申込ページのURLが正しくありません。主催事務局から案内されたURLをご確認ください。';
+        closedBox.style.display = 'block';
+        return;
+      }
+      try {
+        const res = await api('/api/public/exhibitions/' + exhibitionId + '/application-info');
+        const ex = res.data;
+        loadingBox.style.display = 'none';
+        if (!ex.accepting_applications) {
+          closedBox.style.display = 'block';
+          return;
+        }
+        document.getElementById('exName').textContent = ex.name;
+        document.getElementById('exMeta').textContent =
+          (ex.venue ? ex.venue + ' / ' : '') + ex.start_date + ' 〜 ' + ex.end_date;
+        formBox.style.display = 'block';
+      } catch (err) {
+        loadingBox.style.display = 'none';
+        document.getElementById('closedText').textContent = err.message;
+        closedBox.style.display = 'block';
+      }
+    }
+    init();
+
+    document.getElementById('applyForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('btnSubmit');
+      const errorBox = document.getElementById('errorBox');
+      errorBox.classList.remove('show');
+      btn.disabled = true;
+      btn.textContent = '送信中...';
+      try {
+        await api('/api/public/exhibitions/' + exhibitionId + '/applications', {
+          method: 'POST',
+          body: {
+            company_name: document.getElementById('companyName').value,
+            contact_name: document.getElementById('contactName').value,
+            email: document.getElementById('email').value,
+            phone: document.getElementById('phone').value || null,
+            booth_count: Number(document.getElementById('boothCount').value),
+            message: document.getElementById('message').value || null,
+          },
+        });
+        formBox.style.display = 'none';
+        document.getElementById('doneBox').style.display = 'block';
+      } catch (err) {
+        errorBox.textContent = err.message;
+        errorBox.classList.add('show');
+        btn.disabled = false;
+        btn.textContent = '申込を送信';
+      }
+    });
+  </script>
+</body>
+</html>

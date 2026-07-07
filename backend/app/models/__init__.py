@@ -8,8 +8,10 @@ from app.models.ai_analysis import AIAnalysis
 from app.models.order import Order, OrderItem
 from app.models.notification import Notification
 from app.models.audit_log import AuditLog
+from app.models.exhibitor_application import ExhibitorApplication
 
 __all__ = [
+    "ExhibitorApplication",
     "Organization",
     "User",
     "Exhibition",

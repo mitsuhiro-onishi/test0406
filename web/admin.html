@@ -575,6 +575,10 @@
       <button class="sidebar-item" data-tab="categories" id="navCategories">
         <span class="material-icons">category</span>カテゴリ管理
       </button>
+      <button class="sidebar-item" data-tab="applications" id="navApplications">
+        <span class="material-icons">how_to_reg</span>出展申込
+        <span class="count-chip" id="applicationCountChip">0</span>
+      </button>
       <div class="sidebar-divider"></div>
       <button class="sidebar-item" onclick="location.href='index.html'">
         <span class="material-icons">open_in_new</span>出展社ポータルを見る
@@ -737,6 +741,44 @@
       </div>
     </section>
 
+    <!-- ─── Exhibitor Applications ─── -->
+    <section class="tab-view" id="tab-applications">
+      <div class="page-title">
+        出展申込
+        <span class="spacer"></span>
+        <button class="btn btn-outlined btn-sm" id="btnCopyApplyUrl">
+          <span class="material-icons" style="font-size:16px">link</span>申込ページURLをコピー
+        </button>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="check-row" style="display:flex;align-items:center;gap:8px;font-size:14px">
+          <input type="checkbox" id="acceptingToggle" style="width:auto" />
+          <label for="acceptingToggle" style="margin:0">この展示会で出展申込（セルフサービス）を受け付ける</label>
+        </div>
+        <p style="font-size:12px;color:#757575;margin-top:8px">
+          ONにすると申込ページが公開されます。承認すると出展社アカウントが自動発行され、書類提出フローに進めます。
+        </p>
+      </div>
+      <div class="card">
+        <div style="margin-bottom:12px">
+          <select id="applicationStatusFilter" style="padding:8px 12px;font-size:13px;font-family:inherit;border:1px solid #ccc;border-radius:6px">
+            <option value="">すべての状態</option>
+            <option value="pending" selected>審査中</option>
+            <option value="approved">承認済み</option>
+            <option value="rejected">却下</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>申込日時</th><th>会社名</th><th>担当者</th><th>連絡先</th><th>希望コマ</th><th>連絡事項</th><th>状態</th><th></th></tr>
+            </thead>
+            <tbody id="applicationsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- Category dialog -->
@@ -781,6 +823,58 @@
     </div>
   </div>
 
+  <!-- Application approve dialog -->
+  <div class="dialog-overlay" id="approveDialog">
+    <div class="dialog">
+      <h3>出展申込を承認</h3>
+      <p style="font-size:13px;color:#616161;margin-bottom:14px" id="approveSummary"></p>
+      <div class="field">
+        <label>割当ブース番号（任意）</label>
+        <input type="text" id="approveBoothNumber" placeholder="例: E-05（空欄なら後から割当）" maxlength="20" />
+      </div>
+      <p style="font-size:12px;color:#757575;margin-bottom:14px">
+        承認すると出展社の組織と担当者アカウントが作成され、初期パスワードが一度だけ表示されます。
+      </p>
+      <div class="action-row">
+        <button class="btn btn-text" onclick="closeApproveDialog()">キャンセル</button>
+        <button class="btn btn-contained" id="btnConfirmApprove">承認する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Credentials dialog（承認直後のみ表示） -->
+  <div class="dialog-overlay" id="credentialsDialog">
+    <div class="dialog">
+      <h3>アカウントを発行しました</h3>
+      <p style="font-size:13px;color:#c62828;margin-bottom:14px">
+        初期パスワードはこの画面を閉じると再表示できません。出展社の担当者へ安全な方法で伝えてください。
+      </p>
+      <div style="background:#f5f5f5;border-radius:8px;padding:14px;font-size:14px;line-height:2" id="credentialsBody"></div>
+      <div class="action-row">
+        <button class="btn btn-outlined" id="btnCopyCredentials">
+          <span class="material-icons" style="font-size:16px">content_copy</span>コピー
+        </button>
+        <button class="btn btn-contained" onclick="closeCredentialsDialog()">閉じる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application reject dialog -->
+  <div class="dialog-overlay" id="rejectDialog">
+    <div class="dialog">
+      <h3>出展申込を却下</h3>
+      <p style="font-size:13px;color:#616161;margin-bottom:14px" id="rejectSummary"></p>
+      <div class="field">
+        <label>却下理由 *</label>
+        <textarea id="rejectReason" rows="3" placeholder="例: 出展枠が満床のため"></textarea>
+      </div>
+      <div class="action-row">
+        <button class="btn btn-text" onclick="closeRejectDialog()">キャンセル</button>
+        <button class="btn btn-danger" id="btnConfirmReject">却下する</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Snackbar -->
   <div class="snackbar" id="snackbar">
     <span class="material-icons" style="font-size:18px">check_circle</span>
@@ -808,9 +902,10 @@
       currentUser.organization_name + ' / ' + currentUser.name;
     document.getElementById('btnLogout').addEventListener('click', logout);
 
-    // partner/viewerはカテゴリ管理タブを隠す（レビューは閲覧可・操作はサーバー側で拒否）
+    // partner/viewerはカテゴリ管理・出展申込タブを隠す（レビューは閲覧可・操作はサーバー側で拒否）
     if (!isManager) {
       document.getElementById('navCategories').style.display = 'none';
+      document.getElementById('navApplications').style.display = 'none';
     }
 
     // ──── Sidebar / tabs ────
@@ -842,6 +937,7 @@
       if (tabId === 'review') loadQueue();
       if (tabId === 'orders') loadOrders();
       if (tabId === 'categories') loadCategories();
+      if (tabId === 'applications') loadApplications();
     }
 
     // ──── Init ────
@@ -867,6 +963,7 @@
         await loadDashboard();
         loadNotifications();
         refreshQueueCount();
+        if (isManager) refreshApplicationCount();
       } catch (err) {
         showSnackbar(err.message);
       }
@@ -1366,6 +1463,160 @@
         loadCategories();
       } catch (e) { showSnackbar(e.message); }
     }
+
+    // ──── Exhibitor applications ────
+    let applications = [];
+    let approvingApplicationId = null;
+    let rejectingApplicationId = null;
+    const APPLICATION_STATUS = {
+      pending: { text: '審査中', cls: 'status-review' },
+      approved: { text: '承認済み', cls: 'status-confirmed' },
+      rejected: { text: '却下', cls: 'status-error' },
+    };
+
+    async function refreshApplicationCount() {
+      try {
+        const res = await api('/api/exhibitions/' + exhibition.id + '/applications?status=pending');
+        const chip = document.getElementById('applicationCountChip');
+        chip.textContent = res.data.length;
+        chip.style.display = res.data.length ? 'flex' : 'none';
+      } catch {}
+    }
+
+    async function loadApplications() {
+      try {
+        const info = await api('/api/public/exhibitions/' + exhibition.id + '/application-info');
+        document.getElementById('acceptingToggle').checked = info.data.accepting_applications;
+
+        const status = document.getElementById('applicationStatusFilter').value;
+        const res = await api('/api/exhibitions/' + exhibition.id + '/applications' + (status ? '?status=' + status : ''));
+        applications = res.data;
+        document.getElementById('applicationsTableBody').innerHTML = applications.map(a => {
+          const st = APPLICATION_STATUS[a.status] || { text: a.status, cls: 'status-received' };
+          const actions = a.status === 'pending' ? `
+            <button class="btn btn-contained btn-sm" onclick="showApproveDialog('${a.id}')">承認</button>
+            <button class="btn btn-text btn-sm" onclick="showRejectDialog('${a.id}')">却下</button>
+          ` : (a.status === 'rejected' && a.rejection_reason
+              ? `<span style="font-size:12px;color:#9e9e9e" title="${escapeHtml(a.rejection_reason)}">理由あり</span>` : '');
+          return `
+            <tr>
+              <td style="white-space:nowrap">${formatDateTime(a.created_at)}</td>
+              <td>${escapeHtml(a.company_name)}</td>
+              <td>${escapeHtml(a.contact_name)}</td>
+              <td style="font-size:12px">${escapeHtml(a.email)}${a.phone ? '<br>' + escapeHtml(a.phone) : ''}</td>
+              <td>${a.booth_count}コマ</td>
+              <td style="max-width:220px;font-size:12px;color:#616161">${escapeHtml(a.message || '—')}</td>
+              <td><span class="chip-status ${st.cls}">${st.text}</span></td>
+              <td style="white-space:nowrap">${actions}</td>
+            </tr>
+          `;
+        }).join('') || '<tr><td colspan="8" style="color:#9e9e9e;text-align:center;padding:24px">申込はまだありません</td></tr>';
+        refreshApplicationCount();
+      } catch (e) { showSnackbar(e.message); }
+    }
+
+    document.getElementById('applicationStatusFilter').addEventListener('change', loadApplications);
+
+    document.getElementById('acceptingToggle').addEventListener('change', async (e) => {
+      try {
+        await api('/api/exhibitions/' + exhibition.id + '/application-settings', {
+          method: 'PATCH',
+          body: { accepting_applications: e.target.checked },
+        });
+        showSnackbar(e.target.checked ? '出展申込の受付を開始しました' : '出展申込の受付を停止しました');
+      } catch (err) {
+        e.target.checked = !e.target.checked;
+        showSnackbar(err.message);
+      }
+    });
+
+    document.getElementById('btnCopyApplyUrl').addEventListener('click', async () => {
+      const url = location.origin + '/apply.html?exhibition=' + exhibition.id;
+      try {
+        await navigator.clipboard.writeText(url);
+        showSnackbar('申込ページURLをコピーしました');
+      } catch {
+        prompt('申込ページURL（コピーしてください）', url);
+      }
+    });
+
+    function showApproveDialog(id) {
+      const a = applications.find(x => x.id === id);
+      if (!a) return;
+      approvingApplicationId = id;
+      document.getElementById('approveSummary').textContent =
+        a.company_name + ' / ' + a.contact_name + '（' + a.email + '・希望' + a.booth_count + 'コマ）';
+      document.getElementById('approveBoothNumber').value = '';
+      document.getElementById('approveDialog').classList.add('show');
+    }
+    function closeApproveDialog() {
+      document.getElementById('approveDialog').classList.remove('show');
+    }
+
+    document.getElementById('btnConfirmApprove').addEventListener('click', async () => {
+      const btn = document.getElementById('btnConfirmApprove');
+      btn.disabled = true;
+      try {
+        const res = await api('/api/applications/' + approvingApplicationId + '/approve', {
+          method: 'POST',
+          body: { booth_number: document.getElementById('approveBoothNumber').value.trim() || null },
+        });
+        closeApproveDialog();
+        const c = res.data.credentials;
+        const booth = res.data.booth_number;
+        lastCredentialsText =
+          'DOSL HUB ログイン情報\nURL: ' + location.origin + '/login.html' +
+          '\nメールアドレス: ' + c.email + '\n初期パスワード: ' + c.initial_password +
+          (booth ? '\nブース番号: ' + booth : '');
+        document.getElementById('credentialsBody').innerHTML =
+          'ログインURL: ' + escapeHtml(location.origin + '/login.html') + '<br>' +
+          'メールアドレス: <b>' + escapeHtml(c.email) + '</b><br>' +
+          '初期パスワード: <b>' + escapeHtml(c.initial_password) + '</b>' +
+          (booth ? '<br>ブース番号: <b>' + escapeHtml(booth) + '</b>' : '');
+        document.getElementById('credentialsDialog').classList.add('show');
+        loadApplications();
+      } catch (e) { showSnackbar(e.message); }
+      btn.disabled = false;
+    });
+
+    let lastCredentialsText = '';
+    document.getElementById('btnCopyCredentials').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(lastCredentialsText);
+        showSnackbar('ログイン情報をコピーしました');
+      } catch { showSnackbar('コピーできませんでした'); }
+    });
+    function closeCredentialsDialog() {
+      lastCredentialsText = '';
+      document.getElementById('credentialsDialog').classList.remove('show');
+    }
+
+    function showRejectDialog(id) {
+      const a = applications.find(x => x.id === id);
+      if (!a) return;
+      rejectingApplicationId = id;
+      document.getElementById('rejectSummary').textContent =
+        a.company_name + ' / ' + a.contact_name + '（' + a.email + '）';
+      document.getElementById('rejectReason').value = '';
+      document.getElementById('rejectDialog').classList.add('show');
+    }
+    function closeRejectDialog() {
+      document.getElementById('rejectDialog').classList.remove('show');
+    }
+
+    document.getElementById('btnConfirmReject').addEventListener('click', async () => {
+      const reason = document.getElementById('rejectReason').value.trim();
+      if (!reason) { showSnackbar('却下理由を入力してください'); return; }
+      try {
+        await api('/api/applications/' + rejectingApplicationId + '/reject', {
+          method: 'POST',
+          body: { reason },
+        });
+        closeRejectDialog();
+        showSnackbar('申込を却下しました');
+        loadApplications();
+      } catch (e) { showSnackbar(e.message); }
+    });
 
     // ──── Notifications ────
     async function loadNotifications() {
