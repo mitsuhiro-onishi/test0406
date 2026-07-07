@@ -237,9 +237,14 @@ export async function POST(request: NextRequest) {
     let visitor: { id: string } | null = null;
 
     if (existingVisitor) {
+      // 空欄で送られた項目（null）は既存値を保持する。フォームは未入力項目を
+      // 空文字で送るため、nullを含めて更新すると既存の値が消えてしまう
+      const updateValues = Object.fromEntries(
+        Object.entries(visitorValues).filter(([, v]) => v !== null),
+      );
       const { data, error } = await supabaseAdmin
         .from("visitors")
-        .update(visitorValues)
+        .update(updateValues)
         .eq("id", existingVisitor.id)
         .select("id")
         .single();
