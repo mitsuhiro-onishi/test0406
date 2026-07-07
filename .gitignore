@@ -8,3 +8,8 @@ frontend/package-lock.json
 /package.json
 /package-lock.json
 screenshots/*.js
+.venv/
+exhibition.db
+uploads/
+__pycache__/
+*.pyc

@@ -1,11 +1,13 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.api import documents, exhibitions, seed
+from app.api import auth, documents, exhibitions, notifications, orders, reviews, seed
 
 
 @asynccontextmanager
@@ -17,9 +19,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="展示会ドキュメント管理システム",
+    title="DOSL HUB - 展示会ドキュメント管理システム",
     description="Exhibition Document Management System API",
-    version="0.1.0",
+    version="0.2.0",
     lifespan=lifespan,
 )
 
@@ -31,11 +33,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(documents.router)
 app.include_router(exhibitions.router)
+app.include_router(reviews.router)
+app.include_router(orders.router)
+app.include_router(notifications.router)
 app.include_router(seed.router)
 
 
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+# フロントエンド（web/ 配下の静的HTML）を同一サーバーから配信する
+_web_root = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "web"))
+if os.path.isdir(_web_root):
+    app.mount("/", StaticFiles(directory=_web_root, html=True), name="web")
