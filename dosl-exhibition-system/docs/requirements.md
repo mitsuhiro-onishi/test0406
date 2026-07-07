@@ -671,6 +671,7 @@
 | 10 | 招待制種別（requires_code）を公開フォームからslug指定で選択できた | 公開種別のみ許可。種別定義がある展示会では選択必須に |
 | 11 | `/admin` 直下が404 | `/admin/dashboard` へリダイレクトするページを追加 |
 | 12 | チェックイン記録に実行者が残らない | entry_logs.scanned_by にログイン中の管理者を記録 |
+| 13 | **RLSポリシーの無限再帰で全クエリが500になる**（2026-07-08 実Supabase接続で発覚）: 002 の admin_users_select / admin_users_modify が admin_users 自身をサブクエリ参照し、RLS評価が無限再帰（42P17）。admin_users を参照する他テーブルのポリシー評価にも波及し、匿名の展示会読み取りまで失敗 | migration 004 で SECURITY DEFINER 関数 `is_org_admin(uuid)` による管理者判定に置換し自己参照を排除 |
 
 ### 検証
 - 単体テスト: `npm test`（validation 14件）
