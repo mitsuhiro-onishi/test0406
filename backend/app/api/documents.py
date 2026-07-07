@@ -94,31 +94,20 @@ async def get_visible_document(document_id: uuid.UUID, user: User, db: AsyncSess
     return document
 
 
-@router.post("/upload", response_model=DocumentResponse, status_code=201)
-async def upload_document(
-    background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
-    exhibition_id: uuid.UUID = Form(...),
-    submission_category_id: uuid.UUID = Form(...),
-    booth_id: uuid.UUID | None = Form(None),
-    source: str = Form("file"),
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    ext = os.path.splitext(file.filename or "")[1].lower()
-    if ext not in ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail=f"対応していないファイル形式です: {ext}")
-
-    content = await file.read()
-    if len(content) > settings.max_file_size:
-        raise HTTPException(status_code=400, detail="ファイルサイズが50MBを超えています")
-
+async def _validate_category(
+    db: AsyncSession, exhibition_id: uuid.UUID, submission_category_id: uuid.UUID
+) -> SubmissionCategory:
     category = await db.get(SubmissionCategory, submission_category_id)
     if not category:
         raise HTTPException(status_code=404, detail="提出カテゴリが見つかりません")
     if str(category.exhibition_id) != str(exhibition_id):
         raise HTTPException(status_code=400, detail="提出カテゴリが展示会と一致しません")
+    return category
 
+
+async def _resolve_booth(
+    db: AsyncSession, exhibition_id: uuid.UUID, booth_id: uuid.UUID | None, user: User
+) -> uuid.UUID | None:
     # ブース未指定なら出展社の割当ブースを自動設定
     if booth_id is None and user.role == "exhibitor":
         booth = (await db.execute(
@@ -127,7 +116,27 @@ async def upload_document(
                 Booth.exhibitor_id == user.organization_id,
             )
         )).scalars().first()
-        booth_id = booth.id if booth else None
+        return booth.id if booth else None
+    return booth_id
+
+
+async def _save_one(
+    file: UploadFile,
+    exhibition_id: uuid.UUID,
+    category: SubmissionCategory,
+    booth_id: uuid.UUID | None,
+    source: str,
+    user: User,
+    db: AsyncSession,
+) -> Document:
+    """1ファイルをバリデーション・保存してDocumentを作る（単一・一括アップロード共通）"""
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"対応していないファイル形式です: {ext}")
+
+    content = await file.read()
+    if len(content) > settings.max_file_size:
+        raise HTTPException(status_code=400, detail="ファイルサイズが50MBを超えています")
 
     file_id = uuid.uuid4()
     upload_dir = os.path.join(settings.upload_dir, str(exhibition_id), str(file_id))
@@ -141,7 +150,7 @@ async def upload_document(
     document = Document(
         id=file_id,
         exhibition_id=exhibition_id,
-        submission_category_id=submission_category_id,
+        submission_category_id=category.id,
         booth_id=booth_id,
         uploaded_by_org_id=user.organization_id,
         uploaded_by_user_id=user.id,
@@ -155,6 +164,23 @@ async def upload_document(
     )
     db.add(document)
     await db.commit()
+    return document
+
+
+@router.post("/upload", response_model=DocumentResponse, status_code=201)
+async def upload_document(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    exhibition_id: uuid.UUID = Form(...),
+    submission_category_id: uuid.UUID = Form(...),
+    booth_id: uuid.UUID | None = Form(None),
+    source: str = Form("file"),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    category = await _validate_category(db, exhibition_id, submission_category_id)
+    booth_id = await _resolve_booth(db, exhibition_id, booth_id, user)
+    document = await _save_one(file, exhibition_id, category, booth_id, source, user, db)
 
     background_tasks.add_task(analyze_document, document.id)
 
@@ -162,6 +188,35 @@ async def upload_document(
         select(Document).options(*DOCUMENT_LOAD_OPTIONS).where(Document.id == document.id)
     )
     return to_response(result.scalar_one())
+
+
+@router.post("/bulk-upload")
+async def bulk_upload_documents(
+    background_tasks: BackgroundTasks,
+    files: list[UploadFile] = File(...),
+    exhibition_id: uuid.UUID = Form(...),
+    submission_category_id: uuid.UUID = Form(...),
+    booth_id: uuid.UUID | None = Form(None),
+    source: str = Form("file"),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """複数ファイルを1リクエストで受ける。失敗したファイルがあっても他は保存する（207相当を200で返す）"""
+    if len(files) > 20:
+        raise HTTPException(status_code=400, detail="一度にアップロードできるのは20ファイルまでです")
+
+    category = await _validate_category(db, exhibition_id, submission_category_id)
+    booth_id = await _resolve_booth(db, exhibition_id, booth_id, user)
+
+    results = []
+    for file in files:
+        try:
+            document = await _save_one(file, exhibition_id, category, booth_id, source, user, db)
+            background_tasks.add_task(analyze_document, document.id)
+            results.append({"file_name": file.filename, "ok": True, "id": str(document.id)})
+        except HTTPException as e:
+            results.append({"file_name": file.filename, "ok": False, "error": e.detail})
+    return {"data": results}
 
 
 @router.get("", response_model=DocumentListResponse)
