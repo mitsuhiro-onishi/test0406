@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     # デモデータ投入API (/api/seed) の有効化。本番では必ずfalseにする
     # （シードのデモアカウントはパスワードがリポジトリに公開されているため）
     enable_seed: bool = False
+    # 本番シード時にデモアカウント全員のパスワードをこの値で上書きする
+    # （空ならseed.py記載の開発用パスワードをそのまま使う）
+    seed_password: str = ""
 
     class Config:
         env_file = ".env"

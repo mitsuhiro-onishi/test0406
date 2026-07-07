@@ -48,14 +48,14 @@ async def seed_data(db: AsyncSession = Depends(get_db)):
     }
     db.add_all(orgs.values())
 
-    # Users
+    # Users（SEED_PASSWORDが設定されていれば全員そのパスワードで作成＝本番用）
     for email, password, role, org_key, name in DEMO_USERS:
         db.add(User(
             id=uuid.uuid4(),
             organization_id=orgs[org_key].id,
             email=email,
             name=name,
-            hashed_password=hash_password(password),
+            hashed_password=hash_password(settings.seed_password or password),
             role=role,
             is_active=True,
         ))
@@ -117,7 +117,9 @@ async def seed_data(db: AsyncSession = Depends(get_db)):
         "message": "シードデータを投入しました",
         "exhibition_id": str(exhibition.id),
         "demo_users": [
-            {"email": email, "password": password, "role": role}
+            {"email": email,
+             "password": "(SEED_PASSWORDで設定済み)" if settings.seed_password else password,
+             "role": role}
             for email, password, role, _, _ in DEMO_USERS
         ],
     }

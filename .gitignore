@@ -13,3 +13,4 @@ exhibition.db
 uploads/
 __pycache__/
 *.pyc
+本番ログイン情報.txt
