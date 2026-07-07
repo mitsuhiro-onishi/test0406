@@ -16,6 +16,11 @@ export const MAX_LEN = {
   industry: 50,
   gate: 50,
   password: 128,
+  seminar_title: 200,
+  seminar_description: 2000,
+  speaker_name: 100,
+  speaker_title: 100,
+  venue_name: 100,
 } as const;
 
 /** 文字列なら前後空白と制御文字を除去して返す。文字列以外・空文字は null */
@@ -68,6 +73,13 @@ export const REGISTRATION_STATUSES = [
 ] as const;
 
 export const CHECKIN_METHODS = ["qr", "manual"] as const;
+
+export const SEMINAR_STATUSES = [
+  "draft",
+  "open",
+  "closed",
+  "cancelled",
+] as const;
 
 export interface FieldError {
   field: string;
@@ -333,4 +345,173 @@ export function sanitizeSearchTerm(q: string): string {
     .replace(/[,()."']/g, " ")
     .replace(/([\\%_])/g, "\\$1")
     .trim();
+}
+
+// ============================================================
+// セミナー管理（GATEオプション）
+// ============================================================
+
+interface SeminarFieldInput {
+  title?: unknown;
+  description?: unknown;
+  speaker_name?: unknown;
+  speaker_title?: unknown;
+  venue_name?: unknown;
+  capacity?: unknown;
+  starts_at?: unknown;
+  ends_at?: unknown;
+  status?: unknown;
+  sort_order?: unknown;
+}
+
+const SEMINAR_FIELD_LABELS: Record<string, string> = {
+  title: "タイトル",
+  description: "説明",
+  speaker_name: "講演者名",
+  speaker_title: "講演者肩書",
+  venue_name: "会場名",
+  capacity: "定員",
+  starts_at: "開始日時",
+  ends_at: "終了日時",
+  status: "ステータス",
+  sort_order: "表示順",
+};
+
+function seminarFieldLabel(field: string): string {
+  return SEMINAR_FIELD_LABELS[field] || field;
+}
+
+/** ISO8601等の日時文字列を検証し、ISO文字列に正規化。不正は null */
+export function normalizeDateTime(value: unknown): string | null {
+  if (typeof value !== "string" || value.trim() === "") return null;
+  const d = new Date(value.trim());
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
+/**
+ * セミナーの入力フィールド群を検証・正規化する。
+ * partial=true（PATCH用）では未指定フィールドを無視、
+ * partial=false（作成用）では title / starts_at / ends_at を必須とする。
+ * 開始・終了の前後関係は両方が確定している場合のみ検証する
+ * （PATCHで片方だけ更新する場合は呼び出し側で既存値とマージして渡すこと）。
+ */
+export function validateSeminarFields(
+  input: SeminarFieldInput,
+  options: { partial: boolean },
+): {
+  values: Record<string, string | number | null>;
+  errors: FieldError[];
+} {
+  const values: Record<string, string | number | null> = {};
+  const errors: FieldError[] = [];
+  const { partial } = options;
+
+  // title（作成時は必須）
+  if (input.title !== undefined || !partial) {
+    const v = cleanText(input.title);
+    if (v === null) {
+      errors.push({ field: "title", message: "タイトルを入力してください" });
+    } else if (v.length > MAX_LEN.seminar_title) {
+      errors.push({
+        field: "title",
+        message: `タイトルは${MAX_LEN.seminar_title}文字以内で入力してください`,
+      });
+    } else {
+      values.title = v;
+    }
+  }
+
+  // 任意テキスト
+  const textFields: Array<[keyof SeminarFieldInput, number]> = [
+    ["description", MAX_LEN.seminar_description],
+    ["speaker_name", MAX_LEN.speaker_name],
+    ["speaker_title", MAX_LEN.speaker_title],
+    ["venue_name", MAX_LEN.venue_name],
+  ];
+  for (const [field, max] of textFields) {
+    if (input[field] === undefined) continue;
+    const v = cleanText(input[field]);
+    if (v === null) {
+      values[field] = null;
+      continue;
+    }
+    if (v.length > max) {
+      errors.push({
+        field,
+        message: `${seminarFieldLabel(field)}は${max}文字以内で入力してください`,
+      });
+      continue;
+    }
+    values[field] = v;
+  }
+
+  // 定員: null（無制限）または 1〜100000 の整数
+  if (input.capacity !== undefined) {
+    const raw = input.capacity;
+    if (raw === null || raw === "") {
+      values.capacity = null;
+    } else {
+      const n =
+        typeof raw === "number" ? raw : Number(cleanText(raw) ?? NaN);
+      if (!Number.isInteger(n) || n < 1 || n > 100000) {
+        errors.push({
+          field: "capacity",
+          message: "定員は1以上の整数で入力してください（無制限は空欄）",
+        });
+      } else {
+        values.capacity = n;
+      }
+    }
+  }
+
+  // 日時（作成時は必須）
+  for (const field of ["starts_at", "ends_at"] as const) {
+    if (input[field] === undefined && partial) continue;
+    const iso = normalizeDateTime(input[field]);
+    if (iso === null) {
+      errors.push({
+        field,
+        message: `${seminarFieldLabel(field)}を正しく入力してください`,
+      });
+    } else {
+      values[field] = iso;
+    }
+  }
+  if (
+    typeof values.starts_at === "string" &&
+    typeof values.ends_at === "string" &&
+    values.ends_at <= values.starts_at
+  ) {
+    errors.push({
+      field: "ends_at",
+      message: "終了日時は開始日時より後にしてください",
+    });
+  }
+
+  // ステータス
+  if (input.status !== undefined) {
+    const v = cleanText(input.status);
+    if (!v || !(SEMINAR_STATUSES as readonly string[]).includes(v)) {
+      errors.push({ field: "status", message: "ステータスの値が不正です" });
+    } else {
+      values.status = v;
+    }
+  }
+
+  // 表示順
+  if (input.sort_order !== undefined) {
+    const raw = input.sort_order;
+    const n = typeof raw === "number" ? raw : Number(cleanText(raw) ?? NaN);
+    if (!Number.isInteger(n) || n < 0 || n > 10000) {
+      errors.push({
+        field: "sort_order",
+        message: "表示順は0以上の整数で入力してください",
+      });
+    } else {
+      values.sort_order = n;
+    }
+  }
+
+  return { values, errors };
 }
