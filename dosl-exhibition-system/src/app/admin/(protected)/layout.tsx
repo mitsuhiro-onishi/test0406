@@ -50,6 +50,12 @@ export default async function AdminLayout({
           >
             セミナー受付
           </Link>
+          <Link
+            href="/admin/exhibitors"
+            className="block px-4 py-2.5 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition"
+          >
+            出展社（リード）
+          </Link>
         </nav>
 
         {/* ユーザー情報 & ログアウト */}
