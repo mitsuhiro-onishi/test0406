@@ -36,6 +36,21 @@
     }
     .appbar .menu-toggle:hover { background: rgba(255,255,255,0.15); }
     .appbar h1 { font-size: 17px; font-weight: 500; flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .appbar .exhibition-select {
+      max-width: 220px;
+      padding: 5px 8px;
+      border: 1px solid rgba(255,255,255,0.5);
+      border-radius: 4px;
+      background: rgba(255,255,255,0.12);
+      color: white;
+      font-size: 13px;
+      font-family: inherit;
+      flex-shrink: 1;
+      min-width: 0;
+    }
+    .appbar .exhibition-select option { color: #212121; background: white; }
+    .appbar .manage-exhibitions { cursor: pointer; padding: 8px; border-radius: 50%; display: flex; }
+    .appbar .manage-exhibitions:hover { background: rgba(255,255,255,0.15); }
     .appbar .user-area { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
     .appbar .notification {
       position: relative;
@@ -528,6 +543,7 @@
       .review-layout { grid-template-columns: 1fr; }
       .review-split { grid-template-columns: 1fr; }
       .appbar .user-name { display: none; }
+      .appbar .exhibition-select { max-width: 38vw; }
     }
   </style>
 </head>
@@ -537,6 +553,8 @@
   <div class="appbar">
     <span class="menu-toggle material-icons" id="menuToggle">menu</span>
     <h1 id="appTitle">DOSL HUB 管理ダッシュボード</h1>
+    <select class="exhibition-select" id="exhibitionSelect" title="展示会を切り替え"></select>
+    <span class="manage-exhibitions material-icons" id="btnManageExhibitions" title="展示会を管理" style="display:none">settings</span>
     <div class="user-area">
       <div class="notification" id="btnNotif">
         <span class="material-icons">notifications</span>
@@ -1057,6 +1075,62 @@
     </div>
   </div>
 
+  <!-- Exhibitions manage dialog -->
+  <div class="dialog-overlay" id="exhibitionsDialog">
+    <div class="dialog" style="max-width:680px">
+      <h3>展示会を管理</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>名称</th><th>会場</th><th>会期</th><th>状態</th><th></th></tr>
+          </thead>
+          <tbody id="exhibitionsTableBody"></tbody>
+        </table>
+      </div>
+      <div class="action-row">
+        <button class="btn btn-text" onclick="closeExhibitionsDialog()">閉じる</button>
+        <button class="btn btn-contained" id="btnAddExhibition">
+          <span class="material-icons" style="font-size:16px">add</span>新規作成
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Exhibition create/edit dialog -->
+  <div class="dialog-overlay" id="exhibitionEditDialog">
+    <div class="dialog">
+      <h3 id="exhibitionEditTitle">展示会を作成</h3>
+      <div class="field">
+        <label>展示会名 *</label>
+        <input type="text" id="exName" maxlength="300" placeholder="例: ダイマツフェア2027" />
+      </div>
+      <div class="field">
+        <label>会場 *</label>
+        <input type="text" id="exVenue" maxlength="200" placeholder="例: インテックス大阪 2号館" />
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="field"><label>会期開始 *</label><input type="date" id="exStart" /></div>
+        <div class="field"><label>会期終了 *</label><input type="date" id="exEnd" /></div>
+      </div>
+      <div class="field">
+        <label>状態</label>
+        <select id="exStatus">
+          <option value="preparing">準備中</option>
+          <option value="active">開催中</option>
+          <option value="closed">終了</option>
+        </select>
+      </div>
+      <div class="field" id="exCopyField">
+        <label>カテゴリを既存展示会からコピー（任意）</label>
+        <select id="exCopyFrom"><option value="">コピーしない</option></select>
+      </div>
+      <div class="action-row">
+        <button class="btn btn-text" onclick="closeExhibitionEditDialog()">キャンセル</button>
+        <button class="btn btn-contained" id="btnSaveExhibition">保存</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Snackbar -->
   <div class="snackbar" id="snackbar">
     <span class="material-icons" style="font-size:18px">check_circle</span>
@@ -1070,6 +1144,7 @@
     const isManager = currentUser && ['admin', 'organizer'].includes(currentUser.role);
 
     // ──── State ────
+    let exhibitions = [];
     let exhibition = null;
     let categories = [];
     let organizations = [];
@@ -1115,6 +1190,10 @@
       sidebar.classList.remove('open');
       sidebarOverlay.classList.remove('show');
 
+      runTabLoader(tabId);
+    }
+
+    function runTabLoader(tabId) {
       if (tabId === 'dashboard') loadDashboard();
       if (tabId === 'documents') loadDocs();
       if (tabId === 'review') loadQueue();
@@ -1125,34 +1204,68 @@
       if (tabId === 'users') loadUsersTab();
     }
 
+    function activeTabId() {
+      const item = document.querySelector('.sidebar-item[data-tab].active');
+      return item ? item.dataset.tab : 'dashboard';
+    }
+
     // ──── Init ────
     async function init() {
       try {
-        const exhibitions = await api('/api/exhibitions');
+        exhibitions = await api('/api/exhibitions');
         if (!exhibitions.length) { showSnackbar('展示会がありません'); return; }
-        exhibition = exhibitions[0];
-        document.getElementById('appTitle').textContent = exhibition.name + ' - 管理';
-        document.title = 'DOSL HUB 管理 - ' + exhibition.name;
-
-        categories = await api('/api/exhibitions/' + exhibition.id + '/submission-categories?include_inactive=' + isManager);
-        const sel = document.getElementById('filterCategory');
-        sel.innerHTML = '<option value="">全カテゴリ</option>' + categories
-          .filter(c => c.is_active)
-          .map(c => '<option value="' + c.id + '">' + escapeHtml(c.name) + '</option>').join('');
+        // 前回選択した展示会が残っていればそれを、なければ先頭を選ぶ
+        const savedId = localStorage.getItem('doslhub_exhibition_id');
+        const initial = exhibitions.find(e => e.id === savedId) || exhibitions[0];
 
         if (isManager) {
           const res = await api('/api/organizations');
           organizations = res.data;
+          document.getElementById('btnManageExhibitions').style.display = '';
         }
 
+        renderExhibitionSelect(initial.id);
+        await applyExhibition(initial);
         await loadDashboard();
         loadNotifications();
-        refreshQueueCount();
-        if (isManager) refreshApplicationCount();
       } catch (err) {
         showSnackbar(err.message);
       }
     }
+
+    // ──── Exhibition switcher ────
+    function renderExhibitionSelect(selectedId) {
+      document.getElementById('exhibitionSelect').innerHTML = exhibitions.map(e =>
+        `<option value="${e.id}" ${e.id === selectedId ? 'selected' : ''}>${escapeHtml(e.name)}</option>`
+      ).join('');
+    }
+
+    // 展示会を差し替え、タイトル・カテゴリ・件数チップを更新する
+    async function applyExhibition(ex) {
+      exhibition = ex;
+      localStorage.setItem('doslhub_exhibition_id', ex.id);
+      document.getElementById('appTitle').textContent = ex.name + ' - 管理';
+      document.title = 'DOSL HUB 管理 - ' + ex.name;
+
+      categories = await api('/api/exhibitions/' + ex.id + '/submission-categories?include_inactive=' + isManager);
+      const sel = document.getElementById('filterCategory');
+      sel.innerHTML = '<option value="">全カテゴリ</option>' + categories
+        .filter(c => c.is_active)
+        .map(c => '<option value="' + c.id + '">' + escapeHtml(c.name) + '</option>').join('');
+
+      refreshQueueCount();
+      if (isManager) refreshApplicationCount();
+    }
+
+    document.getElementById('exhibitionSelect').addEventListener('change', async (e) => {
+      const ex = exhibitions.find(x => x.id === e.target.value);
+      if (!ex || (exhibition && ex.id === exhibition.id)) return;
+      try {
+        await applyExhibition(ex);
+        runTabLoader(activeTabId());
+        showSnackbar('「' + ex.name + '」に切り替えました');
+      } catch (err) { showSnackbar(err.message); }
+    });
 
     // ──── Dashboard ────
     const SUMMARY_DEFS = [
@@ -2178,6 +2291,117 @@
         'パスワード: <b>' + escapeHtml(password) + '</b>';
       document.getElementById('credentialsDialog').classList.add('show');
     }
+
+    // ──── Exhibition management（managerのみ） ────
+    let editingExhibitionId = null;
+    const EXHIBITION_STATUS = {
+      preparing: { text: '準備中', cls: 'status-review' },
+      active: { text: '開催中', cls: 'status-confirmed' },
+      closed: { text: '終了', cls: 'status-error' },
+    };
+
+    function renderExhibitionsTable() {
+      document.getElementById('exhibitionsTableBody').innerHTML = exhibitions.map(e => {
+        const st = EXHIBITION_STATUS[e.status] || { text: e.status, cls: 'status-received' };
+        return `
+          <tr>
+            <td>${escapeHtml(e.name)}</td>
+            <td>${escapeHtml(e.venue || '')}</td>
+            <td style="white-space:nowrap;font-size:13px">${e.start_date} 〜 ${e.end_date}</td>
+            <td><span class="chip-status ${st.cls}">${st.text}</span></td>
+            <td>
+              <button class="icon-btn" title="編集" onclick="showEditExhibition('${e.id}')">
+                <span class="material-icons" style="font-size:18px">edit</span>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('') || '<tr><td colspan="5" style="color:#9e9e9e;text-align:center;padding:24px">展示会がありません</td></tr>';
+    }
+
+    document.getElementById('btnManageExhibitions').addEventListener('click', () => {
+      renderExhibitionsTable();
+      document.getElementById('exhibitionsDialog').classList.add('show');
+    });
+    function closeExhibitionsDialog() {
+      document.getElementById('exhibitionsDialog').classList.remove('show');
+    }
+
+    document.getElementById('btnAddExhibition').addEventListener('click', () => {
+      editingExhibitionId = null;
+      document.getElementById('exhibitionEditTitle').textContent = '展示会を作成';
+      document.getElementById('exName').value = '';
+      document.getElementById('exVenue').value = '';
+      document.getElementById('exStart').value = '';
+      document.getElementById('exEnd').value = '';
+      document.getElementById('exStatus').value = 'preparing';
+      document.getElementById('exCopyField').style.display = '';
+      document.getElementById('exCopyFrom').innerHTML = '<option value="">コピーしない</option>' +
+        exhibitions.map(e => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('');
+      document.getElementById('exhibitionEditDialog').classList.add('show');
+    });
+
+    function showEditExhibition(id) {
+      const e = exhibitions.find(x => x.id === id);
+      if (!e) return;
+      editingExhibitionId = id;
+      document.getElementById('exhibitionEditTitle').textContent = '展示会を編集';
+      document.getElementById('exName').value = e.name;
+      document.getElementById('exVenue').value = e.venue || '';
+      document.getElementById('exStart').value = e.start_date;
+      document.getElementById('exEnd').value = e.end_date;
+      document.getElementById('exStatus').value = e.status;
+      document.getElementById('exCopyField').style.display = 'none';  // コピーは新規作成時のみ
+      document.getElementById('exhibitionEditDialog').classList.add('show');
+    }
+
+    function closeExhibitionEditDialog() {
+      document.getElementById('exhibitionEditDialog').classList.remove('show');
+    }
+
+    document.getElementById('btnSaveExhibition').addEventListener('click', async () => {
+      const body = {
+        name: document.getElementById('exName').value.trim(),
+        venue: document.getElementById('exVenue').value.trim(),
+        start_date: document.getElementById('exStart').value,
+        end_date: document.getElementById('exEnd').value,
+        status: document.getElementById('exStatus').value,
+      };
+      if (!body.name) { showSnackbar('展示会名を入力してください'); return; }
+      if (!body.venue) { showSnackbar('会場を入力してください'); return; }
+      if (!body.start_date || !body.end_date) { showSnackbar('会期を入力してください'); return; }
+      if (body.end_date < body.start_date) { showSnackbar('会期終了日は開始日以降にしてください'); return; }
+
+      const btn = document.getElementById('btnSaveExhibition');
+      btn.disabled = true;
+      try {
+        if (editingExhibitionId) {
+          const updated = await api('/api/exhibitions/' + editingExhibitionId, { method: 'PATCH', body });
+          if (exhibition && exhibition.id === editingExhibitionId) {
+            exhibition = updated;
+            document.getElementById('appTitle').textContent = updated.name + ' - 管理';
+            document.title = 'DOSL HUB 管理 - ' + updated.name;
+          }
+          showSnackbar('保存しました');
+        } else {
+          const created = await api('/api/exhibitions', { method: 'POST', body });
+          const copyFrom = document.getElementById('exCopyFrom').value;
+          if (copyFrom) {
+            const res = await api(
+              '/api/exhibitions/' + created.id + '/submission-categories/copy-from/' + copyFrom,
+              { method: 'POST' });
+            showSnackbar('展示会を作成しました（カテゴリを' + res.data.copied_count + '件コピー）');
+          } else {
+            showSnackbar('展示会を作成しました');
+          }
+        }
+        exhibitions = await api('/api/exhibitions');
+        renderExhibitionSelect(exhibition.id);
+        renderExhibitionsTable();
+        closeExhibitionEditDialog();
+      } catch (e) { showSnackbar(e.message); }
+      btn.disabled = false;
+    });
 
     // ──── Notifications ────
     async function loadNotifications() {

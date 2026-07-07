@@ -1,9 +1,11 @@
 import csv
 import io
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -25,6 +27,37 @@ from app.schemas.document import (
 
 router = APIRouter(prefix="/api", tags=["exhibitions"])
 
+VALID_EXHIBITION_STATUSES = ("preparing", "active", "closed")
+
+
+class ExhibitionCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=300)
+    venue: str = Field(min_length=1, max_length=200)
+    start_date: date
+    end_date: date
+    status: str = "preparing"
+
+
+class ExhibitionUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=300)
+    venue: str | None = Field(default=None, min_length=1, max_length=200)
+    start_date: date | None = None
+    end_date: date | None = None
+    status: str | None = None
+
+
+def _exhibition_to_response(ex: Exhibition) -> ExhibitionResponse:
+    return ExhibitionResponse(
+        id=ex.id,
+        name=ex.name,
+        venue=ex.venue,
+        start_date=str(ex.start_date),
+        end_date=str(ex.end_date),
+        status=ex.status,
+        document_deadline=ex.document_deadline,
+        accepting_applications=ex.accepting_applications,
+    )
+
 
 @router.get("/exhibitions", response_model=list[ExhibitionResponse])
 async def list_exhibitions(
@@ -33,18 +66,61 @@ async def list_exhibitions(
 ):
     result = await db.execute(select(Exhibition).order_by(Exhibition.start_date.desc()))
     exhibitions = result.scalars().all()
-    return [
-        ExhibitionResponse(
-            id=ex.id,
-            name=ex.name,
-            venue=ex.venue,
-            start_date=str(ex.start_date),
-            end_date=str(ex.end_date),
-            status=ex.status,
-            document_deadline=ex.document_deadline,
-        )
-        for ex in exhibitions
-    ]
+    return [_exhibition_to_response(ex) for ex in exhibitions]
+
+
+@router.post("/exhibitions", response_model=ExhibitionResponse, status_code=201)
+async def create_exhibition(
+    body: ExhibitionCreate,
+    user: User = Depends(require_manager),
+    db: AsyncSession = Depends(get_db),
+):
+    if body.status not in VALID_EXHIBITION_STATUSES:
+        raise HTTPException(status_code=400, detail=f"statusは {', '.join(VALID_EXHIBITION_STATUSES)} のいずれかを指定してください")
+    if body.end_date < body.start_date:
+        raise HTTPException(status_code=400, detail="会期終了日は開始日以降の日付を指定してください")
+
+    ex = Exhibition(
+        name=body.name.strip(),
+        venue=body.venue.strip(),
+        start_date=body.start_date,
+        end_date=body.end_date,
+        organizer_id=user.organization_id,
+        status=body.status,
+    )
+    db.add(ex)
+    await db.commit()
+    return _exhibition_to_response(ex)
+
+
+@router.patch("/exhibitions/{exhibition_id}", response_model=ExhibitionResponse)
+async def update_exhibition(
+    exhibition_id: uuid.UUID,
+    body: ExhibitionUpdate,
+    user: User = Depends(require_manager),
+    db: AsyncSession = Depends(get_db),
+):
+    ex = await db.get(Exhibition, exhibition_id)
+    if not ex:
+        raise HTTPException(status_code=404, detail="展示会が見つかりません")
+    if body.status is not None and body.status not in VALID_EXHIBITION_STATUSES:
+        raise HTTPException(status_code=400, detail=f"statusは {', '.join(VALID_EXHIBITION_STATUSES)} のいずれかを指定してください")
+
+    new_start = body.start_date if body.start_date is not None else ex.start_date
+    new_end = body.end_date if body.end_date is not None else ex.end_date
+    if new_end < new_start:
+        raise HTTPException(status_code=400, detail="会期終了日は開始日以降の日付を指定してください")
+
+    if body.name is not None:
+        ex.name = body.name.strip()
+    if body.venue is not None:
+        ex.venue = body.venue.strip()
+    ex.start_date = new_start
+    ex.end_date = new_end
+    if body.status is not None:
+        ex.status = body.status
+    await db.commit()
+    return _exhibition_to_response(ex)
 
 
 @router.get("/exhibitions/{exhibition_id}/summary")

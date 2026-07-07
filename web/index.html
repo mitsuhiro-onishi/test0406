@@ -24,7 +24,24 @@
       gap: 12px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.15);
     }
-    .appbar h1 { font-size: 18px; font-weight: 500; flex-grow: 1; }
+    .appbar h1 { font-size: 18px; font-weight: 500; flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .appbar .exhibition-select {
+      max-width: 220px;
+      padding: 5px 8px;
+      border: 1px solid rgba(255,255,255,0.5);
+      border-radius: 4px;
+      background: rgba(255,255,255,0.12);
+      color: white;
+      font-size: 13px;
+      font-family: inherit;
+      flex-shrink: 1;
+      min-width: 0;
+    }
+    .appbar .exhibition-select option { color: #212121; background: white; }
+    @media (max-width: 600px) {
+      .appbar .user { display: none; }
+      .appbar .exhibition-select { max-width: 40vw; }
+    }
     .appbar .user { font-size: 14px; opacity: 0.9; }
     .appbar .logout {
       cursor: pointer;
@@ -407,6 +424,7 @@
   <!-- AppBar -->
   <div class="appbar">
     <h1 id="appTitle">出展社ポータル</h1>
+    <select class="exhibition-select" id="exhibitionSelect" title="展示会を切り替え" style="display:none"></select>
     <span class="user" id="userLabel"></span>
     <span class="logout material-icons" id="btnLogout" title="ログアウト">logout</span>
   </div>
@@ -578,24 +596,56 @@
     document.getElementById('btnLogout').addEventListener('click', logout);
 
     // ──── Initial data load ────
+    let exhibitions = [];
+
     async function init() {
       try {
-        const exhibitions = await api('/api/exhibitions');
+        // 出展社には閉幕した展示会は見せない
+        exhibitions = (await api('/api/exhibitions')).filter(e => e.status !== 'closed');
         if (!exhibitions.length) {
           showSnackbar('参加中の展示会がありません');
           return;
         }
-        exhibition = exhibitions[0];
-        document.getElementById('appTitle').textContent = exhibition.name + ' - 出展社ポータル';
-        document.title = 'DOSL HUB - ' + exhibition.name;
+        // 前回選択した展示会が残っていればそれを、なければ先頭を選ぶ
+        const savedId = localStorage.getItem('doslhub_exhibition_id');
+        const initial = exhibitions.find(e => e.id === savedId) || exhibitions[0];
 
-        categories = await api('/api/exhibitions/' + exhibition.id + '/submission-categories');
-        renderCategories();
-        await loadDocuments();
+        if (exhibitions.length > 1) {
+          const sel = document.getElementById('exhibitionSelect');
+          sel.innerHTML = exhibitions.map(e =>
+            `<option value="${e.id}" ${e.id === initial.id ? 'selected' : ''}>${escapeHtml(e.name)}</option>`
+          ).join('');
+          sel.style.display = '';
+        }
+        await applyExhibition(initial);
       } catch (err) {
         showSnackbar(err.message);
       }
     }
+
+    // 展示会を差し替え、カテゴリと提出済み書類を読み直す
+    async function applyExhibition(ex) {
+      exhibition = ex;
+      localStorage.setItem('doslhub_exhibition_id', ex.id);
+      document.getElementById('appTitle').textContent = ex.name + ' - 出展社ポータル';
+      document.title = 'DOSL HUB - ' + ex.name;
+
+      categories = await api('/api/exhibitions/' + ex.id + '/submission-categories');
+      selectedCategory = null;
+      btnNext2.disabled = true;
+      renderCategories();
+      await loadDocuments();
+    }
+
+    document.getElementById('exhibitionSelect').addEventListener('change', async (e) => {
+      const ex = exhibitions.find(x => x.id === e.target.value);
+      if (!ex || (exhibition && ex.id === exhibition.id)) return;
+      try {
+        await applyExhibition(ex);
+        if (currentStep > 0) goToStep(0);  // アップロード途中ならカテゴリ選択をやり直す
+        showSnackbar('「' + ex.name + '」に切り替えました');
+      } catch (err) { showSnackbar(err.message); }
+    });
 
     function renderCategories() {
       const list = document.getElementById('categoryList');
@@ -626,8 +676,9 @@
 
     // ──── Document list ────
     async function loadDocuments(silent) {
+      if (!exhibition) return;
       try {
-        const res = await api('/api/documents?limit=50');
+        const res = await api('/api/documents?limit=50&exhibition_id=' + exhibition.id);
         document.getElementById('docCount').textContent = '全' + res.total + '件';
         const tbody = document.getElementById('docTableBody');
         if (!res.data.length) {

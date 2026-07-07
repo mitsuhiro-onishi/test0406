@@ -83,6 +83,7 @@ class ExhibitionResponse(BaseModel):
     end_date: str
     status: str
     document_deadline: datetime | None = None
+    accepting_applications: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
