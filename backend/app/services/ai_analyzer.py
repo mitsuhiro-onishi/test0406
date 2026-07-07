@@ -116,12 +116,15 @@ def parse_json_response(text: str) -> dict:
 
 
 def resolve_provider() -> str:
+    """auto時: APIキーがあればanthropic、なければmock。
+
+    claude_cli（ローカルのclaudeコマンド利用）は動作環境に依存するため、
+    AI_PROVIDER=claude_cli の明示指定時のみ使う。
+    """
     if settings.ai_provider != "auto":
         return settings.ai_provider
     if settings.anthropic_api_key or os.environ.get("ANTHROPIC_API_KEY"):
         return "anthropic"
-    if shutil.which("claude"):
-        return "claude_cli"
     return "mock"
 
 
@@ -171,10 +174,15 @@ async def run_claude_cli(prompt: str, file_path: str, office_text: str | None) -
         full_prompt = f"次のファイルを読み取って解析してください: {os.path.abspath(file_path)}\n\n{prompt}"
         cmd = ["claude", "-p", full_prompt, "--allowedTools", "Read"]
 
+    # Claude Codeセッション内から起動された場合の環境変数汚染を除去する
+    env = {k: v for k, v in os.environ.items()
+           if not k.startswith(("CLAUDE", "ANTHROPIC")) and k not in ("AI_AGENT", "BAGGAGE")}
     proc = await asyncio.create_subprocess_exec(
         *cmd,
+        stdin=asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
+        env=env,
     )
     try:
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
