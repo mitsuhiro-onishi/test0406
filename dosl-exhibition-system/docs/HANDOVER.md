@@ -6,11 +6,14 @@
 - Supabase本番: プロジェクト `dosl-gate-setup`（ref: fosvjwwqafeflygsbrkm・東京リージョン・無料枠）
   - migrations 001〜004 + seed 適用済み。管理者ユーザー作成・admin_users紐付け済み
   - 管理者ログイン: mituhi3216@gmail.com（パスワードは大西さん保管）
-- Vercel環境変数4つ設定済み（Production）。**RESEND_API_KEY のみ未設定**（メール送信は後日: Resendキー取得＋送信ドメイン認証とセット）
+- Vercel環境変数6つ設定済み（Production）。**メール送信は2026-07-08に有効化・本番で受信確認済み**
+  - `RESEND_API_KEY`（Resendアカウント: mituhi3216@gmail.com / GitHubログイン・無料枠 月3,000通/日100通）と `EMAIL_FROM=onboarding@resend.dev` を追加し再デプロイ済み
+  - `EMAIL_FROM` = 送信元アドレス（`src/lib/email.ts:49`。未設定時はダミー `noreply@exhibition.example.com` になり送信失敗する）
+  - **残る制限: 送信ドメイン認証（SPF/DKIM）が未実施のため、onboarding@resend.dev 発でResendアカウント本人宛のみ送信可。実来場者への送信にはドメイン認証＋EMAIL_FROM変更が必要**（送信元ドメインの決定待ち）
 - 本番で通し確認済み: 登録→QRチケット→管理ログイン→ダッシュボード→チェックイン→CSV。テストデータは掃除済み（DBはseed状態）
 - 本番化作業中に致命バグ2件を発見・修正: ①RLS無限再帰（migration 004・9bf7594）②再登録時の来場者情報null上書き（9a569cf）。詳細は requirements.md 20章 #13/#14
 - デプロイ手順: `git archive` でブランチをクリーン書き出し → `npx vercel deploy --prod`（作業ツリー直デプロイは未コミットファイル混入の恐れがあるため不可）
-- 注意: `exhibition/gate-options` ブランチで別途GATEオプション開発が進行中。マージ時に 004_gate_options.sql → 005 へのリネームと、ffdaedf に混入した 004_fix の重複解消が必要
+- 注意: `exhibition/gate-options` ブランチで別途GATEオプション開発が進行中。**マージ前懸念は2026-07-08確認で全て解消済み**: 005改番済（893e123）・004_fix重複解消済（両ブランチ同一）・9bf7594/9a569cf取り込み済・マージプレビューでコンフリクト0件。未取り込みはdocsコミット bc99f5a のみ。マージ実行は大西さんのGO待ち
 
 ## プロジェクト概要
 
@@ -58,7 +61,7 @@
 
 ### 3. Vercel デプロイ
 - [ ] Vercel プロジェクト作成（Root Directory = `dosl-exhibition-system`）
-- [ ] 環境変数5つ設定: `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` / `NEXT_PUBLIC_BASE_URL`（本番URL）/ `RESEND_API_KEY`
+- [ ] 環境変数6つ設定: `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` / `NEXT_PUBLIC_BASE_URL`（本番URL）/ `RESEND_API_KEY` / `EMAIL_FROM`（送信元アドレス）
 - [ ] デプロイ後、本番URLで上記通し確認を再実施
 - [ ] git push は実行前にユーザー確認を取ること（外部影響操作のルール）
 
