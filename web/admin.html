@@ -579,6 +579,9 @@
         <span class="material-icons">how_to_reg</span>出展申込
         <span class="count-chip" id="applicationCountChip">0</span>
       </button>
+      <button class="sidebar-item" data-tab="users" id="navUsers">
+        <span class="material-icons">manage_accounts</span>ユーザー管理
+      </button>
       <div class="sidebar-divider"></div>
       <button class="sidebar-item" onclick="location.href='index.html'">
         <span class="material-icons">open_in_new</span>出展社ポータルを見る
@@ -779,6 +782,57 @@
       </div>
     </section>
 
+    <!-- ─── User management ─── -->
+    <section class="tab-view" id="tab-users">
+      <div class="page-title">
+        ユーザー管理
+        <span class="spacer"></span>
+        <button class="btn btn-outlined btn-sm" id="btnAddOrg">
+          <span class="material-icons" style="font-size:16px">domain_add</span>組織を追加
+        </button>
+        <button class="btn btn-contained btn-sm" id="btnAddUser" style="margin-left:8px">
+          <span class="material-icons" style="font-size:16px">person_add</span>ユーザーを追加
+        </button>
+      </div>
+
+      <div class="card" style="margin-bottom:16px">
+        <h2>組織</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>組織名</th><th>種別</th><th>連絡先</th><th>ユーザー数</th><th></th></tr>
+            </thead>
+            <tbody id="orgsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>ユーザー</h2>
+        <div class="filter-bar">
+          <select id="userFilterOrg"><option value="">全組織</option></select>
+          <select id="userFilterRole">
+            <option value="">全ロール</option>
+            <option value="admin">管理者</option>
+            <option value="organizer">主催者</option>
+            <option value="exhibitor">出展社</option>
+            <option value="partner">協力会社</option>
+            <option value="viewer">閲覧のみ</option>
+          </select>
+          <input type="text" id="userFilterQ" placeholder="名前・メールで検索" style="flex-grow:1;min-width:160px" />
+          <button class="btn btn-contained btn-sm" id="btnUserSearch">検索</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>名前</th><th>メールアドレス</th><th>組織</th><th>ロール</th><th>状態</th><th></th></tr>
+            </thead>
+            <tbody id="usersTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- Category dialog -->
@@ -875,6 +929,74 @@
     </div>
   </div>
 
+  <!-- Organization dialog -->
+  <div class="dialog-overlay" id="orgDialog">
+    <div class="dialog">
+      <h3 id="orgDialogTitle">組織を追加</h3>
+      <div class="field">
+        <label>組織名 *</label>
+        <input type="text" id="orgName" placeholder="例: △△電気工事株式会社" maxlength="200" />
+      </div>
+      <div class="field">
+        <label>種別 *</label>
+        <select id="orgType">
+          <option value="exhibitor">出展社</option>
+          <option value="partner">協力会社</option>
+          <option value="decorator">装飾</option>
+          <option value="organizer">主催者</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>連絡先メール</label>
+        <input type="email" id="orgEmail" maxlength="255" />
+      </div>
+      <div class="field">
+        <label>連絡先電話</label>
+        <input type="text" id="orgPhone" maxlength="20" />
+      </div>
+      <div class="action-row">
+        <button class="btn btn-text" onclick="closeOrgDialog()">キャンセル</button>
+        <button class="btn btn-contained" id="btnSaveOrg">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- User dialog -->
+  <div class="dialog-overlay" id="userDialog">
+    <div class="dialog">
+      <h3 id="userDialogTitle">ユーザーを追加</h3>
+      <div class="field">
+        <label>メールアドレス *</label>
+        <input type="email" id="usrEmail" placeholder="user@example.com" maxlength="255" />
+      </div>
+      <div class="field">
+        <label>名前 *</label>
+        <input type="text" id="usrName" placeholder="例: 展示 太郎" maxlength="100" />
+      </div>
+      <div class="field">
+        <label>組織 *</label>
+        <select id="usrOrg"></select>
+      </div>
+      <div class="field">
+        <label>ロール *</label>
+        <select id="usrRole">
+          <option value="exhibitor">出展社（自社の書類のみ）</option>
+          <option value="partner">協力会社（自社宛カテゴリのみ）</option>
+          <option value="viewer">閲覧のみ</option>
+          <option value="organizer">主催者（全件＋管理操作）</option>
+          <option value="admin">管理者（全権限）</option>
+        </select>
+      </div>
+      <p style="font-size:12px;color:#757575;margin-bottom:14px" id="userDialogNote">
+        作成すると初期パスワードが自動発行され、一度だけ表示されます。
+      </p>
+      <div class="action-row">
+        <button class="btn btn-text" onclick="closeUserDialog()">キャンセル</button>
+        <button class="btn btn-contained" id="btnSaveUser">保存</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Snackbar -->
   <div class="snackbar" id="snackbar">
     <span class="material-icons" style="font-size:18px">check_circle</span>
@@ -906,6 +1028,7 @@
     if (!isManager) {
       document.getElementById('navCategories').style.display = 'none';
       document.getElementById('navApplications').style.display = 'none';
+      document.getElementById('navUsers').style.display = 'none';
     }
 
     // ──── Sidebar / tabs ────
@@ -938,6 +1061,7 @@
       if (tabId === 'orders') loadOrders();
       if (tabId === 'categories') loadCategories();
       if (tabId === 'applications') loadApplications();
+      if (tabId === 'users') loadUsersTab();
     }
 
     // ──── Init ────
@@ -1564,6 +1688,7 @@
         closeApproveDialog();
         const c = res.data.credentials;
         const booth = res.data.booth_number;
+        document.querySelector('#credentialsDialog h3').textContent = 'アカウントを発行しました';
         lastCredentialsText =
           'DOSL HUB ログイン情報\nURL: ' + location.origin + '/login.html' +
           '\nメールアドレス: ' + c.email + '\n初期パスワード: ' + c.initial_password +
@@ -1617,6 +1742,273 @@
         loadApplications();
       } catch (e) { showSnackbar(e.message); }
     });
+
+    // ──── User management ────
+    let managedUsers = [];
+    let editingOrgId = null;
+    let editingUserId = null;
+    const ROLE_LABELS = {
+      admin: '管理者', organizer: '主催者', exhibitor: '出展社',
+      partner: '協力会社', viewer: '閲覧のみ',
+    };
+    const ORG_TYPE_LABELS = {
+      organizer: '主催者', decorator: '装飾', exhibitor: '出展社', partner: '協力会社',
+    };
+
+    async function loadUsersTab() {
+      try {
+        const [orgRes, userRes] = await Promise.all([
+          api('/api/organizations'),
+          api('/api/users' + buildUserQuery()),
+        ]);
+        organizations = orgRes.data;
+        managedUsers = userRes.data;
+        renderOrgs();
+        renderUsers();
+        fillUserOrgFilter();
+      } catch (e) { showSnackbar(e.message); }
+    }
+
+    function buildUserQuery() {
+      const params = new URLSearchParams();
+      const org = document.getElementById('userFilterOrg').value;
+      const role = document.getElementById('userFilterRole').value;
+      const q = document.getElementById('userFilterQ').value.trim();
+      if (org) params.set('organization_id', org);
+      if (role) params.set('role', role);
+      if (q) params.set('search', q);
+      const s = params.toString();
+      return s ? '?' + s : '';
+    }
+
+    function renderOrgs() {
+      document.getElementById('orgsTableBody').innerHTML = organizations.map(o => `
+        <tr>
+          <td>${escapeHtml(o.name)}</td>
+          <td>${ORG_TYPE_LABELS[o.org_type] || escapeHtml(o.org_type)}</td>
+          <td style="font-size:12px">${escapeHtml(o.contact_email || '')}${o.contact_phone ? '<br>' + escapeHtml(o.contact_phone) : ''}</td>
+          <td>${o.user_count}名</td>
+          <td style="white-space:nowrap">
+            <button class="icon-btn" title="編集" onclick="showEditOrg('${o.id}')">
+              <span class="material-icons" style="font-size:18px">edit</span>
+            </button>
+            <button class="icon-btn" title="削除" onclick="deleteOrg('${o.id}')">
+              <span class="material-icons" style="font-size:18px">delete</span>
+            </button>
+          </td>
+        </tr>
+      `).join('') || '<tr><td colspan="5" style="color:#9e9e9e;text-align:center;padding:24px">組織がありません</td></tr>';
+    }
+
+    function renderUsers() {
+      document.getElementById('usersTableBody').innerHTML = managedUsers.map(u => {
+        const isSelf = u.id === currentUser.id;
+        const toggle = isSelf ? '' : `
+          <button class="icon-btn" title="${u.is_active ? '無効化' : '有効化'}" onclick="toggleUserActive('${u.id}')">
+            <span class="material-icons" style="font-size:18px">${u.is_active ? 'person_off' : 'how_to_reg'}</span>
+          </button>`;
+        return `
+        <tr style="${u.is_active ? '' : 'opacity:0.5'}">
+          <td>${escapeHtml(u.name)}${isSelf ? ' <span style="font-size:11px;color:#1565c0">(自分)</span>' : ''}</td>
+          <td style="font-size:12px">${escapeHtml(u.email)}</td>
+          <td>${escapeHtml(u.organization_name || '')}</td>
+          <td>${ROLE_LABELS[u.role] || escapeHtml(u.role)}</td>
+          <td>${u.is_active ? '<span class="chip-status status-confirmed">有効</span>' : '<span class="chip-status status-error">無効</span>'}</td>
+          <td style="white-space:nowrap">
+            <button class="icon-btn" title="編集" onclick="showEditUser('${u.id}')">
+              <span class="material-icons" style="font-size:18px">edit</span>
+            </button>
+            <button class="icon-btn" title="パスワード再発行" onclick="resetUserPassword('${u.id}')">
+              <span class="material-icons" style="font-size:18px">key</span>
+            </button>
+            ${toggle}
+          </td>
+        </tr>
+      `;
+      }).join('') || '<tr><td colspan="6" style="color:#9e9e9e;text-align:center;padding:24px">該当するユーザーがいません</td></tr>';
+    }
+
+    function fillUserOrgFilter() {
+      const sel = document.getElementById('userFilterOrg');
+      const current = sel.value;
+      sel.innerHTML = '<option value="">全組織</option>' + organizations.map(o =>
+        `<option value="${o.id}" ${o.id === current ? 'selected' : ''}>${escapeHtml(o.name)}</option>`).join('');
+    }
+
+    document.getElementById('btnUserSearch').addEventListener('click', loadUsersTab);
+    document.getElementById('userFilterOrg').addEventListener('change', loadUsersTab);
+    document.getElementById('userFilterRole').addEventListener('change', loadUsersTab);
+    document.getElementById('userFilterQ').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') loadUsersTab();
+    });
+
+    // ── 組織の追加・編集・削除 ──
+    document.getElementById('btnAddOrg').addEventListener('click', () => {
+      editingOrgId = null;
+      document.getElementById('orgDialogTitle').textContent = '組織を追加';
+      document.getElementById('orgName').value = '';
+      document.getElementById('orgType').value = 'exhibitor';
+      document.getElementById('orgEmail').value = '';
+      document.getElementById('orgPhone').value = '';
+      document.getElementById('orgDialog').classList.add('show');
+    });
+
+    function showEditOrg(id) {
+      const o = organizations.find(x => x.id === id);
+      if (!o) return;
+      editingOrgId = id;
+      document.getElementById('orgDialogTitle').textContent = '組織を編集';
+      document.getElementById('orgName').value = o.name;
+      document.getElementById('orgType').value = o.org_type;
+      document.getElementById('orgEmail').value = o.contact_email || '';
+      document.getElementById('orgPhone').value = o.contact_phone || '';
+      document.getElementById('orgDialog').classList.add('show');
+    }
+
+    function closeOrgDialog() {
+      document.getElementById('orgDialog').classList.remove('show');
+    }
+
+    document.getElementById('btnSaveOrg').addEventListener('click', async () => {
+      const body = {
+        name: document.getElementById('orgName').value.trim(),
+        org_type: document.getElementById('orgType').value,
+        contact_email: document.getElementById('orgEmail').value.trim() || null,
+        contact_phone: document.getElementById('orgPhone').value.trim() || null,
+      };
+      if (!body.name) { showSnackbar('組織名を入力してください'); return; }
+      try {
+        if (editingOrgId) {
+          await api('/api/organizations/' + editingOrgId, { method: 'PATCH', body });
+        } else {
+          await api('/api/organizations', { method: 'POST', body });
+        }
+        closeOrgDialog();
+        showSnackbar('保存しました');
+        loadUsersTab();
+      } catch (e) { showSnackbar(e.message); }
+    });
+
+    async function deleteOrg(id) {
+      const o = organizations.find(x => x.id === id);
+      if (!o) return;
+      if (!confirm('組織「' + o.name + '」を削除しますか？\n（ユーザーや書類が紐づく場合は削除できません）')) return;
+      try {
+        await api('/api/organizations/' + id, { method: 'DELETE' });
+        showSnackbar('削除しました');
+        loadUsersTab();
+      } catch (e) { showSnackbar(e.message); }
+    }
+
+    // ── ユーザーの追加・編集・無効化・パスワード再発行 ──
+    function fillUserOrgOptions(selectedId) {
+      document.getElementById('usrOrg').innerHTML = organizations.map(o =>
+        `<option value="${o.id}" ${o.id === selectedId ? 'selected' : ''}>${escapeHtml(o.name)}（${ORG_TYPE_LABELS[o.org_type] || o.org_type}）</option>`
+      ).join('');
+    }
+
+    document.getElementById('btnAddUser').addEventListener('click', () => {
+      editingUserId = null;
+      document.getElementById('userDialogTitle').textContent = 'ユーザーを追加';
+      document.getElementById('usrEmail').value = '';
+      document.getElementById('usrEmail').disabled = false;
+      document.getElementById('usrName').value = '';
+      document.getElementById('usrRole').value = 'exhibitor';
+      document.getElementById('userDialogNote').style.display = '';
+      fillUserOrgOptions();
+      document.getElementById('userDialog').classList.add('show');
+    });
+
+    function showEditUser(id) {
+      const u = managedUsers.find(x => x.id === id);
+      if (!u) return;
+      editingUserId = id;
+      document.getElementById('userDialogTitle').textContent = 'ユーザーを編集';
+      document.getElementById('usrEmail').value = u.email;
+      document.getElementById('usrEmail').disabled = true;  // メールは変更不可
+      document.getElementById('usrName').value = u.name;
+      document.getElementById('usrRole').value = u.role;
+      document.getElementById('userDialogNote').style.display = 'none';
+      fillUserOrgOptions(u.organization_id);
+      document.getElementById('userDialog').classList.add('show');
+    }
+
+    function closeUserDialog() {
+      document.getElementById('userDialog').classList.remove('show');
+    }
+
+    document.getElementById('btnSaveUser').addEventListener('click', async () => {
+      const name = document.getElementById('usrName').value.trim();
+      if (!name) { showSnackbar('名前を入力してください'); return; }
+      const btn = document.getElementById('btnSaveUser');
+      btn.disabled = true;
+      try {
+        if (editingUserId) {
+          await api('/api/users/' + editingUserId, {
+            method: 'PATCH',
+            body: {
+              name,
+              role: document.getElementById('usrRole').value,
+              organization_id: document.getElementById('usrOrg').value,
+            },
+          });
+          closeUserDialog();
+          showSnackbar('保存しました');
+        } else {
+          const email = document.getElementById('usrEmail').value.trim();
+          if (!email) { showSnackbar('メールアドレスを入力してください'); btn.disabled = false; return; }
+          const res = await api('/api/users', {
+            method: 'POST',
+            body: {
+              email,
+              name,
+              role: document.getElementById('usrRole').value,
+              organization_id: document.getElementById('usrOrg').value,
+            },
+          });
+          closeUserDialog();
+          showCredentials('アカウントを発行しました', res.data.credentials.email, res.data.credentials.initial_password);
+        }
+        loadUsersTab();
+      } catch (e) { showSnackbar(e.message); }
+      btn.disabled = false;
+    });
+
+    async function toggleUserActive(id) {
+      const u = managedUsers.find(x => x.id === id);
+      if (!u) return;
+      const next = !u.is_active;
+      if (!confirm('「' + u.name + '」を' + (next ? '有効化' : '無効化') + 'しますか？' +
+        (next ? '' : '\n（無効化するとログインできなくなります）'))) return;
+      try {
+        await api('/api/users/' + id, { method: 'PATCH', body: { is_active: next } });
+        showSnackbar(next ? '有効化しました' : '無効化しました');
+        loadUsersTab();
+      } catch (e) { showSnackbar(e.message); }
+    }
+
+    async function resetUserPassword(id) {
+      const u = managedUsers.find(x => x.id === id);
+      if (!u) return;
+      if (!confirm('「' + u.name + '」のパスワードを再発行しますか？\n（現在のパスワードは使えなくなります）')) return;
+      try {
+        const res = await api('/api/users/' + id + '/reset-password', { method: 'POST' });
+        showCredentials('パスワードを再発行しました', res.data.email, res.data.new_password);
+      } catch (e) { showSnackbar(e.message); }
+    }
+
+    // 初期パスワード表示（出展申込の承認ダイアログを共用）
+    function showCredentials(title, email, password) {
+      document.querySelector('#credentialsDialog h3').textContent = title;
+      lastCredentialsText =
+        'DOSL HUB ログイン情報\nURL: ' + location.origin + '/login.html' +
+        '\nメールアドレス: ' + email + '\nパスワード: ' + password;
+      document.getElementById('credentialsBody').innerHTML =
+        'ログインURL: ' + escapeHtml(location.origin + '/login.html') + '<br>' +
+        'メールアドレス: <b>' + escapeHtml(email) + '</b><br>' +
+        'パスワード: <b>' + escapeHtml(password) + '</b>';
+      document.getElementById('credentialsDialog').classList.add('show');
+    }
 
     // ──── Notifications ────
     async function loadNotifications() {

@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.api import applications, auth, documents, exhibitions, notifications, orders, reviews, seed
+from app.api import admin_users, applications, auth, documents, exhibitions, notifications, orders, reviews, seed
 
 
 @asynccontextmanager
@@ -40,6 +40,7 @@ app.include_router(reviews.router)
 app.include_router(orders.router)
 app.include_router(notifications.router)
 app.include_router(applications.router)
+app.include_router(admin_users.router)
 app.include_router(seed.router)
 
 

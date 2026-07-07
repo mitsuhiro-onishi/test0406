@@ -338,16 +338,30 @@ async def copy_submission_categories(
 @router.get("/organizations")
 async def list_organizations(
     org_type: str | None = None,
+    search: str | None = None,
     user: User = Depends(require_staff),
     db: AsyncSession = Depends(get_db),
 ):
     query = select(Organization).order_by(Organization.name)
     if org_type:
         query = query.where(Organization.org_type == org_type)
+    if search:
+        query = query.where(Organization.name.ilike(f"%{search.strip()}%"))
     orgs = (await db.execute(query)).scalars().all()
+    # ユーザー管理画面用に所属ユーザー数・連絡先も返す（ドロップダウン用途はid/name/org_typeのみ参照）
+    counts = dict((await db.execute(
+        select(User.organization_id, func.count()).group_by(User.organization_id)
+    )).all())
     return {
         "data": [
-            {"id": str(o.id), "name": o.name, "org_type": o.org_type}
+            {
+                "id": str(o.id),
+                "name": o.name,
+                "org_type": o.org_type,
+                "contact_email": o.contact_email,
+                "contact_phone": o.contact_phone,
+                "user_count": counts.get(o.id, 0),
+            }
             for o in orgs
         ]
     }
