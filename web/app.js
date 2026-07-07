@@ -81,6 +81,7 @@ const STATUS_LABELS = {
   review_needed: { text: '要レビュー', cls: 'status-review' },
   confirmed: { text: '確認済', cls: 'status-confirmed' },
   error: { text: '差し戻し', cls: 'status-error' },
+  analysis_failed: { text: '解析失敗', cls: 'status-error' },
 };
 function statusChip(status) {
   const s = STATUS_LABELS[status] || { text: status, cls: 'status-received' };

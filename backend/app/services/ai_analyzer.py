@@ -284,7 +284,8 @@ async def analyze_document(document_id: uuid.UUID) -> None:
                 data, meta = run_mock(category.name if category else "", document.file_name)
         except Exception:
             logger.exception("AI解析に失敗しました: %s", document_id)
-            document.status = "error"
+            # 差し戻し（reject時のstatus="error"）と区別する。「再解析」で復旧できる
+            document.status = "analysis_failed"
             await db.commit()
             return
 

@@ -207,6 +207,7 @@ async def exhibition_summary(
                 "review_needed": by_status.get("review_needed", 0),
                 "confirmed": by_status.get("confirmed", 0),
                 "error": by_status.get("error", 0),
+                "analysis_failed": by_status.get("analysis_failed", 0),
             },
             "total_orders": order_count,
             "total_order_amount": float(order_amount or 0),
@@ -474,6 +475,7 @@ async def export_documents_csv(
     status_label = {
         "received": "受信", "processing": "解析中", "analyzed": "解析済",
         "review_needed": "要レビュー", "confirmed": "確認済", "error": "差し戻し",
+        "analysis_failed": "解析失敗",
     }
     for d in docs:
         latest = d.ai_analyses[0] if d.ai_analyses else None
