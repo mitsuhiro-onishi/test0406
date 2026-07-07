@@ -13,6 +13,7 @@ from app.models.document import Document
 from app.models.notification import Notification
 from app.models.user import User
 from app.schemas.document import ReviewRequest
+from app.services.design_spec_builder import create_design_spec_from_analysis
 from app.services.order_builder import create_order_from_analysis
 
 router = APIRouter(prefix="/api/ai-analyses", tags=["ai-analyses"])
@@ -98,6 +99,7 @@ async def review_analysis(
         analysis.review_status = "reviewed"
         document.status = "confirmed"
         await create_order_from_analysis(db, document, analysis)
+        await create_design_spec_from_analysis(db, document, analysis)
 
     await db.commit()
 

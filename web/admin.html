@@ -572,6 +572,9 @@
       <button class="sidebar-item" data-tab="orders">
         <span class="material-icons">receipt_long</span>注文集計
       </button>
+      <button class="sidebar-item" data-tab="designspecs">
+        <span class="material-icons">architecture</span>設計仕様
+      </button>
       <button class="sidebar-item" data-tab="categories" id="navCategories">
         <span class="material-icons">category</span>カテゴリ管理
       </button>
@@ -707,6 +710,33 @@
               <tr><th>受信日時</th><th>出展社</th><th>ブース</th><th>元ファイル</th><th>品目数</th><th>金額</th><th>希望納期</th></tr>
             </thead>
             <tbody id="ordersTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── Design specs ─── -->
+    <section class="tab-view" id="tab-designspecs">
+      <div class="page-title">
+        設計仕様
+        <span class="spacer"></span>
+        <select id="specStatusFilter" style="padding:8px 12px;font-size:13px;font-family:inherit;border:1px solid #ccc;border-radius:6px">
+          <option value="">すべての状態</option>
+          <option value="confirmed">確定</option>
+          <option value="revised">修正あり</option>
+          <option value="draft">下書き</option>
+        </select>
+      </div>
+      <div class="card">
+        <p style="font-size:13px;color:#757575;margin-bottom:16px;">
+          ブース設営・設計図面の書類からAIが抽出した寸法・素材・電気要件です。ブース別に確認できます。
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>ブース</th><th>出展社</th><th>元ファイル</th><th>寸法 W×D×H (mm)</th><th>素材</th><th>電気</th><th>版</th><th>状態</th><th></th></tr>
+            </thead>
+            <tbody id="specsTableBody"></tbody>
           </table>
         </div>
       </div>
@@ -929,6 +959,36 @@
     </div>
   </div>
 
+  <!-- Design spec detail dialog -->
+  <div class="dialog-overlay" id="specDialog">
+    <div class="dialog" style="max-width:640px">
+      <h3 id="specDialogTitle">設計仕様の詳細</h3>
+      <div id="specDialogInfo" style="font-size:13px;color:#616161;margin-bottom:14px"></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+        <div class="field"><label>幅 (mm)</label><input type="number" id="specW" min="0" /></div>
+        <div class="field"><label>奥行 (mm)</label><input type="number" id="specD" min="0" /></div>
+        <div class="field"><label>高さ (mm)</label><input type="number" id="specH" min="0" /></div>
+      </div>
+      <div class="field">
+        <label>素材</label>
+        <div class="table-wrap" style="max-height:180px;overflow-y:auto">
+          <table>
+            <thead><tr><th>素材名</th><th>仕様</th><th>色</th><th>使用箇所</th></tr></thead>
+            <tbody id="specMaterialsBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="field"><label>電気要件</label><div id="specElectrical" style="font-size:13px;background:#f5f5f5;border-radius:6px;padding:10px"></div></div>
+      <div class="field"><label>構造詳細</label><textarea id="specStructural" rows="2"></textarea></div>
+      <div class="field"><label>特殊要件</label><textarea id="specSpecial" rows="2"></textarea></div>
+      <div class="action-row">
+        <button class="btn btn-text" onclick="closeSpecDialog()">閉じる</button>
+        <button class="btn btn-outlined" id="btnSpecConfirm" style="display:none">確定にする</button>
+        <button class="btn btn-contained" id="btnSaveSpec" style="display:none">保存</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Organization dialog -->
   <div class="dialog-overlay" id="orgDialog">
     <div class="dialog">
@@ -1059,6 +1119,7 @@
       if (tabId === 'documents') loadDocs();
       if (tabId === 'review') loadQueue();
       if (tabId === 'orders') loadOrders();
+      if (tabId === 'designspecs') loadSpecs();
       if (tabId === 'categories') loadCategories();
       if (tabId === 'applications') loadApplications();
       if (tabId === 'users') loadUsersTab();
@@ -1742,6 +1803,114 @@
         loadApplications();
       } catch (e) { showSnackbar(e.message); }
     });
+
+    // ──── Design specs ────
+    let designSpecs = [];
+    let viewingSpecId = null;
+    const SPEC_STATUS = {
+      draft: { text: '下書き', cls: 'status-received' },
+      confirmed: { text: '確定', cls: 'status-confirmed' },
+      revised: { text: '修正あり', cls: 'status-review' },
+    };
+    const fmtMm = (v) => v == null ? '—' : Number(v).toLocaleString('ja-JP');
+
+    async function loadSpecs() {
+      if (!exhibition) return;
+      try {
+        const status = document.getElementById('specStatusFilter').value;
+        const res = await api('/api/design-specs?exhibition_id=' + exhibition.id + (status ? '&status=' + status : ''));
+        designSpecs = res.data;
+        document.getElementById('specsTableBody').innerHTML = designSpecs.map(s => {
+          const st = SPEC_STATUS[s.status] || { text: s.status, cls: 'status-received' };
+          const elec = s.electrical_requirements;
+          return `
+            <tr>
+              <td>${escapeHtml(s.booth_number || '—')}</td>
+              <td>${escapeHtml(s.exhibitor_org_name || '')}</td>
+              <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(s.file_name || '')}</td>
+              <td style="white-space:nowrap">${fmtMm(s.width_mm)} × ${fmtMm(s.depth_mm)} × ${fmtMm(s.height_mm)}</td>
+              <td>${(s.materials || []).length}種</td>
+              <td>${elec && (elec.power_kw || elec.outlet_count || elec.lighting) ? 'あり' : '—'}</td>
+              <td>v${s.version}</td>
+              <td><span class="chip-status ${st.cls}">${st.text}</span></td>
+              <td>
+                <button class="icon-btn" title="詳細" onclick="showSpecDialog('${s.id}')">
+                  <span class="material-icons" style="font-size:18px">visibility</span>
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('') || '<tr><td colspan="9" style="color:#9e9e9e;text-align:center;padding:24px">設計仕様はまだありません（ブース設営書類が解析されると自動で作成されます）</td></tr>';
+      } catch (e) { showSnackbar(e.message); }
+    }
+
+    document.getElementById('specStatusFilter').addEventListener('change', loadSpecs);
+
+    async function showSpecDialog(id) {
+      try {
+        const res = await api('/api/design-specs/' + id);
+        const s = res.data;
+        viewingSpecId = id;
+        document.getElementById('specDialogTitle').textContent =
+          '設計仕様の詳細 — ' + (s.booth_number ? 'ブース ' + s.booth_number : '') + ' v' + s.version;
+        document.getElementById('specDialogInfo').textContent =
+          (s.exhibitor_org_name || '') + ' / 元ファイル: ' + (s.file_name || '');
+        document.getElementById('specW').value = s.width_mm ?? '';
+        document.getElementById('specD').value = s.depth_mm ?? '';
+        document.getElementById('specH').value = s.height_mm ?? '';
+        document.getElementById('specMaterialsBody').innerHTML = (s.materials || []).map(m => `
+          <tr>
+            <td>${escapeHtml(m.name || '')}</td>
+            <td style="font-size:12px">${escapeHtml(m.specification || '')}</td>
+            <td>${escapeHtml(m.color || '')}</td>
+            <td style="font-size:12px">${escapeHtml(m.area || '')}</td>
+          </tr>
+        `).join('') || '<tr><td colspan="4" style="color:#9e9e9e;text-align:center">素材情報なし</td></tr>';
+        const elec = s.electrical_requirements || {};
+        document.getElementById('specElectrical').textContent =
+          (elec.power_kw != null ? '電源 ' + elec.power_kw + 'kW　' : '') +
+          (elec.outlet_count != null ? 'コンセント ' + elec.outlet_count + '口　' : '') +
+          (elec.lighting || '') || '電気要件なし';
+        document.getElementById('specStructural').value = s.structural_details || '';
+        document.getElementById('specSpecial').value = s.special_requirements || '';
+        // 編集は主催者のみ。partner/viewerは閲覧のみ
+        const editable = isManager;
+        ['specW', 'specD', 'specH', 'specStructural', 'specSpecial'].forEach(fid =>
+          document.getElementById(fid).disabled = !editable);
+        document.getElementById('btnSaveSpec').style.display = editable ? '' : 'none';
+        document.getElementById('btnSpecConfirm').style.display =
+          editable && s.status !== 'confirmed' ? '' : 'none';
+        document.getElementById('specDialog').classList.add('show');
+      } catch (e) { showSnackbar(e.message); }
+    }
+
+    function closeSpecDialog() {
+      document.getElementById('specDialog').classList.remove('show');
+    }
+
+    async function saveSpec(extra) {
+      const numOrNull = (fid) => {
+        const v = document.getElementById(fid).value;
+        return v === '' ? null : Number(v);
+      };
+      const body = {
+        width_mm: numOrNull('specW'),
+        depth_mm: numOrNull('specD'),
+        height_mm: numOrNull('specH'),
+        structural_details: document.getElementById('specStructural').value.trim() || null,
+        special_requirements: document.getElementById('specSpecial').value.trim() || null,
+        ...extra,
+      };
+      try {
+        await api('/api/design-specs/' + viewingSpecId, { method: 'PUT', body });
+        closeSpecDialog();
+        showSnackbar('保存しました');
+        loadSpecs();
+      } catch (e) { showSnackbar(e.message); }
+    }
+
+    document.getElementById('btnSaveSpec').addEventListener('click', () => saveSpec({}));
+    document.getElementById('btnSpecConfirm').addEventListener('click', () => saveSpec({ status: 'confirmed' }));
 
     // ──── User management ────
     let managedUsers = [];

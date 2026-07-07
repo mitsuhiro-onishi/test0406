@@ -56,12 +56,24 @@ ANALYSIS_PROMPT = """あなたは展示会の事務局スタッフとして、�
   "total_amount": 合計金額の数値（なければnull）,
   "delivery_date": "YYYY-MM-DD形式の希望納期（なければnull）",
   "special_instructions": "特記事項（なければnull）",
+  "design_spec": {{
+    "width_mm": ブース・造作物の幅mm（なければnull）,
+    "depth_mm": 奥行mm（なければnull）,
+    "height_mm": 高さmm（なければnull）,
+    "materials": [
+      {{"name": "素材名", "specification": "仕様（板厚・仕上げ等）", "color": "色", "area": "使用箇所"}}
+    ],
+    "electrical_requirements": {{"power_kw": 電源容量kWの数値orNull, "outlet_count": コンセント口数orNull, "lighting": "照明の説明orNull"}},
+    "structural_details": "構造・施工上の要点（なければnull）",
+    "special_requirements": "特殊要件・注意事項（なければnull）"
+  }},
   "extracted_text": "書類全体のテキスト書き起こし（最大2000文字）",
   "field_confidence": {{
     "order_items": 0.0〜1.0,
     "total_amount": 0.0〜1.0,
     "detected_company_name": 0.0〜1.0,
-    "delivery_date": 0.0〜1.0
+    "delivery_date": 0.0〜1.0,
+    "design_spec": 0.0〜1.0
   }},
   "overall_confidence": 0.0〜1.0,
   "extraction_notes": "読み取り時の注意点・曖昧だった箇所（日本語）"
@@ -69,6 +81,8 @@ ANALYSIS_PROMPT = """あなたは展示会の事務局スタッフとして、�
 
 ## ルール
 - 注文書・申込書でなければ order_items は空配列にする
+- design_spec はブース設営・設計図面・施工関連の書類（document_type=design）のときだけ埋め、それ以外は null にする
+- 寸法は必ずmmに換算する（m表記は×1000、cm表記は×10。「3m×3m」→ width_mm=3000, depth_mm=3000）
 - 読み取れない値は推測せず null にして、該当フィールドの confidence を下げる
 - 手書き・低解像度・傾きなどで判読が怪しい場合は overall_confidence を正直に下げる
 - 金額は数値のみ（円記号・カンマ除去）
@@ -200,9 +214,10 @@ def run_mock(category_name: str, file_name: str) -> tuple[dict, dict]:
     # ファイル名に「手書き」「低画質」を含む場合は低信頼度にしてレビューフローを通す
     low_quality = any(k in file_name for k in ("手書き", "低画質", "review"))
     conf = 0.62 if low_quality else 0.93
-    is_order = any(k in category_name for k in ("申込", "注文", "レンタル"))
+    is_design = any(k in category_name for k in ("設営", "設計", "施工", "図面"))
+    is_order = not is_design and any(k in category_name for k in ("申込", "注文", "レンタル"))
     result = {
-        "document_type": "order" if is_order else "design",
+        "document_type": "order" if is_order else ("design" if is_design else "other"),
         "detected_company_name": "出展社A株式会社",
         "detected_booth_number": "A-01",
         "summary": f"{category_name}の提出書類（モック解析）。",
@@ -213,6 +228,16 @@ def run_mock(category_name: str, file_name: str) -> tuple[dict, dict]:
         "total_amount": 62000 if is_order else None,
         "delivery_date": "2026-08-31" if is_order else None,
         "special_instructions": "搬入は前日16時以降希望" if is_order else None,
+        "design_spec": {
+            "width_mm": 2970, "depth_mm": 2970, "height_mm": 2700,
+            "materials": [
+                {"name": "木工パネル", "specification": "t12 メラミン化粧板仕上げ", "color": "ホワイト", "area": "壁面全面"},
+                {"name": "カーペット", "specification": "ニードルパンチ", "color": "グレー", "area": "床面全面"},
+            ],
+            "electrical_requirements": {"power_kw": 1.5, "outlet_count": 4, "lighting": "スポットライト100W×4"},
+            "structural_details": "システムパネル構造・背面壁H2700",
+            "special_requirements": "天井吊り構造なし・アンカー打ち不可",
+        } if is_design else None,
         "extracted_text": f"（モック）{file_name} の解析テキスト",
         "field_confidence": {
             "order_items": conf, "total_amount": conf,
@@ -291,10 +316,12 @@ async def analyze_document(document_id: uuid.UUID) -> None:
         document.status = "analyzed" if auto_ok else "review_needed"
         await db.commit()
 
-        # 高信頼度の注文書はレビューを待たず注文データ化する
+        # 高信頼度の注文書・設営書類はレビューを待たずデータ化する
         if auto_ok:
+            from app.services.design_spec_builder import create_design_spec_from_analysis
             from app.services.order_builder import create_order_from_analysis
             await create_order_from_analysis(db, document, analysis)
+            await create_design_spec_from_analysis(db, document, analysis)
             await db.commit()
 
         await _notify_recipients(db, document, analysis)

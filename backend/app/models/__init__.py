@@ -5,6 +5,7 @@ from app.models.submission_category import SubmissionCategory
 from app.models.booth import Booth
 from app.models.document import Document
 from app.models.ai_analysis import AIAnalysis
+from app.models.design_spec import DesignSpec
 from app.models.order import Order, OrderItem
 from app.models.notification import Notification
 from app.models.audit_log import AuditLog
@@ -19,6 +20,7 @@ __all__ = [
     "Booth",
     "Document",
     "AIAnalysis",
+    "DesignSpec",
     "Order",
     "OrderItem",
     "Notification",
