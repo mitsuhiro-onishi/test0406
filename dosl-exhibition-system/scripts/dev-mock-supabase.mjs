@@ -146,6 +146,7 @@ const db = {
       features: {
         seminar: true,
         companion: true,
+        lead_retrieval: true,
         entry_number: false,
         badge_print: false,
         exit_tracking: false,
@@ -189,7 +190,9 @@ const db = {
   entry_logs: [],
   invitation_codes: [],
   // GATEオプション用（マイグレーション004相当）。存在しなくても既存機能に影響なし
-  exhibitors: [],
+  exhibitors: [
+    { id: "00000000-0000-0000-0000-000000000700", exhibition_id: EXH_ID, name: "サンプル出展社", booth_number: "A-12", contact_name: "出展 太郎", contact_email: null, access_code: "DEMOBOOTH234", is_active: true, created_at: now(), updated_at: now() },
+  ],
   exhibitor_leads: [],
 };
 

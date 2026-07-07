@@ -21,6 +21,11 @@ export const MAX_LEN = {
   speaker_name: 100,
   speaker_title: 100,
   venue_name: 100,
+  exhibitor_name: 100,
+  booth_number: 20,
+  contact_name: 50,
+  contact_email: 254,
+  lead_note: 500,
 } as const;
 
 /** 文字列なら前後空白と制御文字を除去して返す。文字列以外・空文字は null */
@@ -524,4 +529,123 @@ export function validateSeminarFields(
   }
 
   return { values, errors };
+}
+
+// ============================================================
+// リードリトリーバル（GATEオプション）
+// ============================================================
+
+/** 出展社アクセスコード: 12文字の大文字英数字 */
+export function isValidAccessCode(code: unknown): code is string {
+  return typeof code === "string" && /^[A-Z0-9]{12}$/.test(code);
+}
+
+interface ExhibitorFieldInput {
+  name?: unknown;
+  booth_number?: unknown;
+  contact_name?: unknown;
+  contact_email?: unknown;
+  is_active?: unknown;
+}
+
+const EXHIBITOR_FIELD_LABELS: Record<string, string> = {
+  name: "出展社名",
+  booth_number: "ブース番号",
+  contact_name: "担当者名",
+  contact_email: "担当者メール",
+};
+
+/**
+ * 出展社の入力フィールド群を検証・正規化する。
+ * partial=true（PATCH用）では未指定フィールドを無視、
+ * partial=false（作成用）では name を必須とする。
+ */
+export function validateExhibitorFields(
+  input: ExhibitorFieldInput,
+  options: { partial: boolean },
+): {
+  values: Record<string, string | boolean | null>;
+  errors: FieldError[];
+} {
+  const values: Record<string, string | boolean | null> = {};
+  const errors: FieldError[] = [];
+  const { partial } = options;
+
+  if (input.name !== undefined || !partial) {
+    const v = cleanText(input.name);
+    if (v === null) {
+      errors.push({ field: "name", message: "出展社名を入力してください" });
+    } else if (v.length > MAX_LEN.exhibitor_name) {
+      errors.push({
+        field: "name",
+        message: `出展社名は${MAX_LEN.exhibitor_name}文字以内で入力してください`,
+      });
+    } else {
+      values.name = v;
+    }
+  }
+
+  const textFields: Array<[keyof ExhibitorFieldInput, number]> = [
+    ["booth_number", MAX_LEN.booth_number],
+    ["contact_name", MAX_LEN.contact_name],
+  ];
+  for (const [field, max] of textFields) {
+    if (input[field] === undefined) continue;
+    const v = cleanText(input[field]);
+    if (v === null) {
+      values[field] = null;
+      continue;
+    }
+    if (v.length > max) {
+      errors.push({
+        field,
+        message: `${EXHIBITOR_FIELD_LABELS[field]}は${max}文字以内で入力してください`,
+      });
+      continue;
+    }
+    values[field] = v;
+  }
+
+  if (input.contact_email !== undefined) {
+    const v = cleanText(input.contact_email);
+    if (v === null) {
+      values.contact_email = null;
+    } else if (!isValidEmail(v.toLowerCase())) {
+      errors.push({
+        field: "contact_email",
+        message: "担当者メールの形式が正しくありません",
+      });
+    } else {
+      values.contact_email = v.toLowerCase();
+    }
+  }
+
+  if (input.is_active !== undefined) {
+    if (typeof input.is_active !== "boolean") {
+      errors.push({ field: "is_active", message: "is_active の値が不正です" });
+    } else {
+      values.is_active = input.is_active;
+    }
+  }
+
+  return { values, errors };
+}
+
+/** リードの商談メモ: 500文字以内。空はnull */
+export function validateLeadNote(input: unknown): {
+  value: string | null;
+  error: FieldError | null;
+} {
+  const v = cleanText(input);
+  if (v === null) return { value: null, error: null };
+  if (v.length > MAX_LEN.lead_note) {
+    return {
+      value: null,
+      error: {
+        field: "note",
+        message: `メモは${MAX_LEN.lead_note}文字以内で入力してください`,
+      },
+    };
+  }
+  return { value: v, error: null };
 }
