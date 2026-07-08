@@ -42,6 +42,7 @@ export default function RegisterPage({
     seminar_ids: [] as string[],
   });
   const [companions, setCompanions] = useState<Companion[]>([]);
+  const [leadConsent, setLeadConsent] = useState(false);
 
   useEffect(() => {
     async function loadExhibition() {
@@ -131,6 +132,7 @@ export default function RegisterPage({
           slug: params.slug,
           ...form,
           companions,
+          lead_consent: leadConsent,
         }),
       });
       const data = await res.json();
@@ -628,6 +630,45 @@ export default function RegisterPage({
                   + 同伴者を追加
                 </button>
               )}
+            </div>
+          )}
+
+          {/* 個人情報の取り扱い同意（リードリトリーバル有効時のみ） */}
+          {exhibition.features.lead_retrieval && (
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <h2 className="text-sm font-bold text-gray-800 mb-2">
+                個人情報の取り扱いについて
+              </h2>
+              <ul className="list-disc pl-5 space-y-1.5 text-xs text-gray-600 mb-3">
+                <li>
+                  ご入力いただいた情報は、本展示会の主催者が、来場受付・本人確認・セミナー運営・統計資料の作成、および本展示会に関するご連絡のために利用します。
+                </li>
+                <li>
+                  会場内の出展社ブースで、ご自身の入場証（QRコード）を提示しスキャンを受けた場合、登録情報のうち以下の項目が
+                  <strong className="text-gray-800">当該出展社に提供</strong>
+                  され、出展社からの製品・サービスのご案内等に利用されます。
+                  <br />
+                  提供項目:
+                  氏名・フリガナ・会社名・部署・役職・メールアドレス・電話番号・業種・来場目的
+                </li>
+                <li>
+                  入場証の提示・スキャンは任意です。情報提供を希望されない場合は、ブースでのスキャンをお断りいただけます。
+                </li>
+                <li>提供後の情報は、各出展社の責任において管理されます。</li>
+              </ul>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  required
+                  checked={leadConsent}
+                  onChange={(e) => setLeadConsent(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span className="text-sm font-medium text-gray-800">
+                  上記の個人情報の取り扱いに同意します{" "}
+                  <span className="text-red-500">*</span>
+                </span>
+              </label>
             </div>
           )}
 

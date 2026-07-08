@@ -51,6 +51,7 @@ export interface FeaturesConfig {
   entry_number: boolean;
   badge_print: boolean;
   exit_tracking: boolean;
+  lead_retrieval?: boolean;
 }
 
 export interface EmailSettings {

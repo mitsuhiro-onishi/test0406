@@ -92,6 +92,11 @@ export async function POST(request: NextRequest) {
     const formFields = exhibition.form_fields || {};
     const features = exhibition.features || {};
 
+    // --- 個人情報の取り扱い同意（リードリトリーバル有効時は必須・要件定義書22.5） ---
+    if (features.lead_retrieval && body.lead_consent !== true) {
+      return badRequest("個人情報の取り扱いへの同意が必要です");
+    }
+
     // --- form_fields 設定に基づく検証 ---
     // 非表示フィールドの値は保存しない
     for (const field of CONFIGURABLE_VISITOR_FIELDS) {
@@ -318,6 +323,10 @@ export async function POST(request: NextRequest) {
         industry,
         visit_purpose: visitPurpose,
         companions,
+        // 同意の記録（同意日時）。リードリトリーバル無効の展示会では記録しない
+        custom_fields: features.lead_retrieval
+          ? { lead_consent: { agreed: true, at: new Date().toISOString() } }
+          : {},
       })
       .select()
       .single();
