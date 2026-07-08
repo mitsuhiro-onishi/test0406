@@ -160,6 +160,17 @@ async def main():
                 await asyncio.sleep(wait)
                 await cdp.shot(f"admin_{tab}")
 
+            # メール受信（未分類）書類の詳細＝カテゴリ振替UI（デモデータにスキャン0012.pngが必要）
+            await cdp.js("switchTab('documents'); 'ok'", await_promise=False)
+            await asyncio.sleep(1.2)
+            await cdp.js("""
+              [...document.querySelectorAll('#docsTableBody tr')]
+                .find(tr => tr.textContent.includes('スキャン0012'))?.click(); 'ok'
+            """, await_promise=False)
+            await asyncio.sleep(1.2)
+            await cdp.shot("admin_doc_transfer")
+            await cdp.js("closeDocDialog(); 'ok'", await_promise=False)
+
             # 設計仕様の詳細ダイアログ
             await cdp.js("document.querySelector('#specsTableBody .icon-btn')?.click(); 'ok'", await_promise=False)
             await asyncio.sleep(1.2)
