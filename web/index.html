@@ -688,12 +688,12 @@
           return;
         }
         tbody.innerHTML = res.data.map(doc => {
-          const isCamera = doc.source_channel === 'camera_capture';
+          const srcIcon = { camera_capture: 'camera_alt', email: 'mail' }[doc.source_channel] || 'insert_drive_file';
           return `
             <tr>
               <td>
                 <div class="td-file">
-                  <span class="material-icons icon">${isCamera ? 'camera_alt' : 'insert_drive_file'}</span>
+                  <span class="material-icons icon" title="${sourceChannelLabel(doc.source_channel)}">${srcIcon}</span>
                   <span class="name" title="${escapeHtml(doc.file_name)}">${escapeHtml(doc.file_name)}</span>
                 </div>
               </td>

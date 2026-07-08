@@ -17,6 +17,7 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.core.security import hash_password, require_manager
 from app.services.audit import record_audit
+from app.services.mail_sender import send_credentials_mail
 from app.models.booth import Booth
 from app.models.document import Document
 from app.models.organization import Organization
@@ -235,6 +236,9 @@ async def create_user(
     await db.commit()
     await db.refresh(new_user, ["organization"])
 
+    # メール送信基盤が有効なら初期パスワードをメールでも届ける（失敗しても作成は成功のまま）
+    email_sent = await send_credentials_mail(email, new_user.name, initial_password)
+
     return {
         "data": {
             "user": _user_to_dict(new_user),
@@ -243,6 +247,7 @@ async def create_user(
                 "initial_password": initial_password,
                 "note": "初期パスワードはこの画面でのみ表示されます。本人へ安全な方法で伝えてください。",
             },
+            "email_sent": email_sent,
         }
     }
 
@@ -300,10 +305,14 @@ async def reset_password(
     target.hashed_password = hash_password(new_password)
     record_audit(db, user, "user_reset_password", "user", target.id, {"email": target.email})
     await db.commit()
+
+    email_sent = await send_credentials_mail(target.email, target.name, new_password, is_reset=True)
+
     return {
         "data": {
             "email": target.email,
             "new_password": new_password,
             "note": "新しいパスワードはこの画面でのみ表示されます。本人へ安全な方法で伝えてください。",
+            "email_sent": email_sent,
         }
     }

@@ -23,6 +23,8 @@ class Document(Base):
     file_size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
     storage_path: Mapped[str] = mapped_column(String(1000), nullable=False)
     source_channel: Mapped[str] = mapped_column(String(20), nullable=False, default="web_upload")
+    # メール取込時のGmailメッセージID（多重取込防止。既存DBはALTERで追加＝指示書04）
+    source_message_id: Mapped[str | None] = mapped_column(String(300))
     document_category: Mapped[str | None] = mapped_column(String(20))  # order / design / contract / other
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="received")
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

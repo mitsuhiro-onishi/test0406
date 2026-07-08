@@ -88,6 +88,16 @@ function statusChip(status) {
   return '<span class="chip-status ' + s.cls + '">' + s.text + '</span>';
 }
 
+// 受信経路の表示名（web_upload / camera_capture / email）
+const SOURCE_CHANNEL_LABELS = {
+  web_upload: 'Web',
+  camera_capture: 'カメラ',
+  email: 'メール',
+};
+function sourceChannelLabel(channel) {
+  return SOURCE_CHANNEL_LABELS[channel] || channel || '';
+}
+
 function formatSize(bytes) {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + ' KB';

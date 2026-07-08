@@ -22,6 +22,7 @@ from app.schemas.document import (
     DocumentDetailResponse,
     DocumentListResponse,
     DocumentResponse,
+    DocumentUpdate,
 )
 from app.services import storage
 from app.services.ai_analyzer import analyze_document
@@ -309,6 +310,29 @@ async def reanalyze_document(
     await db.commit()
     background_tasks.add_task(analyze_document, document.id)
     return {"message": "再解析を開始しました", "document_id": str(document.id)}
+
+
+@router.patch("/{document_id}", response_model=DocumentDetailResponse)
+async def update_document(
+    document_id: uuid.UUID,
+    body: DocumentUpdate,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """提出カテゴリの振り替え（メール受信の未分類書類を正しいカテゴリへ移す等・managerのみ）"""
+    if user.role not in ("admin", "organizer"):
+        raise HTTPException(status_code=403, detail="この操作を行う権限がありません")
+    document = await get_visible_document(document_id, user, db)
+    category = await db.get(SubmissionCategory, body.submission_category_id)
+    if not category or category.exhibition_id != document.exhibition_id:
+        raise HTTPException(status_code=404, detail="提出カテゴリが見つかりません（同じ展示会のカテゴリを指定してください）")
+    document.submission_category_id = category.id
+    document.recipient_org_id = category.recipient_org_id
+    await db.commit()
+    result = await db.execute(
+        select(Document).options(*DOCUMENT_LOAD_OPTIONS).where(Document.id == document.id)
+    )
+    return to_response(result.scalar_one(), detail=True)
 
 
 @router.delete("/{document_id}", status_code=204)

@@ -21,6 +21,7 @@ from app.models.exhibitor_application import ExhibitorApplication
 from app.models.notification import Notification
 from app.models.organization import Organization
 from app.models.user import User
+from app.services.mail_sender import send_credentials_mail
 
 router = APIRouter(prefix="/api", tags=["applications"])
 
@@ -237,6 +238,9 @@ async def approve_application(
     application.reviewed_at = datetime.now(timezone.utc)
     await db.commit()
 
+    # メール送信基盤が有効なら初期パスワードをメールでも届ける（失敗しても承認は成功のまま）
+    email_sent = await send_credentials_mail(application.email, application.contact_name, initial_password)
+
     return {
         "data": {
             "application": _app_to_dict(application),
@@ -246,6 +250,7 @@ async def approve_application(
                 "note": "初期パスワードはこの画面でのみ表示されます。出展社へ安全な方法で伝えてください。",
             },
             "booth_number": booth_number,
+            "email_sent": email_sent,
         }
     }
 

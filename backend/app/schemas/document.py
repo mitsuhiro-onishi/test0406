@@ -88,6 +88,10 @@ class ExhibitionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class DocumentUpdate(BaseModel):
+    submission_category_id: uuid.UUID
+
+
 class ReviewRequest(BaseModel):
     action: str  # approve / approve_with_corrections / reject
     corrected_data: dict | None = None

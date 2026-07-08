@@ -486,7 +486,7 @@ async def export_documents_csv(
             d.submission_category.name if d.submission_category else "",
             d.recipient_org.name if d.recipient_org else "",
             d.file_name,
-            "カメラ撮影" if d.source_channel == "camera_capture" else "Webアップロード",
+            {"camera_capture": "カメラ撮影", "email": "メール受信"}.get(d.source_channel, "Webアップロード"),
             status_label.get(d.status, d.status),
             f"{float(latest.confidence_score):.2f}" if latest else "",
             latest.review_status if latest else "",

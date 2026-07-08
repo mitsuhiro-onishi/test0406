@@ -1,3 +1,4 @@
+import asyncio
 import os
 from contextlib import asynccontextmanager
 
@@ -15,7 +16,21 @@ async def lifespan(app: FastAPI):
     # Create tables on startup
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    # メール受信の常駐ポーリング（MAIL_INGEST_ENABLED=trueのときだけ・指示書04）
+    mail_task = None
+    if settings.mail_ingest_enabled:
+        from app.services.mail_ingest import poll_loop
+        mail_task = asyncio.create_task(poll_loop())
+
     yield
+
+    if mail_task:
+        mail_task.cancel()
+        try:
+            await mail_task
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(
