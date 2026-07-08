@@ -1,4 +1,27 @@
-# DOSL GATE 引き継ぎ（2026-07-07 作成 / 2026-07-08 本番化完了で更新）
+# DOSL GATE 引き継ぎ（2026-07-07 作成 / 2026-07-08 本番化完了・運用フェーズ進捗で更新）
+
+## 【2026-07-08 運用フェーズ進捗（最新）】
+
+### 完了したこと
+- **メール送信有効化（残タスク1）完了**: Resendアカウント開設（mituhi3216@gmail.com・GitHubログイン）→ APIキー発行（Sending access限定）→ Vercelに `RESEND_API_KEY`/`EMAIL_FROM=onboarding@resend.dev` 設定 → 再デプロイ → 本番登録テストでメール受信・表示・チケットリンクまで確認済み
+- テスト登録は削除済み。**本番DBはseed状態がベースライン**（seed由来のサンプル: チケット`TEST1234`/田中一郎/test@example.com の各1件は意図的に残存）
+- **操作マニュアル作成**: `docs/操作マニュアル.md`（来場者/管理者/展示会作成SQL/メール/GATEオプション/運用/トラブル対応の8章）
+- **GATEオプションが本体ブランチに統合済み**: 別セッションがセミナー管理＋リードリトリーバルの9コミットを exhibition/registration-system にリベースで取り込み（履歴は線形・コンフリクトなし・005配置済み）。**本番は未デプロイ**
+
+### 進行中: 送信ドメイン認証（ここから再開）
+- **送信ドメインは dosl.co.jp に決定**（エックスサーバーDNS管理・ns1〜5.xserver.jp確認済み。ex-system.jp案はAWS操作回避のため取り下げ）
+- 次の一手: 操作マニュアル5.2の手順1から（Resendダッシュボードでドメイン追加→エックスサーバーDNSにレコード追加→Verify→EMAIL_FROM変更→再デプロイ→受信テスト）
+- 注意: 現APIキーはSending access限定のためドメイン操作はダッシュボード or Full accessキー一時発行で
+
+### キー・認証情報の運用メモ
+- Vercelトークン・Supabase service_roleキーはセッション内で共有済み → **作業完了後にトークン削除／キーローテーション推奨**（service_roleをローテーションする場合はVercelの `SUPABASE_SERVICE_ROLE_KEY` 差し替え＋再デプロイをセットで）
+- Vercel環境変数はSensitive設定のため `vercel env pull` では値を取得できない（必要時は大西さんからキーを受領する）
+- 権限設定: `Projects/.claude/settings.local.json` に `vercel env pull` の許可ルール追加済み
+
+### 次のタスク（優先順）
+1. 送信ドメイン認証の完遂（上記・操作マニュアル5.2）
+2. 実展示会の登録（残タスク2・SQLで。展示会の実情報待ち）
+3. GATEオプションの本番反映（**先に本番Supabaseへ005適用→クリーン書き出しデプロイ→通し確認**。大西さんのGO待ち）
 
 ## 【2026-07-08 本番化完了】
 
@@ -87,28 +110,33 @@
 
 ---
 
-## 新セッション用キックオフ文面（コピペ用・2026-07-08更新）
+## 新セッション用キックオフ文面（コピペ用・2026-07-08夜 更新）
 
 ```
 DOSL GATE（展示会事前登録システム）の運用フェーズを引き継ぎます。
 
 引き継ぎmd: Projects/exhibition-systems/registration-system/dosl-exhibition-system/docs/HANDOVER.md
-を読んでから作業を開始してください。
+（冒頭の【2026-07-08 運用フェーズ進捗】が最新）と docs/操作マニュアル.md を読んでから作業を開始してください。
 
-状況: 2026-07-08に本番公開済み（https://dosl-gate.vercel.app）。
-Supabase本番（ref: fosvjwwqafeflygsbrkm）はmigrations 001〜004+seed適用済み・通し確認済み。
-ブランチは exhibition/registration-system（origin にpush済み）。
+状況:
+- 本番公開済み（https://dosl-gate.vercel.app）。メール送信有効化済み・本番で受信確認済み
+- ただしドメイン認証前のため送信先はResendアカウント本人（mituhi3216@gmail.com）のみ
+- GATEオプション（セミナー管理・リードリトリーバル）はブランチ統合済みだが本番未デプロイ
+- 本番DBはseed状態がベースライン（TEST1234のサンプル1件は意図的に残存）
 
-残タスク（着手指示があったものから）:
-1. メール送信の有効化: Resend APIキー取得 → Vercel環境変数 RESEND_API_KEY 追加 →
-   送信ドメイン認証（SPF/DKIM）→ 登録して受信確認（認証前はResendのテスト送信先制限あり）
-2. 実展示会の登録: 作成UIが無いため、SupabaseダッシュボードのSQLで
-   organizations/exhibitions/registration_types を登録する（seed.sql が雛形）
-3. GATEオプション（exhibition/gate-options ブランチ・別開発）のマージ対応:
-   004_gate_options.sql→005リネーム / ffdaedfに混入した004_fixの重複解消 /
-   9a569cf（再登録null上書き修正）の取り込み
+最初のタスク: 送信ドメイン認証の続き（操作マニュアル5.2の手順どおり）
+- 送信ドメインは dosl.co.jp に決定済み（エックスサーバーDNS管理）
+- 直前の状態: Resendへのドメイン登録がまだ。現APIキーはSending access限定のため
+  私がResendダッシュボードで dosl.co.jp（Region: Tokyo）を追加してDNSレコードのスクショを渡すか、
+  Full accessキーを渡すか選ぶところで中断した
+- その後: エックスサーバーDNSにレコード追加（既存レコードは書き換えない）→ Verify →
+  EMAIL_FROM を noreply@dosl.co.jp に変更 → 再デプロイ → 受信テスト
 
-注意: 変更は1つずつ・検証してから次へ。git pushや外部影響操作は事前に私に確認。
+その次のタスク:
+2. 実展示会の登録（SQLで。私から展示会の実情報を渡す）
+3. GATEオプションの本番反映（先に本番Supabaseへ005適用 → git archiveクリーン書き出しデプロイ → 通し確認）
+
+注意: 変更は1つずつ・検証してから次へ。git push・デプロイ・DNS変更などの外部影響操作は事前に私に確認。
 デプロイは git archive でクリーン書き出し→ npx vercel deploy --prod（作業ツリー直は禁止）。
-Supabase/Vercelのキー・トークンは私が用意するので、必要になったら聞いてください。
+Vercel環境変数はSensitive設定のため env pull で値は取れない。キー・トークンは必要になったら私に聞いてください。
 ```
