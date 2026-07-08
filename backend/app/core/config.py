@@ -7,6 +7,9 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./exhibition.db"
     upload_dir: str = "./uploads"
     max_file_size: int = 50 * 1024 * 1024  # 50MB
+    # ファイル保存先: "local"（VMディスク）/ "gcs"（Cloud Storage）。docs/指示書/03参照
+    storage_backend: str = "local"
+    gcs_bucket: str = ""
     cors_origins: str = "http://localhost:3000,http://localhost:8000"
     secret_key: str = "local-dev-secret-key-change-in-production"
     jwt_algorithm: str = "HS256"

@@ -25,6 +25,7 @@ from app.core.config import settings
 from app.core.database import async_session
 from app.models.ai_analysis import AIAnalysis
 from app.models.document import Document
+from app.services import storage
 from app.models.notification import Notification
 from app.models.user import User
 
@@ -274,12 +275,15 @@ async def analyze_document(document_id: uuid.UUID) -> None:
 
         provider = resolve_provider()
         started = time.monotonic()
+        local_path = None
         try:
-            office_text = extract_office_text(document.storage_path)
+            # GCS保存の場合は一時ファイルへ取得してから解析する（ローカル保存ならそのまま）
+            local_path = await storage.open_local(document.storage_path)
+            office_text = extract_office_text(local_path)
             if provider == "anthropic":
-                data, meta = await run_anthropic(prompt, document.storage_path, office_text)
+                data, meta = await run_anthropic(prompt, local_path, office_text)
             elif provider == "claude_cli":
-                data, meta = await run_claude_cli(prompt, document.storage_path, office_text)
+                data, meta = await run_claude_cli(prompt, local_path, office_text)
             else:
                 data, meta = run_mock(category.name if category else "", document.file_name)
         except Exception:
@@ -288,6 +292,12 @@ async def analyze_document(document_id: uuid.UUID) -> None:
             document.status = "analysis_failed"
             await db.commit()
             return
+        finally:
+            if local_path and local_path != document.storage_path:
+                try:
+                    os.remove(local_path)
+                except OSError:
+                    pass
 
         elapsed_ms = int((time.monotonic() - started) * 1000)
 

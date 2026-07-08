@@ -1,10 +1,10 @@
 import os
 import uuid
 from datetime import date, datetime, time as dtime, timezone
+from urllib.parse import quote
 
-import aiofiles
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, UploadFile, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -23,6 +23,7 @@ from app.schemas.document import (
     DocumentListResponse,
     DocumentResponse,
 )
+from app.services import storage
 from app.services.ai_analyzer import analyze_document
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
@@ -139,13 +140,8 @@ async def _save_one(
         raise HTTPException(status_code=400, detail="ファイルサイズが50MBを超えています")
 
     file_id = uuid.uuid4()
-    upload_dir = os.path.join(settings.upload_dir, str(exhibition_id), str(file_id))
-    os.makedirs(upload_dir, exist_ok=True)
     safe_name = os.path.basename(file.filename or "upload")
-    file_path = os.path.join(upload_dir, safe_name)
-
-    async with aiofiles.open(file_path, "wb") as f:
-        await f.write(content)
+    file_path = await storage.save_file(content, f"{exhibition_id}/{file_id}_{safe_name}")
 
     document = Document(
         id=file_id,
@@ -286,6 +282,16 @@ async def download_document(
     db: AsyncSession = Depends(get_db),
 ):
     document = await get_visible_document(document_id, user, db)
+    if storage.is_gcs(document.storage_path):
+        try:
+            data = await storage.read_file(document.storage_path)
+        except FileNotFoundError:
+            raise HTTPException(status_code=404, detail="ファイルが見つかりません")
+        return Response(
+            content=data,
+            media_type=document.file_type,
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(document.file_name)}"},
+        )
     if not os.path.exists(document.storage_path):
         raise HTTPException(status_code=404, detail="ファイルが見つかりません")
     return FileResponse(document.storage_path, filename=document.file_name, media_type=document.file_type)
