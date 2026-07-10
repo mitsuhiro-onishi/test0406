@@ -21,6 +21,10 @@ AEOツールと同構成（e2-micro + Caddy自動HTTPS + sslip.io）。**すで�
 - ENABLE_SEED=false（/api/seed は404）。初回シードは投入済み（7アカウント・展示会1件）
 - デモパスワード（admin1234等）は本番では無効。全アカウント SEED_PASSWORD で作成済み
 - AI解析: AI_PROVIDER=anthropic（claude-sonnet-5）実動作確認済み（信頼度0.96・自動承認・注文生成まで）
+- **ファイル保存はGCS（2026-07-10切替）**: `STORAGE_BACKEND=gcs` / `GCS_BUCKET=dosl-hub-documents`。
+  VMスコープ=cloud-platform・SAにバケット限定objectAdmin。旧書類はローカルパスのまま読める（/opt/dosl-hub/data/uploads は消さない）。
+  アップロードが403になったらスコープとバケットIAMを疑う
+- メール受信/送信（指示書04＋5-4）はコード・DB列とも本番反映済みだが .env のフラグ未設定＝OFF
 
 ## 更新（コードを直したら）
 

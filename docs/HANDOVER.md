@@ -4,23 +4,29 @@
 > 小粒改善4件（指示書05の5-1〜5-3・5-6）／GCS化コード（指示書03）／メール受信＋送信コード（指示書04＋5-4）／
 > 使い方マニュアル2冊（docs/マニュアル/）。指示書ベースの実装はこれで**全指示書に着手済み**。
 
-## 今の反映状況と次のアクション（2026-07-08夜時点）
+## 今の反映状況と次のアクション（2026-07-10更新）
 
-**本番反映済み**: 指示書01（複数展示会UI）・02（一括アップロード）・05の4件（通知ポーリング/解析失敗分離/レビュー画面に設計仕様/監査ログ）
+**本番反映済み**: 指示書01（複数展示会UI）・02（一括アップロード）・03（**GCS化・2026-07-10切替完了**）・
+05の4件（通知ポーリング/解析失敗分離/レビュー画面に設計仕様/監査ログ）・
+04＋5-4（メール受信/送信・**コードはデプロイ済みだが既定OFF**・DBマイグレーション `source_message_id` 適用済み）
 
-**コード完成・未デプロイ**（コミット済み・ローカル検証済み）:
-1. **指示書03 GCS化** — storage.py実装済み・バケット `gs://dosl-hub-documents` 作成済み。
-   切替に必要な残り: ①VMのSAにIAM付与（自動モードでは要承認）②VMスコープ変更（**停止→起動で数分ダウンタイム**）
-   ③デプロイ+pip install ④本番.envに `STORAGE_BACKEND=gcs` / `GCS_BUCKET=dosl-hub-documents` 追記 ⑤本番E2E
-2. **指示書04 メール受信＋5-4 メール送信** — 両方とも既定OFFなので先にデプロイしても無害。
-   有効化に必要: 専用Gmailアカウント（大西さん判断）→ Google CloudでOAuthクライアント（デスクトップ）作成 →
-   `backend/scripts/gmail_auth.py` でリフレッシュトークン取得 → 本番.envに5変数
-   （GMAIL_CLIENT_ID/SECRET/REFRESH_TOKEN・MAIL_INGEST_ENABLED=true・MAIL_SEND_ENABLED=true）＋
-   `ALTER TABLE documents ADD COLUMN source_message_id VARCHAR(300);` ＋ pip install → 実メールE2E
-   （関連: DOSL GATE側はResendでメール送信稼働済み・ドメイン認証未。HUBはGmail方式＝指示書04の設計どおり）
+**GCS切替の実施記録（2026-07-10）**:
+- VMのSA（426933437313-compute@…）にバケット限定 `roles/storage.objectAdmin` 付与済み
+- VMスコープを `cloud-platform` に変更済み（停止→起動・ダウンタイム約4分・固定IP維持）
+- 本番.envに `STORAGE_BACKEND=gcs` / `GCS_BUCKET=dosl-hub-documents` 追記済み
+- 本番E2E済み: アップロード→GCSにオブジェクト生成→AI解析完了→原本DL（バイト一致）→旧書類（ローカルパス）のDLも200
+- **教訓**: 指示書04のコードを載せた時点で `documents.source_message_id` 列が必須（メールOFFでもモデル定義で参照され
+  アップロードが500になる）。→ 適用済みなので今後は不要
+- 注意: アップロードはGCS保存→DB登録の順なので、DB登録失敗時にGCSへ孤児オブジェクトが残ることがある
 
-**ユーザー対応待ち**: ①専用Gmailの用意 ②GCS切替のGO（ダウンタイム了承） ③5-5 iPhone実機でカメラ撮影テスト
-④マニュアル2冊（docs/マニュアル/）の内容確認・配布
+**メール受信/送信の有効化に必要な残り**（コード・DB列は本番反映済み）:
+専用Gmailアカウント（大西さん判断）→ Google CloudでOAuthクライアント（デスクトップ）作成 →
+`backend/scripts/gmail_auth.py` でリフレッシュトークン取得 → 本番.envに5変数
+（GMAIL_CLIENT_ID/SECRET/REFRESH_TOKEN・MAIL_INGEST_ENABLED=true・MAIL_SEND_ENABLED=true）→ restart → 実メールE2E
+（関連: DOSL GATE側はResendでメール送信稼働済み・ドメイン認証未。HUBはGmail方式＝指示書04の設計どおり）
+
+**ユーザー対応待ち**: ①専用Gmailの用意 ②5-5 iPhone実機でカメラ撮影テスト
+③マニュアル2冊（docs/マニュアル/）の内容確認・配布
 
 ## プロジェクト概要
 
