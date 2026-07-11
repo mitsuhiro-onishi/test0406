@@ -19,14 +19,18 @@
   アップロードが500になる）。→ 適用済みなので今後は不要
 - 注意: アップロードはGCS保存→DB登録の順なので、DB登録失敗時にGCSへ孤児オブジェクトが残ることがある
 
-**メール受信/送信（2026-07-11にdoslドメイン版へ設計変更・実装差し替え済み）**:
-Gmail API方式を廃止し、`hub@dosl.co.jp`（エックスサーバー sv2237.xserver.jp）のIMAP/SMTP方式に変更
-（理由: Workspace未使用・gmail.com発送信の不着リスク・OAuth不要でシンプル。指示書04の改訂履歴参照）。
-有効化に必要な残り: メールアカウントの認証確認（**2026-07-11時点でIMAP/SMTPともLogin failed＝
-パスワードかアカウント作成状態の確認待ち**）→ デプロイ → 本番.envに7変数
-（MAIL_ADDRESS/MAIL_PASSWORD/MAIL_IMAP_HOST=sv2237.xserver.jp/MAIL_SMTP_HOST=同/MAIL_SMTP_PORT=465・
-MAIL_INGEST_ENABLED=true・MAIL_SEND_ENABLED=true）→ restart → 実メールE2E
-（関連: DOSL GATE側はResendでメール送信稼働済み。HUBはXserver SMTP＝dosl.co.jpのSPFはXserver登録済みで整合）
+**メール受信＝本番稼働開始（2026-07-12）** ✅:
+- doslドメイン版（IMAP方式・hub@dosl.co.jp・エックスサーバー）で本番有効化。認証情報は「本番ログイン情報.txt」
+- ローカルE2E済み（登録送信元の取込／未登録の拒否＋通知／同一Message-IDの二重取込防止）
+- 本番E2E済み: demo-exhibitor発の実メール→2分以内に取込→実AI解析（analyzed）→GCS保存まで確認
+- 出展社への案内: 「hub@dosl.co.jp に書類を添付して送る。件名に展示会名とカテゴリ名（例: 電気申込）を入れる」
+
+**メール送信＝停止中（MAIL_SEND_ENABLED=false）** ⚠️:
+- **エックスサーバーがGCP-IPからのSMTP送信を拒否**（554 Client host rejected・465/587両方・認証済みでも不可）。
+  受信のIMAPは影響なし。ローカル回線からは送信可＝コード自体は正常（ローカルE2EでSMTP送信成功済み）
+- 対応案: **Resend API化**（DOSL GATEでdosl.co.jp認証済み・実績あり。HTTPなのでGCPから問題なく送れる）。
+  必要なもの＝Resend APIキー（GATEのキー流用 or HUB用に新規発行、大西さん判断）。実装は小規模
+- 送信停止中も初期パスワードの画面表示フォールバックで運用可能（従来どおり）
 
 **ユーザー対応待ち**: ①専用Gmailの用意 ②5-5 iPhone実機でカメラ撮影テスト
 ③マニュアル2冊（docs/マニュアル/）の内容確認・配布
