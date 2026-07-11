@@ -208,3 +208,33 @@ async def test_ingest_ambiguous_exhibition_held(seeded):
         assert docs == []
         notif = (await db.execute(select(Notification))).scalars().all()
         assert any("保留" in n.title for n in notif)
+
+
+# ──────────────── IMAP解析層（doslドメイン版・2026-07-11差し替え） ────────────────
+
+def test_decode_header_rfc2047():
+    from app.services.mail_ingest import _decode_header
+    import email.header
+    encoded = email.header.Header("電気申込 3コマ分", "utf-8").encode()
+    assert _decode_header(encoded) == "電気申込 3コマ分"
+    assert _decode_header("plain ascii") == "plain ascii"
+    assert _decode_header("") == ""
+
+
+def test_collect_attachments_from_mime():
+    from email.mime.application import MIMEApplication
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    from app.services.mail_ingest import _collect_attachments
+
+    msg = MIMEMultipart()
+    msg["Subject"] = "電気申込"
+    msg.attach(MIMEText("本文です", "plain", "utf-8"))
+    att = MIMEApplication(b"%PDF-1.4 dummy", _subtype="pdf")
+    att.add_header("Content-Disposition", "attachment", filename="申込書.pdf")
+    msg.attach(att)
+
+    result = _collect_attachments(msg)
+    assert len(result) == 1
+    assert result[0][0] == "申込書.pdf"
+    assert result[0][1] == b"%PDF-1.4 dummy"

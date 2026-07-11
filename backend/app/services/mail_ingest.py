@@ -1,14 +1,19 @@
 """メール受信による書類の自動取り込み（指示書04・Phase 2）
 
-専用Gmailアカウントをポーリングし、添付ファイルをDocumentとして取り込む。
+doslドメインの専用アドレス（例: hub@dosl.co.jp）をIMAPでポーリングし、
+添付ファイルをDocumentとして取り込む。
 - MAIL_INGEST_ENABLED=true のときだけ常駐タスクが起動（main.pyのlifespan）
 - 送信元アドレスがusers.emailと一致した出展社にのみ紐づける（未登録は管理者通知のみ）
 - カテゴリは件名に含まれるカテゴリ名で判定。判定不能なら専用カテゴリ
   「メール受信（未分類）」を自動作成して紐づけ、管理者が後から振り替える
-- 多重取込防止は二重ガード: Gmail側のラベル＋既読化 ／ DB側の source_message_id
+- 多重取込防止は二重ガード: IMAP側の既読化（未読のみ取得） ／ DB側の source_message_id
 """
 import asyncio
-import base64
+import email
+import email.header
+import email.message
+import email.utils
+import imaplib
 import logging
 import os
 import uuid
@@ -30,7 +35,6 @@ from app.services.ai_analyzer import analyze_document
 
 logger = logging.getLogger(__name__)
 
-GMAIL_LABEL = "DOSL-HUB取込済"
 UNCLASSIFIED_CATEGORY = "メール受信（未分類）"
 ALLOWED_EXTENSIONS = {
     ".xlsx", ".xls", ".docx", ".doc", ".pdf",
@@ -205,81 +209,76 @@ async def ingest_message(db: AsyncSession, message_id: str, from_email: str,
     return {"action": "imported", "document_ids": document_ids}
 
 
-# ──────────────── Gmail I/O ────────────────
+# ──────────────── IMAP I/O ────────────────
 
-def _gmail_service():
-    from google.oauth2.credentials import Credentials
-    from googleapiclient.discovery import build
-
-    creds = Credentials(
-        None,
-        refresh_token=settings.gmail_refresh_token,
-        token_uri="https://oauth2.googleapis.com/token",
-        client_id=settings.gmail_client_id,
-        client_secret=settings.gmail_client_secret,
-        scopes=["https://www.googleapis.com/auth/gmail.modify"],
-    )
-    return build("gmail", "v1", credentials=creds, cache_discovery=False)
-
-
-def _ensure_label(service) -> str:
-    labels = service.users().labels().list(userId="me").execute().get("labels", [])
-    for lb in labels:
-        if lb["name"] == GMAIL_LABEL:
-            return lb["id"]
-    created = service.users().labels().create(
-        userId="me", body={"name": GMAIL_LABEL}).execute()
-    return created["id"]
+def _decode_header(value: str) -> str:
+    """RFC2047エンコードされたヘッダ（=?UTF-8?B?...?=等）をデコードする"""
+    parts = []
+    for text, charset in email.header.decode_header(value or ""):
+        if isinstance(text, bytes):
+            parts.append(text.decode(charset or "utf-8", errors="replace"))
+        else:
+            parts.append(text)
+    return "".join(parts)
 
 
 def _parse_address(header_value: str) -> str:
     """'名前 <a@b.com>' → 'a@b.com'"""
-    import email.utils
-    return (email.utils.parseaddr(header_value or "")[1] or "").lower()
+    return (email.utils.parseaddr(_decode_header(header_value))[1] or "").lower()
 
 
-def _collect_attachments(service, msg_id: str, payload: dict) -> list[tuple[str, bytes]]:
+def _collect_attachments(msg: email.message.Message) -> list[tuple[str, bytes]]:
     result = []
-    parts = [payload]
-    while parts:
-        part = parts.pop()
-        parts.extend(part.get("parts") or [])
-        filename = part.get("filename")
-        body = part.get("body") or {}
+    for part in msg.walk():
+        filename = part.get_filename()
         if not filename:
             continue
-        if body.get("attachmentId"):
-            att = service.users().messages().attachments().get(
-                userId="me", messageId=msg_id, id=body["attachmentId"]).execute()
-            result.append((filename, base64.urlsafe_b64decode(att["data"])))
-        elif body.get("data"):
-            result.append((filename, base64.urlsafe_b64decode(body["data"])))
+        content = part.get_payload(decode=True)
+        if content:
+            result.append((_decode_header(filename), content))
     return result
 
 
-def _fetch_unread(service) -> list[dict]:
-    """未読メールを取得して {id, from_email, subject, attachments} のリストで返す"""
-    res = service.users().messages().list(
-        userId="me", q="is:unread", maxResults=20).execute()
+def _connect() -> imaplib.IMAP4_SSL:
+    conn = imaplib.IMAP4_SSL(settings.mail_imap_host, 993, timeout=30)
+    conn.login(settings.mail_address, settings.mail_password)
+    conn.select("INBOX")
+    return conn
+
+
+def _fetch_unread(conn: imaplib.IMAP4_SSL) -> list[dict]:
+    """未読メールを取得して {uid, id, from_email, subject, attachments} のリストで返す。
+    取得中に既読化されないよう BODY.PEEK で読む（既読化は処理後に明示的に行う）"""
+    _, data = conn.uid("SEARCH", None, "UNSEEN")
+    uids = (data[0] or b"").split()[:20]
     messages = []
-    for ref in res.get("messages", []):
-        msg = service.users().messages().get(userId="me", id=ref["id"]).execute()
-        headers = {h["name"].lower(): h["value"]
-                   for h in (msg.get("payload", {}).get("headers") or [])}
+    for uid in uids:
+        _, msg_data = conn.uid("FETCH", uid, "(BODY.PEEK[])")
+        if not msg_data or msg_data[0] is None or not isinstance(msg_data[0], tuple):
+            continue
+        msg = email.message_from_bytes(msg_data[0][1])
+        # 多重取込防止キーはMessage-IDヘッダ。無い場合のみIMAP UIDで代替
+        message_id = (msg.get("Message-ID") or "").strip() or f"imap-uid-{uid.decode()}"
         messages.append({
-            "id": msg["id"],
-            "from_email": _parse_address(headers.get("from", "")),
-            "subject": headers.get("subject", ""),
-            "attachments": _collect_attachments(service, msg["id"], msg.get("payload", {})),
+            "uid": uid,
+            "id": message_id,
+            "from_email": _parse_address(msg.get("From", "")),
+            "subject": _decode_header(msg.get("Subject", "")),
+            "attachments": _collect_attachments(msg),
         })
     return messages
 
 
-def _mark_processed(service, msg_id: str, label_id: str) -> None:
-    service.users().messages().modify(
-        userId="me", id=msg_id,
-        body={"removeLabelIds": ["UNREAD"], "addLabelIds": [label_id]},
-    ).execute()
+def _mark_processed(conn: imaplib.IMAP4_SSL, uid: bytes) -> None:
+    conn.uid("STORE", uid, "+FLAGS", "(\\Seen)")
+
+
+def _logout(conn: imaplib.IMAP4_SSL) -> None:
+    try:
+        conn.close()
+        conn.logout()
+    except Exception:
+        pass
 
 
 # ──────────────── 常駐ポーリング ────────────────
@@ -290,21 +289,23 @@ _held_message_ids: set[str] = set()
 
 
 async def poll_once() -> None:
-    service = await asyncio.to_thread(_gmail_service)
-    label_id = await asyncio.to_thread(_ensure_label, service)
-    messages = await asyncio.to_thread(_fetch_unread, service)
-    for m in messages:
-        async with async_session() as db:
+    conn = await asyncio.to_thread(_connect)
+    try:
+        messages = await asyncio.to_thread(_fetch_unread, conn)
+        for m in messages:
             if m["id"] in _held_message_ids:
                 continue
-            result = await ingest_message(
-                db, m["id"], m["from_email"], m["subject"], m["attachments"])
-        if result["action"] == "exhibition_ambiguous":
-            # 保留: 未読のまま残す（展示会が絞れたら次回取り込まれる）
-            _held_message_ids.add(m["id"])
-            continue
-        # imported / duplicate / unknown_sender / no_attachments は既読化＋ラベル
-        await asyncio.to_thread(_mark_processed, service, m["id"], label_id)
+            async with async_session() as db:
+                result = await ingest_message(
+                    db, m["id"], m["from_email"], m["subject"], m["attachments"])
+            if result["action"] == "exhibition_ambiguous":
+                # 保留: 未読のまま残す（展示会が絞れたら次回取り込まれる）
+                _held_message_ids.add(m["id"])
+                continue
+            # imported / duplicate / unknown_sender / no_attachments は既読化
+            await asyncio.to_thread(_mark_processed, conn, m["uid"])
+    finally:
+        await asyncio.to_thread(_logout, conn)
 
 
 async def poll_loop() -> None:

@@ -11,14 +11,16 @@ class Settings(BaseSettings):
     storage_backend: str = "local"
     gcs_bucket: str = ""
 
-    # メール受信（専用Gmailのポーリング取込・docs/指示書/04参照）
+    # メール受信（doslドメイン専用アドレスのIMAPポーリング取込・docs/指示書/04参照）
     mail_ingest_enabled: bool = False
     mail_poll_interval_sec: int = 120
-    gmail_client_id: str = ""
-    gmail_client_secret: str = ""
-    gmail_refresh_token: str = ""
+    mail_address: str = ""          # 例: hub@dosl.co.jp（受信・送信兼用）
+    mail_password: str = ""
+    mail_imap_host: str = ""        # 例: sv2237.xserver.jp（IMAP over SSL 993）
+    mail_smtp_host: str = ""        # 例: sv2237.xserver.jp（SMTP over SSL）
+    mail_smtp_port: int = 465
 
-    # メール送信（初期パスワード通知・docs/指示書/05の5-4参照。受信と同じGmailアカウントを使う）
+    # メール送信（初期パスワード通知・docs/指示書/05の5-4参照。受信と同じメールアカウントを使う）
     mail_send_enabled: bool = False
     # メール本文に載せるログインURL（本番: https://34-168-97-181.sslip.io）。空ならURL行を省略
     public_base_url: str = ""

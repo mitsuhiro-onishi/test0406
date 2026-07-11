@@ -19,11 +19,14 @@
   アップロードが500になる）。→ 適用済みなので今後は不要
 - 注意: アップロードはGCS保存→DB登録の順なので、DB登録失敗時にGCSへ孤児オブジェクトが残ることがある
 
-**メール受信/送信の有効化に必要な残り**（コード・DB列は本番反映済み）:
-専用Gmailアカウント（大西さん判断）→ Google CloudでOAuthクライアント（デスクトップ）作成 →
-`backend/scripts/gmail_auth.py` でリフレッシュトークン取得 → 本番.envに5変数
-（GMAIL_CLIENT_ID/SECRET/REFRESH_TOKEN・MAIL_INGEST_ENABLED=true・MAIL_SEND_ENABLED=true）→ restart → 実メールE2E
-（関連: DOSL GATE側はResendでメール送信稼働済み・ドメイン認証未。HUBはGmail方式＝指示書04の設計どおり）
+**メール受信/送信（2026-07-11にdoslドメイン版へ設計変更・実装差し替え済み）**:
+Gmail API方式を廃止し、`hub@dosl.co.jp`（エックスサーバー sv2237.xserver.jp）のIMAP/SMTP方式に変更
+（理由: Workspace未使用・gmail.com発送信の不着リスク・OAuth不要でシンプル。指示書04の改訂履歴参照）。
+有効化に必要な残り: メールアカウントの認証確認（**2026-07-11時点でIMAP/SMTPともLogin failed＝
+パスワードかアカウント作成状態の確認待ち**）→ デプロイ → 本番.envに7変数
+（MAIL_ADDRESS/MAIL_PASSWORD/MAIL_IMAP_HOST=sv2237.xserver.jp/MAIL_SMTP_HOST=同/MAIL_SMTP_PORT=465・
+MAIL_INGEST_ENABLED=true・MAIL_SEND_ENABLED=true）→ restart → 実メールE2E
+（関連: DOSL GATE側はResendでメール送信稼働済み。HUBはXserver SMTP＝dosl.co.jpのSPFはXserver登録済みで整合）
 
 **ユーザー対応待ち**: ①専用Gmailの用意 ②5-5 iPhone実機でカメラ撮影テスト
 ③マニュアル2冊（docs/マニュアル/）の内容確認・配布
