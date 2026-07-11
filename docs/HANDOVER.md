@@ -25,12 +25,14 @@
 - 本番E2E済み: demo-exhibitor発の実メール→2分以内に取込→実AI解析（analyzed）→GCS保存まで確認
 - 出展社への案内: 「hub@dosl.co.jp に書類を添付して送る。件名に展示会名とカテゴリ名（例: 電気申込）を入れる」
 
-**メール送信＝停止中（MAIL_SEND_ENABLED=false）** ⚠️:
-- **エックスサーバーがGCP-IPからのSMTP送信を拒否**（554 Client host rejected・465/587両方・認証済みでも不可）。
-  受信のIMAPは影響なし。ローカル回線からは送信可＝コード自体は正常（ローカルE2EでSMTP送信成功済み）
-- 対応案: **Resend API化**（DOSL GATEでdosl.co.jp認証済み・実績あり。HTTPなのでGCPから問題なく送れる）。
-  必要なもの＝Resend APIキー（GATEのキー流用 or HUB用に新規発行、大西さん判断）。実装は小規模
-- 送信停止中も初期パスワードの画面表示フォールバックで運用可能（従来どおり）
+**メール送信＝本番稼働開始（2026-07-12・Resend経由）** ✅:
+- XserverがGCP-IPからのSMTPを拒否（554・465/587とも）するため、送信のみ**Resend API（HTTP）**に切替。
+  HUB専用の新規APIキーを発行（GATEのキーはVercelでSensitive設定＝取り出し不可だったため流用不可）
+- 差出人は `DOSL HUB <hub@dosl.co.jp>`（Resendのdosl.co.jpドメイン認証はGATE設定時のものが有効）
+- 実装: RESEND_API_KEYがあればResend、無ければSMTP（ローカル開発用）に自動切替。
+  **注意: ResendはUser-Agentヘッダ無しを403(Cloudflare 1010)で弾く**（実装済み・ハマりポイント）
+- 本番E2E済み: パスワード再発行→email_sent=true→受信箱に From: DOSL HUB で実着信を確認
+- キーの無効化はResendダッシュボード「dosl-hub」キーから（GATEと独立）
 
 **ユーザー対応待ち**: ①専用Gmailの用意 ②5-5 iPhone実機でカメラ撮影テスト
 ③マニュアル2冊（docs/マニュアル/）の内容確認・配布

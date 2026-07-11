@@ -34,6 +34,8 @@ def _send_via_resend(to: str, subject: str, body: str) -> None:
         headers={
             "Authorization": f"Bearer {settings.resend_api_key}",
             "Content-Type": "application/json",
+            # ResendはCloudflare配下でUA無しリクエストを403(1010)で弾く
+            "User-Agent": "dosl-hub/1.0",
         },
     )
     with urllib.request.urlopen(req, timeout=30) as resp:
