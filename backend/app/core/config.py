@@ -20,8 +20,11 @@ class Settings(BaseSettings):
     mail_smtp_host: str = ""        # 例: sv2237.xserver.jp（SMTP over SSL）
     mail_smtp_port: int = 465
 
-    # メール送信（初期パスワード通知・docs/指示書/05の5-4参照。受信と同じメールアカウントを使う）
+    # メール送信（初期パスワード通知・docs/指示書/05の5-4参照）
+    # RESEND_API_KEY があればResend API（HTTP）で送る＝GCP等クラウドからの推奨経路。
+    # 無ければ MAIL_SMTP_HOST へのSMTP送信（XserverはクラウドIPを拒否するため本番では不可・2026-07-12確認）
     mail_send_enabled: bool = False
+    resend_api_key: str = ""
     # メール本文に載せるログインURL（本番: https://34-168-97-181.sslip.io）。空ならURL行を省略
     public_base_url: str = ""
     cors_origins: str = "http://localhost:3000,http://localhost:8000"
