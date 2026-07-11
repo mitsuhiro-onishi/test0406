@@ -171,7 +171,11 @@ async def run_anthropic(prompt: str, file_path: str, office_text: str | None) ->
         max_tokens=4096,
         messages=[{"role": "user", "content": content}],
     )
-    result = parse_json_response(resp.content[0].text)
+    # 応答の先頭が思考ブロック等になる場合があるため、textブロックだけを取り出す
+    text_parts = [b.text for b in resp.content if getattr(b, "type", "") == "text"]
+    if not text_parts:
+        raise ValueError(f"応答にtextブロックがありません: {[getattr(b, 'type', '?') for b in resp.content]}")
+    result = parse_json_response("".join(text_parts))
     meta = {
         "llm_model": settings.ai_model,
         "llm_prompt_tokens": resp.usage.input_tokens,
