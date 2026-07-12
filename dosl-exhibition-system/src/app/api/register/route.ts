@@ -92,8 +92,9 @@ export async function POST(request: NextRequest) {
     const formFields = exhibition.form_fields || {};
     const features = exhibition.features || {};
 
-    // --- 個人情報の取り扱い同意（リードリトリーバル有効時は必須・要件定義書22.5） ---
-    if (features.lead_retrieval && body.lead_consent !== true) {
+    // --- 個人情報の取り扱い同意（全展示会で必須・HubSpot連携同意文言改訂 2026-07-12） ---
+    // 主催者の運営利用＋DOSLの今後の案内目的（＋lead_retrieval時は出展社提供）への同意
+    if (body.lead_consent !== true) {
       return badRequest("個人情報の取り扱いへの同意が必要です");
     }
 
@@ -323,10 +324,14 @@ export async function POST(request: NextRequest) {
         industry,
         visit_purpose: visitPurpose,
         companions,
-        // 同意の記録（同意日時）。リードリトリーバル無効の展示会では記録しない
-        custom_fields: features.lead_retrieval
-          ? { lead_consent: { agreed: true, at: new Date().toISOString() } }
-          : {},
+        // 同意の記録（同意日時）。privacy_consent=常時（運営利用+DOSL案内目的）、
+        // lead_consent=リードリトリーバル有効時のみ（出展社提供。既存データとの互換キー）
+        custom_fields: {
+          privacy_consent: { agreed: true, at: new Date().toISOString() },
+          ...(features.lead_retrieval
+            ? { lead_consent: { agreed: true, at: new Date().toISOString() } }
+            : {}),
+        },
       })
       .select()
       .single();
