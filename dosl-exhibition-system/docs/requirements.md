@@ -811,14 +811,56 @@ DB: `supabase/migrations/005_gate_options.sql`（exhibitors / exhibitor_leads）
 ### 22.5 個人情報の扱い
 
 - 出展社は「自社ブースでスキャンした来場者」の情報のみ閲覧できる（全来場者一覧は見えない）
-- **来場者の同意取得（実装済み・2026-07-08）**: `features.lead_retrieval` が有効な展示会の登録フォームに「個人情報の取り扱いについて」ブロック＋必須同意チェックボックスを表示
-  - 文言の要点: (1) 主催者の利用目的、(2) ブースで入場証を提示・スキャンされた場合に登録情報（氏名・フリガナ・会社名・部署・役職・メール・電話・業種・来場目的）が当該出展社に第三者提供されること、(3) 提示・スキャンは任意で断れること、(4) 提供後は各出展社の管理責任
-  - サーバー側でも検証: lead_retrieval 有効時に `lead_consent !== true` の登録は 400 で拒否（フォーム迂回の直POST対策）
-  - 同意の記録: `registrations.custom_fields.lead_consent = {"agreed": true, "at": "<ISO日時>"}`（lead_retrieval 無効の展示会では記録しない・追加マイグレーション不要）
-  - lead_retrieval 無効の展示会ではブロック非表示・同意不要（従来どおり）
+- **来場者の同意取得（2026-07-13 改訂: 全展示会で必須化）**: 登録フォームに「個人情報の取り扱いについて」ブロック＋必須同意チェックボックスを**全展示会で常時表示**
+  - 基本文言（常時）: (1) 主催者の利用目的、(2) 運営者DOSL株式会社による「今後の展示会のご案内および関連サービスのご案内」目的（案内停止はいつでも申し出可能）
+  - lead_retrieval 有効時のみ追加表示: (3) ブースで入場証を提示・スキャンされた場合に登録情報（氏名・フリガナ・会社名・部署・役職・メール・電話・業種・来場目的）が当該出展社に第三者提供されること、(4) 提示・スキャンは任意で断れること、(5) 提供後は各出展社の管理責任
+  - サーバー側でも検証: `lead_consent !== true` の登録は展示会設定にかかわらず 400 で拒否（フォーム迂回の直POST対策）
+  - 同意の記録: `registrations.custom_fields.privacy_consent = {"agreed": true, "at": "<ISO日時>"}`（常時）＋ lead_retrieval 有効時は `lead_consent`（同形式・互換キー）も併記
+  - 改訂の経緯・画面文言の全文は docs/HubSpot連携_同意文言改訂案_20260712.md を参照
 
 ### 22.6 未実装・将来検討
 
 - 出展社ユーザーの複数端末利用は同一コード共用で対応（端末別アカウントなし）
 - リードのスター/ランク付け、フォローステータス管理
 - 管理者による全出展社リードの横断CSV（主催者向けレポート）
+
+## 23. HubSpot CRM連携（2026-07-13 実装・本番稼働）
+
+事前登録者をDOSLのHubSpot CRM（アカウントID 246733314・無料プラン）に日次同期し、展示会後のフォローアップ・リピーター管理に使う。Phase 1 = DOSL自身のHubSpotへの集約。主催者ごとの接続（商品化）はPhase 3。
+
+### 23.1 構成と同期フロー
+
+- 実装: `src/lib/hubspot.ts`（同期ロジック）＋ `/api/cron/hubspot-sync`（GET・cronエンドポイント）＋ `vercel.json`（毎日 21:00 UTC = 6:00 JST）
+- フロー: `registrations`（status=confirmed）を差分取得（直近25時間の更新分。`?full=1` で全件）→ 来場者ごとに集計 → メールアドレスをキーにHubSpotコンタクトへバッチupsert（冪等）→ 会社名の完全一致で会社を検索/作成し関連付け → 展示会ごとの静的リスト「GATE: {展示会名}」にコンタクトを追加
+- 同期対象の制限: `HUBSPOT_SYNC_SINCE`（ISO日付）以降に登録された者のみ。**同意文言改訂（22.5）以前の登録者はCRM蓄積の同意がないため対象外**。exhibitor_leads（ブーススキャン）と entry_logs はPhase 1では同期しない
+
+### 23.2 コンタクトのプロパティマッピング
+
+標準: email / firstname / lastname / company / phone / jobtitle。カスタム（グループ dosl_gate）:
+
+| プロパティ | 内容 |
+|---|---|
+| gate_visitor_id | visitors.id（同期キーの補助） |
+| gate_last_exhibition | 最新登録の展示会名 |
+| gate_visit_count | 登録した展示会数（実来場ベースはPhase 2） |
+| gate_industry | 最新登録の業種 |
+| gate_visit_purpose | 来場目的（セミコロン区切り） |
+| gate_last_checkin | Phase 2で使用予定（未同期） |
+
+### 23.3 環境変数と認証
+
+| 変数 | 役割 |
+|---|---|
+| HUBSPOT_ACCESS_TOKEN | Private Appトークン（スコープはcontacts/companies/lists/schemas.contactsの読み書き8個のみ） |
+| HUBSPOT_SYNC_ENABLED | `true` で有効。**未設定なら何もしない**（既存機能への影響ゼロ保証） |
+| CRON_SECRET | cronエンドポイントのBearer認証。本番で未設定だと同期は実行拒否（500） |
+| HUBSPOT_SYNC_SINCE | この日付以降の登録のみ同期（本番=2026-07-13） |
+| HUBSPOT_SYNC_LOOKBACK_HOURS | 差分同期の遡り時間（既定25） |
+
+### 23.4 実装上の制約・注意（テストランで検証済み）
+
+- HubSpotへのfetchは `cache: "no-store"` 必須（Next.jsのデータキャッシュが古いAPI応答を返す実バグを踏んだ）
+- リストの存在確認は検索APIでなく名前直接取得エンドポイントを使う（検索インデックスの反映遅延で削除済みリスト参照・重複作成が起きる）
+- 会社検索は検索APIのため、**同期を数分以内に連続実行すると同名会社が重複作成される**（日次cronでは発生しない。手動実行は間隔を空ける）
+- レート制限対策: 直列実行＋150ms間隔＋429リトライ。バッチupsertは100件単位
+- HubSpot側設定「メールドメインから会社を自動作成」がONのため、ドメイン由来の会社も自動付与される
