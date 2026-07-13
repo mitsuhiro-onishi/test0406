@@ -27,6 +27,15 @@ interface RegistrationRow {
   };
   exhibition: { id: string; name: string; slug: string };
   registration_type: { name: string; color: string } | null;
+  entry_logs: Array<{ action: string; logged_at: string }>;
+}
+
+// 初回入場日時（entryアクションの最古ログ）。未来場なら null
+function firstEntryAt(r: RegistrationRow): string | null {
+  const entries = (r.entry_logs || [])
+    .filter((l) => l.action === "entry")
+    .sort((a, b) => a.logged_at.localeCompare(b.logged_at));
+  return entries[0]?.logged_at || null;
 }
 
 interface ApiResponse {
@@ -207,6 +216,7 @@ export default function RegistrationsPage() {
                     <th className="px-4 py-3">メール</th>
                     <th className="px-4 py-3">種別</th>
                     <th className="px-4 py-3">ステータス</th>
+                    <th className="px-4 py-3">来場</th>
                     <th className="px-4 py-3">登録日</th>
                     <th className="px-4 py-3 w-24">操作</th>
                   </tr>
@@ -281,6 +291,17 @@ export default function RegistrationsPage() {
                                 : "待機"}
                           </span>
                         </td>
+                        <td className="px-4 py-3">
+                          {firstEntryAt(r) ? (
+                            <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              来場済み
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">
+                              未来場
+                            </span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-gray-500">
                           {new Date(r.registered_at).toLocaleDateString(
                             "ja-JP",
@@ -309,7 +330,7 @@ export default function RegistrationsPage() {
                       </tr>
                       {expandedRow === r.id && (
                         <tr key={`${r.id}-detail`}>
-                          <td colSpan={9} className="bg-gray-50 px-8 py-4">
+                          <td colSpan={10} className="bg-gray-50 px-8 py-4">
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                               {r.visitor.department && (
                                 <div>
@@ -387,6 +408,18 @@ export default function RegistrationsPage() {
                                 </span>
                                 <p>{r.exhibition.name}</p>
                               </div>
+                              {firstEntryAt(r) && (
+                                <div>
+                                  <span className="text-gray-400 text-xs">
+                                    初回入場
+                                  </span>
+                                  <p>
+                                    {new Date(
+                                      firstEntryAt(r) as string,
+                                    ).toLocaleString("ja-JP")}
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -396,7 +429,7 @@ export default function RegistrationsPage() {
                   {registrations.length === 0 && (
                     <tr>
                       <td
-                        colSpan={9}
+                        colSpan={10}
                         className="px-4 py-12 text-center text-gray-400"
                       >
                         {query

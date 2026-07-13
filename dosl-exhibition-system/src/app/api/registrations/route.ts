@@ -28,7 +28,8 @@ export async function GET(request: NextRequest) {
       *,
       visitor:visitors!inner(*),
       exhibition:exhibitions(id, name, slug),
-      registration_type:registration_types(name, color)
+      registration_type:registration_types(name, color),
+      entry_logs(action, logged_at)
     `,
       { count: "exact" },
     );

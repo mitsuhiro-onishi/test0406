@@ -19,7 +19,8 @@ export async function GET(request: NextRequest) {
       *,
       visitor:visitors!inner(*),
       exhibition:exhibitions(id, name, slug),
-      registration_type:registration_types(name, color)
+      registration_type:registration_types(name, color),
+      entry_logs(action, logged_at)
     `,
     );
 
@@ -74,6 +75,8 @@ export async function GET(request: NextRequest) {
     "同伴者",
     "展示会",
     "登録日時",
+    "来場状況",
+    "初回入場日時",
   ];
 
   function csvEscape(val: string | null | undefined): string {
@@ -92,6 +95,13 @@ export async function GET(request: NextRequest) {
 
   const csvRows = rows.map((r) => {
     const v = r.visitor;
+    // 初回入場 = entry アクションの最古ログ
+    const entries = (r.entry_logs || [])
+      .filter((l: { action: string }) => l.action === "entry")
+      .sort((a: { logged_at: string }, b: { logged_at: string }) =>
+        a.logged_at.localeCompare(b.logged_at),
+      );
+    const firstEntryAt: string | null = entries[0]?.logged_at || null;
     return [
       r.ticket_code,
       r.status === "confirmed"
@@ -119,6 +129,12 @@ export async function GET(request: NextRequest) {
       r.exhibition?.name,
       r.registered_at
         ? new Date(r.registered_at).toLocaleString("ja-JP", {
+            timeZone: "Asia/Tokyo",
+          })
+        : "",
+      firstEntryAt ? "来場済み" : "未来場",
+      firstEntryAt
+        ? new Date(firstEntryAt).toLocaleString("ja-JP", {
             timeZone: "Asia/Tokyo",
           })
         : "",
