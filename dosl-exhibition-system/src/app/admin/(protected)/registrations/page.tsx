@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import EditRegistrationModal from "@/components/admin/EditRegistrationModal";
 
@@ -47,10 +48,23 @@ interface ApiResponse {
 }
 
 export default function RegistrationsPage() {
+  return (
+    <Suspense fallback={<div className="p-12 text-center text-gray-400">読み込み中...</div>}>
+      <RegistrationsPageInner />
+    </Suspense>
+  );
+}
+
+function RegistrationsPageInner() {
+  const searchParams = useSearchParams();
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [exhibitionId, setExhibitionId] = useState("");
+  // 展示会単位での運用が基本のため「全展示会」は設けない。
+  // URLの ?exhibition_id= 指定（ダッシュボードのカード遷移）> 直近の展示会 の順で初期選択する
+  const [exhibitionId, setExhibitionId] = useState(
+    () => searchParams.get("exhibition_id") || "",
+  );
   const [status, setStatus] = useState("");
   const [page, setPage] = useState(1);
   const [exhibitions, setExhibitions] = useState<
@@ -64,15 +78,22 @@ export default function RegistrationsPage() {
   useEffect(() => {
     fetch("/api/exhibitions")
       .then((r) => r.json())
-      .then((d) => setExhibitions(d.exhibitions || []))
+      .then((d) => {
+        const list = d.exhibitions || [];
+        setExhibitions(list);
+        // 未指定なら直近の展示会（APIはstart_date降順）をデフォルト選択
+        setExhibitionId((current) => current || list[0]?.id || "");
+      })
       .catch(() => {});
   }, []);
 
   const fetchRegistrations = useCallback(async () => {
+    // 展示会が決まるまでは取得しない（全展示会横断のビューは提供しない）
+    if (!exhibitionId) return;
     setLoading(true);
     const params = new URLSearchParams();
     if (query) params.set("q", query);
-    if (exhibitionId) params.set("exhibition_id", exhibitionId);
+    params.set("exhibition_id", exhibitionId);
     if (status) params.set("status", status);
     params.set("page", String(page));
     params.set("per_page", "50");
@@ -176,7 +197,6 @@ export default function RegistrationsPage() {
             }}
             className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm"
           >
-            <option value="">全展示会</option>
             {exhibitions.map((exh) => (
               <option key={exh.id} value={exh.id}>
                 {exh.name}
