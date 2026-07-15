@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { getPublicRegistrationCompletionMessage } from "@/lib/public-registration";
 import type {
   Exhibition,
   RegistrationType,
@@ -20,7 +21,8 @@ export default function RegisterPage({
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [ticketCode, setTicketCode] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   // Form state
   const [form, setForm] = useState({
@@ -136,13 +138,15 @@ export default function RegisterPage({
         }),
       });
       const data = await res.json();
+      const message = getPublicRegistrationCompletionMessage(data);
 
-      if (!res.ok || !data.success) {
+      if (!res.ok || !message) {
         setError(data.error || "登録に失敗しました");
         return;
       }
 
-      setTicketCode(data.ticket_code);
+      setSuccessMessage(message);
+      setSubmitted(true);
     } catch {
       setError("ネットワークエラーが発生しました");
     } finally {
@@ -173,28 +177,24 @@ export default function RegisterPage({
     );
   }
 
-  // 登録完了画面
-  if (ticketCode) {
+  // 受付完了画面（登録の新規・重複を区別せず、チケットはメールでのみ案内）
+  if (submitted) {
     return (
       <div className="min-h-screen py-12 px-4">
         <div className="max-w-lg mx-auto bg-white rounded-2xl shadow-lg p-8 text-center">
           <div className="text-green-500 text-5xl mb-4">&#10003;</div>
-          <h1 className="text-2xl font-bold mb-2">登録完了</h1>
+          <h1 className="text-2xl font-bold mb-2">受付完了</h1>
           <p className="text-gray-600 mb-6">
-            {exhibition.name}への事前登録が完了しました
+            {successMessage}
           </p>
-          <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <p className="text-sm text-gray-500 mb-1">チケットコード</p>
-            <p className="text-3xl font-mono font-bold tracking-wider">
-              {ticketCode}
+          <div className="bg-gray-50 rounded-lg p-4 text-left text-sm text-gray-600 space-y-2">
+            <p>
+              メール内の「QRチケットを表示」からチケットをご確認ください。
+            </p>
+            <p>
+              メールが届かない場合は、迷惑メールフォルダもご確認ください。
             </p>
           </div>
-          <a
-            href={`/${params.slug}/ticket/${ticketCode}`}
-            className="inline-block rounded-lg bg-blue-600 px-6 py-3 text-white hover:bg-blue-700 transition"
-          >
-            QRチケットを表示
-          </a>
         </div>
       </div>
     );

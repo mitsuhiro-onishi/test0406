@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { sendConfirmationEmail } from "@/lib/email";
+import {
+  persistPublicRegistration,
+  publicRegistrationAccepted,
+  publicRegistrationEmailFailed,
+  PublicRegistrationPersistenceError,
+  type PublicRegistrationRepository,
+} from "@/lib/public-registration";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import {
   cleanText,
@@ -228,144 +235,98 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // --- 来場者の取得・更新 or 作成 ---
+    // --- 来場者・登録の作成 ---
     // 注: visitors のユニークキーは式インデックス LOWER(email) のため
     // upsert(onConflict:"email") は使えない（ON CONFLICT 指定と一致せずエラーになる）
     // 旧データに大文字混じりメールが存在し得るため ilike で照合（LIKEメタ文字はエスケープ）
-    const emailPattern = email.replace(/([\\%_])/g, "\\$1");
-    const { data: existingVisitor } = await supabaseAdmin
-      .from("visitors")
-      .select("id")
-      .ilike("email", emailPattern)
-      .maybeSingle();
-
-    // 既存来場者は「今回入力のあった項目のみ」更新する（別展示会での登録情報を消さない）
-    let visitor: { id: string } | null = null;
-
-    if (existingVisitor) {
-      // 空欄で送られた項目（null）は既存値を保持する。フォームは未入力項目を
-      // 空文字で送るため、nullを含めて更新すると既存の値が消えてしまう
-      const updateValues = Object.fromEntries(
-        Object.entries(visitorValues).filter(([, v]) => v !== null),
-      );
-      const { data, error } = await supabaseAdmin
-        .from("visitors")
-        .update(updateValues)
-        .eq("id", existingVisitor.id)
-        .select("id")
-        .single();
-      if (error || !data) {
-        console.error("Visitor update error:", error);
-        return NextResponse.json(
-          { success: false, error: "来場者情報の登録に失敗しました" },
-          { status: 500 },
-        );
-      }
-      visitor = data;
-    } else {
-      const { data, error } = await supabaseAdmin
-        .from("visitors")
-        .insert({ email, ...visitorValues })
-        .select("id")
-        .single();
-      if (error || !data) {
-        // 同時登録による一意制約違反は取り直す
-        if (error?.code === "23505") {
-          const { data: retry } = await supabaseAdmin
-            .from("visitors")
-            .select("id")
-            .ilike("email", emailPattern)
-            .maybeSingle();
-          visitor = retry;
-        }
-        if (!visitor) {
-          console.error("Visitor insert error:", error);
-          return NextResponse.json(
-            { success: false, error: "来場者情報の登録に失敗しました" },
-            { status: 500 },
-          );
-        }
-      } else {
-        visitor = data;
-      }
-    }
-
-    // --- 重複登録チェック（既存なら既存チケットを返す） ---
-    const { data: existing } = await supabaseAdmin
-      .from("registrations")
-      .select("id, ticket_code")
-      .eq("exhibition_id", exhibition.id)
-      .eq("visitor_id", visitor.id)
-      .maybeSingle();
-
-    if (existing) {
-      return NextResponse.json({
-        success: true,
-        ticket_code: existing.ticket_code,
-        registration_id: existing.id,
-        message: "既に登録済みです",
-      });
-    }
-
-    // --- チケットコード生成・登録作成 ---
-    const { data: ticketResult } = await supabaseAdmin.rpc(
-      "generate_ticket_code",
-    );
-    const ticket_code = ticketResult as string;
-
-    const { data: registration, error: regError } = await supabaseAdmin
-      .from("registrations")
-      .insert({
-        exhibition_id: exhibition.id,
-        visitor_id: visitor.id,
-        registration_type_id,
-        ticket_code,
-        status: "confirmed",
-        industry,
-        visit_purpose: visitPurpose,
-        companions,
-        // 同意の記録（同意日時）。privacy_consent=常時（運営利用+DOSL案内目的）、
-        // lead_consent=リードリトリーバル有効時のみ（出展社提供。既存データとの互換キー）
-        custom_fields: {
-          privacy_consent: { agreed: true, at: new Date().toISOString() },
-          ...(features.lead_retrieval
-            ? { lead_consent: { agreed: true, at: new Date().toISOString() } }
-            : {}),
-        },
-      })
-      .select()
-      .single();
-
-    if (regError || !registration) {
-      // 同時登録による (exhibition_id, visitor_id) 一意制約違反は既存を返す
-      if (regError?.code === "23505") {
-        const { data: dup } = await supabaseAdmin
-          .from("registrations")
-          .select("id, ticket_code")
-          .eq("exhibition_id", exhibition.id)
-          .eq("visitor_id", visitor.id)
+    const repository: PublicRegistrationRepository = {
+      async findVisitorByEmail(normalizedEmail) {
+        const emailPattern = normalizedEmail.replace(/([\\%_])/g, "\\$1");
+        const { data, error } = await supabaseAdmin
+          .from("visitors")
+          .select("id")
+          .ilike("email", emailPattern)
           .maybeSingle();
-        if (dup) {
-          return NextResponse.json({
-            success: true,
-            ticket_code: dup.ticket_code,
-            registration_id: dup.id,
-            message: "既に登録済みです",
-          });
+        if (error) {
+          throw new PublicRegistrationPersistenceError("visitor", error);
         }
-      }
-      console.error("Registration error:", regError);
+        return data;
+      },
+      async insertVisitor(values) {
+        return supabaseAdmin
+          .from("visitors")
+          .insert(values)
+          .select("id")
+          .single();
+      },
+      async findRegistration(exhibitionId, visitorId) {
+        const { data, error } = await supabaseAdmin
+          .from("registrations")
+          .select("id")
+          .eq("exhibition_id", exhibitionId)
+          .eq("visitor_id", visitorId)
+          .maybeSingle();
+        if (error) {
+          throw new PublicRegistrationPersistenceError("registration", error);
+        }
+        return data;
+      },
+      async generateTicketCode() {
+        const { data, error } = await supabaseAdmin.rpc("generate_ticket_code");
+        if (error || typeof data !== "string" || !data) {
+          throw new Error(error?.message || "Ticket code generation failed");
+        }
+        return data;
+      },
+      async insertRegistration(values) {
+        return supabaseAdmin
+          .from("registrations")
+          .insert(values)
+          .select("id")
+          .single();
+      },
+    };
+
+    let persistedRegistration;
+    try {
+      persistedRegistration = await persistPublicRegistration(repository, {
+        email,
+        visitorValues,
+        registrationValues: {
+          exhibition_id: exhibition.id,
+          registration_type_id,
+          status: "confirmed",
+          industry,
+          visit_purpose: visitPurpose,
+          companions,
+          // 同意の記録（同意日時）。privacy_consent=常時（運営利用+DOSL案内目的）、
+          // lead_consent=リードリトリーバル有効時のみ（出展社提供。既存データとの互換キー）
+          custom_fields: {
+            privacy_consent: { agreed: true, at: new Date().toISOString() },
+            ...(features.lead_retrieval
+              ? { lead_consent: { agreed: true, at: new Date().toISOString() } }
+              : {}),
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Public registration persistence error:", error);
+      const message =
+        error instanceof PublicRegistrationPersistenceError &&
+        error.stage === "visitor"
+          ? "来場者情報の登録に失敗しました"
+          : "登録に失敗しました";
       return NextResponse.json(
-        { success: false, error: "登録に失敗しました" },
+        { success: false, error: message },
         { status: 500 },
       );
     }
 
     // --- セミナー予約 ---
-    if (seminarIds.length > 0) {
+    if (persistedRegistration.created && seminarIds.length > 0) {
       const bookings = seminarIds.map((seminar_id) => ({
         seminar_id,
-        registration_id: registration.id,
+        registration_id: persistedRegistration.registrationId,
         status: "confirmed",
       }));
       const { error: bookingError } = await supabaseAdmin
@@ -377,22 +338,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // --- 確認メール送信（失敗しても登録は成功扱い） ---
+    // --- 確認メール送信 ---
+    // 公開レスポンスにチケットを含めないため、メール失敗時は安全に再試行できる503を返す
     // サーバーレス環境ではレスポンス後の処理が中断されるため await する
     try {
-      const emailResult = await sendConfirmationEmail(registration.id);
+      const emailResult = await sendConfirmationEmail(
+        persistedRegistration.registrationId,
+      );
       if (!emailResult.success) {
         console.error("Auto confirmation email failed:", emailResult.error);
+        return NextResponse.json(publicRegistrationEmailFailed(), {
+          status: 503,
+        });
       }
     } catch (emailErr) {
       console.error("Auto confirmation email failed:", emailErr);
+      return NextResponse.json(publicRegistrationEmailFailed(), {
+        status: 503,
+      });
     }
 
-    return NextResponse.json({
-      success: true,
-      ticket_code: registration.ticket_code,
-      registration_id: registration.id,
-    });
+    return NextResponse.json(publicRegistrationAccepted());
   } catch (err) {
     console.error("Registration API error:", err);
     return NextResponse.json(

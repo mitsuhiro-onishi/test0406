@@ -9,7 +9,8 @@ export interface SendEmailResult {
 
 /**
  * 登録確認メールを送信する。
- * 登録API（自動送信）と管理画面の通知ボタン（手動送信）の両方から使う。
+ * 登録API（新規登録・安全な重複時再送）と管理画面の通知ボタン（手動送信）から使う。
+ * 公開APIはチケット情報を返さないため、このメール内のリンクが本人向けの再表示経路となる。
  */
 export async function sendConfirmationEmail(
   registrationId: string,

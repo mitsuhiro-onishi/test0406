@@ -167,8 +167,7 @@ export interface RegistrationFormData {
 // 登録APIレスポンス
 export interface RegistrationResponse {
   success: boolean;
-  ticket_code?: string;
-  registration_id?: string;
+  message?: string;
   error?: string;
 }
 
