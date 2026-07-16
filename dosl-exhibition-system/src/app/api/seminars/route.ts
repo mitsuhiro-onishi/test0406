@@ -6,6 +6,8 @@ import {
   validateSeminarFields,
   SEMINAR_STATUSES,
 } from "@/lib/validation";
+import { getAuthorizedExhibitionIds } from "@/lib/admin-scope-server";
+import { canManageAdminData } from "@/lib/admin-scope";
 
 // セミナー管理（GATEオプション）
 // 展示会ごとの features.seminar フラグでON/OFFされる。
@@ -24,11 +26,16 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const exhibition_id = searchParams.get("exhibition_id");
+  const allowedIds = await getAuthorizedExhibitionIds(auth);
+  if (exhibition_id && !allowedIds.includes(exhibition_id)) {
+    return NextResponse.json({ error: "展示会が見つかりません" }, { status: 404 });
+  }
   const status = searchParams.get("status");
 
   let query = supabaseAdmin
     .from("seminars")
     .select("*, exhibition:exhibitions(id, name, slug)")
+    .in("exhibition_id", allowedIds)
     .order("starts_at", { ascending: true });
 
   if (exhibition_id) {
@@ -87,14 +94,21 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await requireAdminApi();
     if (auth instanceof NextResponse) return auth;
+    if (!canManageAdminData(auth)) {
+      return NextResponse.json({ success: false, error: "この操作を行う権限がありません" }, { status: 403 });
+    }
 
     const body = await request.json();
+    const allowedIds = await getAuthorizedExhibitionIds(auth);
 
     if (!isValidUuid(body.exhibition_id)) {
       return NextResponse.json(
         { success: false, error: "展示会を指定してください" },
         { status: 400 },
       );
+    }
+    if (!allowedIds.includes(body.exhibition_id)) {
+      return NextResponse.json({ success: false, error: "展示会が見つかりません" }, { status: 404 });
     }
 
     const { data: exhibition } = await supabaseAdmin

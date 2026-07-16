@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { requireAdminApi } from "@/lib/auth";
 import { REGISTRATION_STATUSES, sanitizeSearchTerm } from "@/lib/validation";
+import { getAuthorizedExhibitionIds } from "@/lib/admin-scope-server";
 
 const MAX_PER_PAGE = 100;
 
@@ -11,6 +12,13 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const exhibition_id = searchParams.get("exhibition_id");
+  const allowedIds = await getAuthorizedExhibitionIds(auth);
+  if (allowedIds.length === 0) {
+    return NextResponse.json({ registrations: [], total: 0, page: 1, per_page: 50, total_pages: 0 });
+  }
+  if (exhibition_id && !allowedIds.includes(exhibition_id)) {
+    return NextResponse.json({ error: "展示会が見つかりません" }, { status: 404 });
+  }
   const status = searchParams.get("status");
   const q = searchParams.get("q")?.trim();
   const page = Math.max(1, parseInt(searchParams.get("page") || "1") || 1);
@@ -32,7 +40,8 @@ export async function GET(request: NextRequest) {
       entry_logs(action, logged_at)
     `,
       { count: "exact" },
-    );
+    )
+    .in("exhibition_id", allowedIds);
 
   // フィルター
   if (exhibition_id) {

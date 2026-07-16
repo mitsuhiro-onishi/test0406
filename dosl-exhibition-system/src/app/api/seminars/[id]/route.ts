@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { requireAdminApi } from "@/lib/auth";
 import { isValidUuid, validateSeminarFields } from "@/lib/validation";
+import { getAuthorizedExhibitionIds } from "@/lib/admin-scope-server";
+import { canManageAdminData } from "@/lib/admin-scope";
 
 // セミナー詳細・更新（GATEオプション）
 
@@ -12,6 +14,7 @@ export async function GET(
 ) {
   const auth = await requireAdminApi();
   if (auth instanceof NextResponse) return auth;
+  const allowedIds = await getAuthorizedExhibitionIds(auth);
 
   if (!isValidUuid(params.id)) {
     return NextResponse.json(
@@ -24,6 +27,7 @@ export async function GET(
     .from("seminars")
     .select("*, exhibition:exhibitions(id, name, slug)")
     .eq("id", params.id)
+    .in("exhibition_id", allowedIds)
     .maybeSingle();
 
   if (!seminar) {
@@ -59,6 +63,10 @@ export async function PATCH(
   try {
     const auth = await requireAdminApi();
     if (auth instanceof NextResponse) return auth;
+    if (!canManageAdminData(auth)) {
+      return NextResponse.json({ success: false, error: "この操作を行う権限がありません" }, { status: 403 });
+    }
+    const allowedIds = await getAuthorizedExhibitionIds(auth);
 
     if (!isValidUuid(params.id)) {
       return NextResponse.json(
@@ -71,6 +79,7 @@ export async function PATCH(
       .from("seminars")
       .select("*")
       .eq("id", params.id)
+      .in("exhibition_id", allowedIds)
       .maybeSingle();
 
     if (!existing) {

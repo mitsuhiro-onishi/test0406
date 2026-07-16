@@ -7,11 +7,13 @@ import {
   isValidTicketCode,
   MAX_LEN,
 } from "@/lib/validation";
+import { getAuthorizedExhibitionIds } from "@/lib/admin-scope-server";
 
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireAdminApi();
     if (auth instanceof NextResponse) return auth;
+    const allowedIds = await getAuthorizedExhibitionIds(auth);
 
     const body = await request.json();
 
@@ -64,6 +66,7 @@ export async function POST(request: NextRequest) {
       `,
       )
       .eq("ticket_code", ticketCode)
+      .in("exhibition_id", allowedIds)
       .single();
 
     if (regError || !registration) {

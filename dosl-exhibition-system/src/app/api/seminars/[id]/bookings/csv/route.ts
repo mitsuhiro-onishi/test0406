@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { requireAdminApi } from "@/lib/auth";
 import { isValidUuid } from "@/lib/validation";
 import { buildCsv, jstDateString, jstDateTime } from "@/lib/csv";
+import { getAuthorizedExhibitionIds } from "@/lib/admin-scope-server";
 
 // 聴講実績CSV（GATEオプション）
 
@@ -18,6 +19,7 @@ export async function GET(
 ) {
   const auth = await requireAdminApi();
   if (auth instanceof NextResponse) return auth;
+  const allowedIds = await getAuthorizedExhibitionIds(auth);
 
   if (!isValidUuid(params.id)) {
     return NextResponse.json(
@@ -28,8 +30,9 @@ export async function GET(
 
   const { data: seminar } = await supabaseAdmin
     .from("seminars")
-    .select("id, title")
+    .select("id, exhibition_id, title")
     .eq("id", params.id)
+    .in("exhibition_id", allowedIds)
     .maybeSingle();
 
   if (!seminar) {

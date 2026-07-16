@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { requireAdminApi } from "@/lib/auth";
 import { isValidUuid, validateExhibitorFields } from "@/lib/validation";
 import { generateAccessCode } from "@/lib/access-code";
+import { getAuthorizedExhibitionIds } from "@/lib/admin-scope-server";
+import { canManageAdminData } from "@/lib/admin-scope";
 
 // 出展社の更新（リードリトリーバル・GATEオプション）
 // body.regenerate_access_code=true でアクセスコードを再発行する
@@ -14,6 +16,10 @@ export async function PATCH(
   try {
     const auth = await requireAdminApi();
     if (auth instanceof NextResponse) return auth;
+    if (!canManageAdminData(auth)) {
+      return NextResponse.json({ success: false, error: "この操作を行う権限がありません" }, { status: 403 });
+    }
+    const allowedIds = await getAuthorizedExhibitionIds(auth);
 
     if (!isValidUuid(params.id)) {
       return NextResponse.json(
@@ -24,8 +30,9 @@ export async function PATCH(
 
     const { data: existing } = await supabaseAdmin
       .from("exhibitors")
-      .select("id")
+      .select("id, exhibition_id")
       .eq("id", params.id)
+      .in("exhibition_id", allowedIds)
       .maybeSingle();
 
     if (!existing) {

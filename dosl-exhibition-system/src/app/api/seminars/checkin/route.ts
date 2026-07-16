@@ -7,6 +7,7 @@ import {
   isValidTicketCode,
   isValidUuid,
 } from "@/lib/validation";
+import { getAuthorizedExhibitionIds } from "@/lib/admin-scope-server";
 
 // セミナー当日受付（GATEオプション）
 // 入場証（チケットコード）のQRをセミナー会場入口でスキャンし、
@@ -16,6 +17,7 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await requireAdminApi();
     if (auth instanceof NextResponse) return auth;
+    const allowedIds = await getAuthorizedExhibitionIds(auth);
 
     const body = await request.json();
 
@@ -59,6 +61,7 @@ export async function POST(request: NextRequest) {
       .from("seminars")
       .select("id, exhibition_id, title, starts_at, ends_at, status, venue_name")
       .eq("id", body.seminar_id)
+      .in("exhibition_id", allowedIds)
       .maybeSingle();
 
     if (!seminar) {
@@ -85,6 +88,7 @@ export async function POST(request: NextRequest) {
       `,
       )
       .eq("ticket_code", ticketCode)
+      .in("exhibition_id", allowedIds)
       .maybeSingle();
 
     if (!registration) {

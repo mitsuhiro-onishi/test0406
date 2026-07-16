@@ -8,6 +8,8 @@ import {
   validateCompanions,
   validateVisitorFields,
 } from "@/lib/validation";
+import { getAuthorizedExhibitionIds } from "@/lib/admin-scope-server";
+import { canManageAdminData } from "@/lib/admin-scope";
 
 interface RouteParams {
   params: { id: string };
@@ -17,6 +19,7 @@ interface RouteParams {
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   const auth = await requireAdminApi();
   if (auth instanceof NextResponse) return auth;
+  const allowedIds = await getAuthorizedExhibitionIds(auth);
 
   const { data, error } = await supabaseAdmin
     .from("registrations")
@@ -29,6 +32,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     `,
     )
     .eq("id", params.id)
+    .in("exhibition_id", allowedIds)
     .single();
 
   if (error || !data) {
@@ -46,6 +50,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const auth = await requireAdminApi();
     if (auth instanceof NextResponse) return auth;
+    if (!canManageAdminData(auth)) {
+      return NextResponse.json({ error: "この操作を行う権限がありません" }, { status: 403 });
+    }
+    const allowedIds = await getAuthorizedExhibitionIds(auth);
 
     const body = await request.json();
 
@@ -54,6 +62,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .from("registrations")
       .select("*, visitor:visitors(*)")
       .eq("id", params.id)
+      .in("exhibition_id", allowedIds)
       .single();
 
     if (fetchError || !existing) {
@@ -192,6 +201,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       `,
       )
       .eq("id", params.id)
+      .in("exhibition_id", allowedIds)
       .single();
 
     return NextResponse.json({ success: true, registration: updated });

@@ -2,13 +2,15 @@ import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
+import type { AdminRole } from "@/lib/admin-scope";
 
 export interface AdminSession {
   user_id: string;
   admin_id: string;
   display_name: string;
-  role: string;
+  role: AdminRole;
   organization_id: string;
+  exhibition_ids: string[] | null;
 }
 
 /**
@@ -45,7 +47,7 @@ export async function getAdminSession(): Promise<AdminSession | null> {
 
   const { data: adminUser } = await supabaseAdmin
     .from("admin_users")
-    .select("id, role, organization_id, display_name")
+    .select("id, role, organization_id, display_name, exhibition_ids")
     .eq("auth_user_id", user.id)
     .eq("is_active", true)
     .single();
@@ -58,8 +60,9 @@ export async function getAdminSession(): Promise<AdminSession | null> {
     user_id: user.id,
     admin_id: adminUser.id,
     display_name: adminUser.display_name,
-    role: adminUser.role,
+    role: adminUser.role as AdminRole,
     organization_id: adminUser.organization_id,
+    exhibition_ids: adminUser.exhibition_ids,
   };
 }
 

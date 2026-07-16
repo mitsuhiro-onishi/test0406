@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { requireAdminApi } from "@/lib/auth";
 import { REGISTRATION_STATUSES, sanitizeSearchTerm } from "@/lib/validation";
+import { getAuthorizedExhibitionIds } from "@/lib/admin-scope-server";
 
 export async function GET(request: NextRequest) {
   const auth = await requireAdminApi();
@@ -9,6 +10,10 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const exhibition_id = searchParams.get("exhibition_id");
+  const allowedIds = await getAuthorizedExhibitionIds(auth);
+  if (exhibition_id && !allowedIds.includes(exhibition_id)) {
+    return NextResponse.json({ error: "展示会が見つかりません" }, { status: 404 });
+  }
   const status = searchParams.get("status");
   const q = searchParams.get("q")?.trim();
 
@@ -22,7 +27,8 @@ export async function GET(request: NextRequest) {
       registration_type:registration_types(name, color),
       entry_logs(action, logged_at)
     `,
-    );
+    )
+    .in("exhibition_id", allowedIds);
 
   if (exhibition_id) {
     query = query.eq("exhibition_id", exhibition_id);

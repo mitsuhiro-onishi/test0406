@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { requireAdminApi } from "@/lib/auth";
 import { isValidUuid } from "@/lib/validation";
+import { getAuthorizedExhibitionIds } from "@/lib/admin-scope-server";
 
 // 聴講実績: セミナーの予約一覧（GATEオプション）
 
@@ -11,6 +12,7 @@ export async function GET(
 ) {
   const auth = await requireAdminApi();
   if (auth instanceof NextResponse) return auth;
+  const allowedIds = await getAuthorizedExhibitionIds(auth);
 
   if (!isValidUuid(params.id)) {
     return NextResponse.json(
@@ -21,8 +23,9 @@ export async function GET(
 
   const { data: seminar } = await supabaseAdmin
     .from("seminars")
-    .select("id, title, capacity, starts_at, ends_at, status, venue_name")
+    .select("id, exhibition_id, title, capacity, starts_at, ends_at, status, venue_name")
     .eq("id", params.id)
+    .in("exhibition_id", allowedIds)
     .maybeSingle();
 
   if (!seminar) {

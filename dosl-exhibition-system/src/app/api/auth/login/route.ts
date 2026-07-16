@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     const { data: adminUser } = await supabaseAdmin
       .from("admin_users")
-      .select("id, role, organization_id, display_name")
+      .select("id, role, organization_id, display_name, exhibition_ids")
       .eq("auth_user_id", data.user.id)
       .eq("is_active", true)
       .single();

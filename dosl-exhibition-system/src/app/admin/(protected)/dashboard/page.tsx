@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth";
+import { getAuthorizedExhibitionIds } from "@/lib/admin-scope-server";
 
 export const dynamic = "force-dynamic";
 
@@ -7,9 +9,12 @@ export const dynamic = "force-dynamic";
 // 全展示会の合算サマリーは置かず、展示会ごとのカードを主役にする（2026-07-13 方針）
 
 export default async function DashboardPage() {
+  const session = await requireAdmin();
+  const allowedIds = await getAuthorizedExhibitionIds(session);
   const { data: exhibitions } = await supabaseAdmin
     .from("exhibitions")
     .select("*")
+    .in("id", allowedIds)
     .order("start_date", { ascending: false });
 
   const stats = await Promise.all(
