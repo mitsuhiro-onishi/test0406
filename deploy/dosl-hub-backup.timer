@@ -1,0 +1,10 @@
+[Unit]
+Description=Run DOSL HUB SQLite backup hourly
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+Unit=dosl-hub-backup.service
+
+[Install]
+WantedBy=timers.target

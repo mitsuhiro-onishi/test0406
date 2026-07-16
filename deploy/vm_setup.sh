@@ -8,7 +8,8 @@
 #   1) Python依存のインストール＋スワップ確保（e2-micro対策）
 #   2) アプリを /opt/dosl-hub に配置（DB・アップロードは /opt/dosl-hub/data に永続化）
 #   3) systemdで常時稼働（uvicorn・127.0.0.1:8710で内部起動）
-#   4) Caddyで自動HTTPS（<外部IP>.sslip.io）
+#   4) SQLite毎時バックアップ（専用GCSバケットへ保存）
+#   5) Caddyで自動HTTPS（<外部IP>.sslip.io）
 # 認証はアプリ側のJWTログインが担う。CaddyはTLS終端のみ。
 # ※ AEOツール（oclai-aeo）の vm_setup.sh と同構成。
 # =====================================================================
@@ -20,8 +21,8 @@ if [ ! -f "$SRC_DIR/backend/.env" ]; then
   echo "‼ $SRC_DIR/backend/.env がありません。本番用 .env をVMに置いてください。"
   exit 1
 fi
-# 本番必須の3項目が空でないことを確認（SECRET_KEY / SEED_PASSWORD / ANTHROPIC_API_KEY）
-for k in SECRET_KEY SEED_PASSWORD ANTHROPIC_API_KEY; do
+# 本番必須項目が空でないことを確認
+for k in SECRET_KEY SEED_PASSWORD ANTHROPIC_API_KEY BACKUP_GCS_BUCKET; do
   v="$(grep -E "^$k=" "$SRC_DIR/backend/.env" | head -1 | cut -d= -f2- | tr -d "\"'")"
   if [ -z "$v" ]; then
     echo "‼ backend/.env の $k が空です。本番用の値を設定してください。"
@@ -29,7 +30,7 @@ for k in SECRET_KEY SEED_PASSWORD ANTHROPIC_API_KEY; do
   fi
 done
 
-echo "==> 1/5 依存パッケージ"
+echo "==> 1/6 依存パッケージ"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
 apt-get install -y python3 python3-venv python3-pip curl debian-keyring debian-archive-keyring apt-transport-https
@@ -40,7 +41,7 @@ if [ ! -f /swapfile ]; then
   grep -q '/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >>/etc/fstab
 fi
 
-echo "==> 2/5 アプリ配置（$APP_DIR・データは $APP_DIR/data に永続）"
+echo "==> 2/6 アプリ配置（$APP_DIR・データは $APP_DIR/data に永続）"
 mkdir -p "$APP_DIR" "$APP_DIR/data/uploads"
 cp -r "$SRC_DIR"/. "$APP_DIR"/
 chmod 600 "$APP_DIR/backend/.env"
@@ -49,7 +50,7 @@ python3 -m venv .venv
 ./.venv/bin/pip install --upgrade pip -q
 ./.venv/bin/pip install -r requirements.txt -q
 
-echo "==> 3/5 常時稼働サービス（systemd・内部127.0.0.1:8710）"
+echo "==> 3/6 常時稼働サービス（systemd・内部127.0.0.1:8710）"
 cat >/etc/systemd/system/dosl-hub.service <<EOF
 [Unit]
 Description=DOSL HUB exhibition document management
@@ -69,7 +70,15 @@ systemctl daemon-reload
 systemctl enable dosl-hub
 systemctl restart dosl-hub
 
-echo "==> 4/5 Caddy（自動HTTPS）"
+echo "==> 4/6 SQLite毎時バックアップ"
+mkdir -p "$APP_DIR/data/backups"
+chmod 700 "$APP_DIR/data/backups"
+install -m 0644 "$APP_DIR/deploy/dosl-hub-backup.service" /etc/systemd/system/
+install -m 0644 "$APP_DIR/deploy/dosl-hub-backup.timer" /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now dosl-hub-backup.timer
+
+echo "==> 5/6 Caddy（自動HTTPS）"
 if ! command -v caddy >/dev/null 2>&1; then
   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' >/etc/apt/sources.list.d/caddy-stable.list
@@ -87,7 +96,7 @@ $HOSTN {
 EOF
 systemctl restart caddy
 
-echo "==> 5/5 完了"
+echo "==> 6/6 完了"
 echo "============================================================"
 echo "  公開URL : https://$HOSTN/login.html"
 echo "  ログイン: シードのデモアカウント（パスワードは .env の SEED_PASSWORD）"

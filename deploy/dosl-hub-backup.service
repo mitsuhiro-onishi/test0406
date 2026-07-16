@@ -1,0 +1,24 @@
+[Unit]
+Description=DOSL HUB consistent SQLite backup to GCS
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/opt/dosl-hub/data/exhibition.db
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/dosl-hub/backend
+EnvironmentFile=/opt/dosl-hub/backend/.env
+Environment=DOSL_DB_PATH=/opt/dosl-hub/data/exhibition.db
+Environment=DOSL_BACKUP_DIR=/opt/dosl-hub/data/backups
+ExecStart=/opt/dosl-hub/backend/.venv/bin/python /opt/dosl-hub/backend/scripts/backup_sqlite.py
+User=root
+UMask=0077
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
