@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     # セキュリティ上、解析結果は信頼度に関係なく全件人手レビューへ送る。
     auto_approve_threshold: float = 0.85
 
+    # SQLiteバックアップ先バケット。アプリ本体は使わず scripts/backup_sqlite.py と
+    # dosl-hub-backup.service が同じ .env を読むためフィールドとして受理する
+    backup_gcs_bucket: str = ""
+
     # デモデータ投入API (/api/seed) の有効化。本番では必ずfalseにする
     # （シードのデモアカウントはパスワードがリポジトリに公開されているため）
     enable_seed: bool = False
