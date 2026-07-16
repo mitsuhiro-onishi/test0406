@@ -76,3 +76,4 @@ def require_roles(*roles: str):
 require_staff = require_roles("admin", "organizer", "partner", "viewer")
 # 管理操作（カテゴリ編集・レビュー等）
 require_manager = require_roles("admin", "organizer")
+require_admin = require_roles("admin")

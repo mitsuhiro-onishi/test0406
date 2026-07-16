@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
+from app.core.authorization import accessible_exhibition_ids, require_exhibition_access
 from app.core.security import require_manager, require_staff
 from app.models.ai_analysis import AIAnalysis
 from app.models.document import Document
@@ -38,8 +39,10 @@ async def review_queue(
             selectinload(AIAnalysis.document).selectinload(Document.booth),
         )
         .where(AIAnalysis.review_status == "pending_review", Document.is_deleted.is_(False))
+        .where(Document.exhibition_id.in_(accessible_exhibition_ids(user)))
     )
     if exhibition_id:
+        await require_exhibition_access(db, user, exhibition_id)
         query = query.where(Document.exhibition_id == exhibition_id)
     if user.role == "partner":
         query = query.where(Document.recipient_org_id == user.organization_id)
@@ -87,6 +90,7 @@ async def review_analysis(
         raise HTTPException(status_code=400, detail="actionはapprove/approve_with_corrections/rejectのいずれかです")
 
     document = analysis.document
+    await require_exhibition_access(db, user, document.exhibition_id, write=True)
     analysis.reviewed_by_user_id = user.id
     analysis.reviewed_at = datetime.now(timezone.utc)
     analysis.review_notes = body.notes

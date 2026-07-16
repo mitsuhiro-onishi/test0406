@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
+from app.core.authorization import accessible_exhibition_ids, require_exhibition_access
 from app.core.security import get_current_user, require_staff
 from app.models.order import Order, OrderItem
 from app.models.user import User
@@ -24,6 +25,8 @@ ORDER_LOAD_OPTIONS = (
 
 
 def apply_order_role_filter(query, user: User):
+    if user.role != "admin":
+        query = query.where(Order.exhibition_id.in_(accessible_exhibition_ids(user)))
     if user.role == "exhibitor":
         return query.where(Order.exhibitor_id == user.organization_id)
     if user.role == "partner":
@@ -70,6 +73,8 @@ async def list_orders(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    if exhibition_id:
+        await require_exhibition_access(db, user, exhibition_id)
     query = select(Order).options(*ORDER_LOAD_OPTIONS)
     query = apply_order_role_filter(query, user)
     if exhibition_id:
@@ -87,6 +92,8 @@ async def orders_summary(
     user: User = Depends(require_staff),
     db: AsyncSession = Depends(get_db),
 ):
+    if exhibition_id:
+        await require_exhibition_access(db, user, exhibition_id)
     query = select(Order).options(*ORDER_LOAD_OPTIONS)
     query = apply_order_role_filter(query, user)
     if exhibition_id:
@@ -120,6 +127,8 @@ async def export_orders_csv(
     user: User = Depends(require_staff),
     db: AsyncSession = Depends(get_db),
 ):
+    if exhibition_id:
+        await require_exhibition_access(db, user, exhibition_id)
     query = select(Order).options(*ORDER_LOAD_OPTIONS)
     query = apply_order_role_filter(query, user)
     if exhibition_id:

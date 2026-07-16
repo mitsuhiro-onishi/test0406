@@ -6,11 +6,12 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select, func
+from sqlalchemy import select, func, union
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
+from app.core.authorization import accessible_exhibition_ids, require_exhibition_access
 from app.core.security import get_current_user, require_manager, require_staff
 from app.models.booth import Booth
 from app.models.document import Document
@@ -64,7 +65,11 @@ async def list_exhibitions(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Exhibition).order_by(Exhibition.start_date.desc()))
+    result = await db.execute(
+        select(Exhibition)
+        .where(Exhibition.id.in_(accessible_exhibition_ids(user)))
+        .order_by(Exhibition.start_date.desc())
+    )
     exhibitions = result.scalars().all()
     return [_exhibition_to_response(ex) for ex in exhibitions]
 
@@ -100,6 +105,7 @@ async def update_exhibition(
     user: User = Depends(require_manager),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_exhibition_access(db, user, exhibition_id, write=True)
     ex = await db.get(Exhibition, exhibition_id)
     if not ex:
         raise HTTPException(status_code=404, detail="展示会が見つかりません")
@@ -130,6 +136,7 @@ async def exhibition_summary(
     db: AsyncSession = Depends(get_db),
 ):
     """管理ダッシュボードのサマリー統計"""
+    await require_exhibition_access(db, user, exhibition_id)
     doc_where = [Document.exhibition_id == exhibition_id, Document.is_deleted.is_(False)]
     if user.role == "partner":
         doc_where.append(Document.recipient_org_id == user.organization_id)
@@ -238,24 +245,37 @@ async def list_submission_categories(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_exhibition_access(db, user, exhibition_id)
     query = (
         select(SubmissionCategory)
         .options(selectinload(SubmissionCategory.recipient_org))
         .where(SubmissionCategory.exhibition_id == exhibition_id)
         .order_by(SubmissionCategory.sort_order)
     )
+    if user.role == "partner":
+        query = query.where(
+            SubmissionCategory.recipient_org_id == user.organization_id
+        )
     if not include_inactive:
         query = query.where(SubmissionCategory.is_active.is_(True))
     categories = (await db.execute(query)).scalars().all()
 
+    count_where = [
+        Document.exhibition_id == exhibition_id,
+        Document.is_deleted.is_(False),
+    ]
+    if user.role == "exhibitor":
+        count_where.append(Document.uploaded_by_org_id == user.organization_id)
+    if user.role == "partner":
+        count_where.append(Document.recipient_org_id == user.organization_id)
     counts = dict((await db.execute(
         select(Document.submission_category_id, func.count())
-        .where(Document.exhibition_id == exhibition_id, Document.is_deleted.is_(False))
+        .where(*count_where)
         .group_by(Document.submission_category_id)
     )).all())
     org_counts = dict((await db.execute(
         select(Document.submission_category_id, func.count(func.distinct(Document.uploaded_by_org_id)))
-        .where(Document.exhibition_id == exhibition_id, Document.is_deleted.is_(False))
+        .where(*count_where)
         .group_by(Document.submission_category_id)
     )).all())
 
@@ -288,6 +308,7 @@ async def create_submission_category(
     user: User = Depends(require_manager),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_exhibition_access(db, user, exhibition_id, write=True)
     if not await db.get(Exhibition, exhibition_id):
         raise HTTPException(status_code=404, detail="展示会が見つかりません")
     recipient = await db.get(Organization, body.recipient_org_id)
@@ -325,6 +346,7 @@ async def update_submission_category(
     user: User = Depends(require_manager),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_exhibition_access(db, user, exhibition_id, write=True)
     cat = await db.get(SubmissionCategory, category_id)
     if not cat or cat.exhibition_id != exhibition_id:
         raise HTTPException(status_code=404, detail="提出カテゴリが見つかりません")
@@ -355,6 +377,7 @@ async def delete_submission_category(
     user: User = Depends(require_manager),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_exhibition_access(db, user, exhibition_id, write=True)
     cat = await db.get(SubmissionCategory, category_id)
     if not cat or cat.exhibition_id != exhibition_id:
         raise HTTPException(status_code=404, detail="提出カテゴリが見つかりません")
@@ -382,6 +405,8 @@ async def copy_submission_categories(
     user: User = Depends(require_manager),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_exhibition_access(db, user, exhibition_id, write=True)
+    await require_exhibition_access(db, user, source_exhibition_id)
     if not await db.get(Exhibition, exhibition_id):
         raise HTTPException(status_code=404, detail="展示会が見つかりません")
     source_cats = (await db.execute(
@@ -416,10 +441,25 @@ async def copy_submission_categories(
 async def list_organizations(
     org_type: str | None = None,
     search: str | None = None,
-    user: User = Depends(require_staff),
+    user: User = Depends(require_manager),
     db: AsyncSession = Depends(get_db),
 ):
     query = select(Organization).order_by(Organization.name)
+    if user.role != "admin":
+        owned_exhibitions = select(Exhibition.id).where(
+            Exhibition.organizer_id == user.organization_id
+        )
+        relevant_org_ids = union(
+            select(Organization.id).where(Organization.id == user.organization_id),
+            select(Booth.exhibitor_id).where(
+                Booth.exhibition_id.in_(owned_exhibitions),
+                Booth.exhibitor_id.is_not(None),
+            ),
+            select(SubmissionCategory.recipient_org_id).where(
+                SubmissionCategory.exhibition_id.in_(owned_exhibitions)
+            ),
+        )
+        query = query.where(Organization.id.in_(relevant_org_ids))
     if org_type:
         query = query.where(Organization.org_type == org_type)
     if search:
@@ -450,6 +490,7 @@ async def export_documents_csv(
     user: User = Depends(require_staff),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_exhibition_access(db, user, exhibition_id)
     where = [Document.exhibition_id == exhibition_id, Document.is_deleted.is_(False)]
     if user.role == "partner":
         where.append(Document.recipient_org_id == user.organization_id)

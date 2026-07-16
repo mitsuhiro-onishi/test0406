@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
+from app.core.authorization import accessible_exhibition_ids, require_exhibition_access
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models.booth import Booth
@@ -45,11 +46,15 @@ DOCUMENT_LOAD_OPTIONS = (
 
 def apply_role_filter(query, user: User):
     """ロールに応じて閲覧可能なドキュメントに絞り込む"""
+    if user.role != "admin":
+        query = query.where(
+            Document.exhibition_id.in_(accessible_exhibition_ids(user))
+        )
     if user.role == "exhibitor":
         return query.where(Document.uploaded_by_org_id == user.organization_id)
     if user.role == "partner":
         return query.where(Document.recipient_org_id == user.organization_id)
-    return query  # admin / organizer / viewer は全件
+    return query
 
 
 def to_response(doc: Document, detail: bool = False) -> DocumentResponse:
@@ -118,8 +123,17 @@ async def _resolve_booth(
                 Booth.exhibitor_id == user.organization_id,
             )
         )).scalars().first()
-        return booth.id if booth else None
-    return booth_id
+        if not booth:
+            raise HTTPException(status_code=404, detail="割当ブースが見つかりません")
+        return booth.id
+    if booth_id is None:
+        return None
+    booth = await db.get(Booth, booth_id)
+    if not booth or booth.exhibition_id != exhibition_id:
+        raise HTTPException(status_code=404, detail="ブースが見つかりません")
+    if user.role == "exhibitor" and booth.exhibitor_id != user.organization_id:
+        raise HTTPException(status_code=404, detail="ブースが見つかりません")
+    return booth.id
 
 
 async def _save_one(
@@ -175,6 +189,9 @@ async def upload_document(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    if user.role not in ("admin", "organizer", "exhibitor"):
+        raise HTTPException(status_code=403, detail="アップロード権限がありません")
+    await require_exhibition_access(db, user, exhibition_id)
     category = await _validate_category(db, exhibition_id, submission_category_id)
     booth_id = await _resolve_booth(db, exhibition_id, booth_id, user)
     document = await _save_one(file, exhibition_id, category, booth_id, source, user, db)
@@ -202,6 +219,9 @@ async def bulk_upload_documents(
     if len(files) > 20:
         raise HTTPException(status_code=400, detail="一度にアップロードできるのは20ファイルまでです")
 
+    if user.role not in ("admin", "organizer", "exhibitor"):
+        raise HTTPException(status_code=403, detail="アップロード権限がありません")
+    await require_exhibition_access(db, user, exhibition_id)
     category = await _validate_category(db, exhibition_id, submission_category_id)
     booth_id = await _resolve_booth(db, exhibition_id, booth_id, user)
 

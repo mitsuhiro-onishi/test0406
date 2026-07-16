@@ -14,6 +14,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.authorization import require_exhibition_access
 from app.core.security import hash_password, require_manager
 from app.models.booth import Booth
 from app.models.exhibition import Exhibition
@@ -132,11 +133,11 @@ async def submit_application(
     await db.flush()
 
     # 主催者ユーザーに新着申込を通知
-    organizer_org_ids = (await db.execute(
-        select(Organization.id).where(Organization.org_type == "organizer")
-    )).scalars().all()
     organizers = (await db.execute(
-        select(User).where(User.organization_id.in_(organizer_org_ids), User.is_active.is_(True))
+        select(User).where(
+            User.organization_id == ex.organizer_id,
+            User.is_active.is_(True),
+        )
     )).scalars().all()
     for u in organizers:
         db.add(Notification(
@@ -161,6 +162,7 @@ async def list_applications(
     user: User = Depends(require_manager),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_exhibition_access(db, user, exhibition_id, write=True)
     query = (
         select(ExhibitorApplication)
         .where(ExhibitorApplication.exhibition_id == exhibition_id)
@@ -187,6 +189,9 @@ async def approve_application(
     application = await db.get(ExhibitorApplication, application_id)
     if not application:
         raise HTTPException(status_code=404, detail="申込が見つかりません")
+    await require_exhibition_access(
+        db, user, application.exhibition_id, write=True
+    )
     if application.status != "pending":
         raise HTTPException(status_code=409, detail="この申込は既に処理済みです")
 
@@ -265,6 +270,9 @@ async def reject_application(
     application = await db.get(ExhibitorApplication, application_id)
     if not application:
         raise HTTPException(status_code=404, detail="申込が見つかりません")
+    await require_exhibition_access(
+        db, user, application.exhibition_id, write=True
+    )
     if application.status != "pending":
         raise HTTPException(status_code=409, detail="この申込は既に処理済みです")
 
@@ -283,6 +291,7 @@ async def update_application_settings(
     user: User = Depends(require_manager),
     db: AsyncSession = Depends(get_db),
 ):
+    await require_exhibition_access(db, user, exhibition_id, write=True)
     ex = await db.get(Exhibition, exhibition_id)
     if not ex:
         raise HTTPException(status_code=404, detail="展示会が見つかりません")

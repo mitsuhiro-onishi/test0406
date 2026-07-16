@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
-from app.core.security import hash_password, require_manager
+from app.core.security import hash_password, require_admin, require_manager
 from app.services.audit import record_audit
 from app.services.mail_sender import send_credentials_mail
 from app.models.booth import Booth
@@ -93,7 +93,7 @@ def _user_to_dict(u: User) -> dict:
 @router.post("/organizations", status_code=201)
 async def create_organization(
     body: OrganizationCreate,
-    user: User = Depends(require_manager),
+    user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     if body.org_type not in VALID_ORG_TYPES:
@@ -113,7 +113,7 @@ async def create_organization(
 async def update_organization(
     org_id: uuid.UUID,
     body: OrganizationUpdate,
-    user: User = Depends(require_manager),
+    user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     org = await db.get(Organization, org_id)
@@ -136,7 +136,7 @@ async def update_organization(
 @router.delete("/organizations/{org_id}")
 async def delete_organization(
     org_id: uuid.UUID,
-    user: User = Depends(require_manager),
+    user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     org = await db.get(Organization, org_id)
@@ -190,6 +190,8 @@ async def list_users(
         .options(selectinload(User.organization))
         .order_by(User.created_at.asc())
     )
+    if user.role != "admin":
+        query = query.where(User.organization_id == user.organization_id)
     if organization_id:
         query = query.where(User.organization_id == organization_id)
     if role:
@@ -212,6 +214,11 @@ async def create_user(
         raise HTTPException(status_code=400, detail="メールアドレスの形式が正しくありません")
     if body.role not in VALID_ROLES:
         raise HTTPException(status_code=400, detail=f"ロールは {', '.join(VALID_ROLES)} のいずれかを指定してください")
+    if user.role != "admin":
+        if body.organization_id != user.organization_id:
+            raise HTTPException(status_code=404, detail="組織が見つかりません")
+        if body.role not in ("organizer", "viewer"):
+            raise HTTPException(status_code=403, detail="このロールを作成する権限がありません")
 
     org = await db.get(Organization, body.organization_id)
     if not org:
@@ -264,6 +271,8 @@ async def update_user(
     )).scalar_one_or_none()
     if not target:
         raise HTTPException(status_code=404, detail="ユーザーが見つかりません")
+    if user.role != "admin" and target.organization_id != user.organization_id:
+        raise HTTPException(status_code=404, detail="ユーザーが見つかりません")
 
     is_self = target.id == user.id
     if is_self and body.role is not None and body.role != user.role:
@@ -274,8 +283,12 @@ async def update_user(
     if body.role is not None:
         if body.role not in VALID_ROLES:
             raise HTTPException(status_code=400, detail=f"ロールは {', '.join(VALID_ROLES)} のいずれかを指定してください")
+        if user.role != "admin" and body.role not in ("organizer", "viewer"):
+            raise HTTPException(status_code=403, detail="このロールへ変更する権限がありません")
         target.role = body.role
     if body.organization_id is not None:
+        if user.role != "admin" and body.organization_id != user.organization_id:
+            raise HTTPException(status_code=404, detail="組織が見つかりません")
         org = await db.get(Organization, body.organization_id)
         if not org:
             raise HTTPException(status_code=404, detail="組織が見つかりません")
@@ -299,6 +312,8 @@ async def reset_password(
 ):
     target = await db.get(User, user_id)
     if not target:
+        raise HTTPException(status_code=404, detail="ユーザーが見つかりません")
+    if user.role != "admin" and target.organization_id != user.organization_id:
         raise HTTPException(status_code=404, detail="ユーザーが見つかりません")
 
     new_password = secrets.token_urlsafe(9)

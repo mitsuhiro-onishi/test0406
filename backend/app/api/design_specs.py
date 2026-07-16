@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
+from app.core.authorization import accessible_exhibition_ids, require_exhibition_access
 from app.core.security import require_manager, require_staff
 from app.models.design_spec import DesignSpec
 from app.models.document import Document
@@ -71,6 +72,10 @@ def _base_query(user: User):
         )
         .where(Document.is_deleted.is_(False))
     )
+    if user.role != "admin":
+        query = query.where(
+            DesignSpec.exhibition_id.in_(accessible_exhibition_ids(user))
+        )
     if user.role == "partner":
         query = query.where(Document.recipient_org_id == user.organization_id)
     return query
@@ -83,6 +88,8 @@ async def list_design_specs(
     user: User = Depends(require_staff),
     db: AsyncSession = Depends(get_db),
 ):
+    if exhibition_id:
+        await require_exhibition_access(db, user, exhibition_id)
     query = _base_query(user).order_by(DesignSpec.updated_at.desc())
     if exhibition_id:
         query = query.where(DesignSpec.exhibition_id == exhibition_id)
@@ -118,6 +125,7 @@ async def update_design_spec(
     )).scalar_one_or_none()
     if not spec:
         raise HTTPException(status_code=404, detail="設計仕様が見つかりません")
+    await require_exhibition_access(db, user, spec.exhibition_id, write=True)
 
     # 送られてきたフィールドだけ更新する（明示的なnullはクリアとして扱う）
     payload = body.model_dump(exclude_unset=True)
