@@ -8,20 +8,22 @@ interface Props {
 }
 
 export default async function TicketPage({ params }: Props) {
-  const { code } = await params;
-  // 登録情報を取得
+  const { slug, code } = await params;
+  // ticket_code と URL の展示会slugが両方一致する登録だけを取得する。
+  // ticket_code が他展示会のものでも来場者情報を表示しない。
   const { data: registration } = await supabaseAdmin
     .from("registrations")
     .select(
       `
       *,
       visitor:visitors(*),
-      exhibition:exhibitions(*),
+      exhibition:exhibitions!inner(*),
       registration_type:registration_types(*)
     `,
     )
     .eq("ticket_code", code)
-    .single();
+    .eq("exhibition.slug", slug)
+    .maybeSingle();
 
   if (!registration) {
     return (
