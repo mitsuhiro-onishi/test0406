@@ -10,13 +10,14 @@ import { canManageAdminData } from "@/lib/admin-scope";
 /** 詳細: GET /api/seminars/[id] */
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const auth = await requireAdminApi();
   if (auth instanceof NextResponse) return auth;
   const allowedIds = await getAuthorizedExhibitionIds(auth);
 
-  if (!isValidUuid(params.id)) {
+  if (!isValidUuid(id)) {
     return NextResponse.json(
       { error: "セミナーが見つかりません" },
       { status: 404 },
@@ -26,7 +27,7 @@ export async function GET(
   const { data: seminar } = await supabaseAdmin
     .from("seminars")
     .select("*, exhibition:exhibitions(id, name, slug)")
-    .eq("id", params.id)
+    .eq("id", id)
     .in("exhibition_id", allowedIds)
     .maybeSingle();
 
@@ -40,7 +41,7 @@ export async function GET(
   const { data: stats } = await supabaseAdmin
     .from("v_seminar_stats")
     .select("confirmed_count, waitlisted_count, checked_in_count")
-    .eq("seminar_id", params.id)
+    .eq("seminar_id", id)
     .maybeSingle();
 
   return NextResponse.json({
@@ -58,9 +59,10 @@ export async function GET(
 /** 更新: PATCH /api/seminars/[id] */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const { id } = await params;
     const auth = await requireAdminApi();
     if (auth instanceof NextResponse) return auth;
     if (!canManageAdminData(auth)) {
@@ -68,7 +70,7 @@ export async function PATCH(
     }
     const allowedIds = await getAuthorizedExhibitionIds(auth);
 
-    if (!isValidUuid(params.id)) {
+    if (!isValidUuid(id)) {
       return NextResponse.json(
         { success: false, error: "セミナーが見つかりません" },
         { status: 404 },
@@ -78,7 +80,7 @@ export async function PATCH(
     const { data: existing } = await supabaseAdmin
       .from("seminars")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .in("exhibition_id", allowedIds)
       .maybeSingle();
 
@@ -115,7 +117,7 @@ export async function PATCH(
     const { data: seminar, error } = await supabaseAdmin
       .from("seminars")
       .update(values)
-      .eq("id", params.id)
+      .eq("id", id)
       .select()
       .single();
 

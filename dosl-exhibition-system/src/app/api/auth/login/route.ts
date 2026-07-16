@@ -75,8 +75,8 @@ export async function POST(request: NextRequest) {
     }
 
     // セッション情報をcookieに保存
-    // アクセストークンはJWTの有効期限に合わせ、失効前はmiddlewareがリフレッシュする
-    const cookieStore = cookies();
+    // アクセストークンはJWTの有効期限に合わせ、失効前はproxyがリフレッシュする
+    const cookieStore = await cookies();
     const secure = process.env.NODE_ENV === "production";
     cookieStore.set("sb-access-token", data.session.access_token, {
       httpOnly: true,

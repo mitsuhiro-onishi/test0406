@@ -4,10 +4,11 @@ import { generateQRCodeDataURL } from "@/lib/qr";
 export const dynamic = "force-dynamic";
 
 interface Props {
-  params: { slug: string; code: string };
+  params: Promise<{ slug: string; code: string }>;
 }
 
 export default async function TicketPage({ params }: Props) {
+  const { code } = await params;
   // 登録情報を取得
   const { data: registration } = await supabaseAdmin
     .from("registrations")
@@ -19,7 +20,7 @@ export default async function TicketPage({ params }: Props) {
       registration_type:registration_types(*)
     `,
     )
-    .eq("ticket_code", params.code)
+    .eq("ticket_code", code)
     .single();
 
   if (!registration) {

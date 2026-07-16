@@ -15,13 +15,14 @@ const BOOKING_STATUS_LABELS: Record<string, string> = {
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const auth = await requireAdminApi();
   if (auth instanceof NextResponse) return auth;
   const allowedIds = await getAuthorizedExhibitionIds(auth);
 
-  if (!isValidUuid(params.id)) {
+  if (!isValidUuid(id)) {
     return NextResponse.json(
       { error: "セミナーが見つかりません" },
       { status: 404 },
@@ -31,7 +32,7 @@ export async function GET(
   const { data: seminar } = await supabaseAdmin
     .from("seminars")
     .select("id, exhibition_id, title")
-    .eq("id", params.id)
+    .eq("id", id)
     .in("exhibition_id", allowedIds)
     .maybeSingle();
 
@@ -53,7 +54,7 @@ export async function GET(
       )
     `,
     )
-    .eq("seminar_id", params.id)
+    .eq("seminar_id", id)
     .order("booked_at", { ascending: true });
 
   if (error) {

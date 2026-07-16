@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { use, useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { getPublicRegistrationCompletionMessage } from "@/lib/public-registration";
 import type {
@@ -13,8 +13,9 @@ import type {
 export default function RegisterPage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
+  const { slug } = use(params);
   const [exhibition, setExhibition] = useState<Exhibition | null>(null);
   const [regTypes, setRegTypes] = useState<RegistrationType[]>([]);
   const [seminars, setSeminars] = useState<Seminar[]>([]);
@@ -51,7 +52,7 @@ export default function RegisterPage({
       const { data: exh } = await supabase
         .from("exhibitions")
         .select("*")
-        .eq("slug", params.slug)
+        .eq("slug", slug)
         .single();
 
       if (!exh) {
@@ -80,7 +81,7 @@ export default function RegisterPage({
       setLoading(false);
     }
     loadExhibition();
-  }, [params.slug]);
+  }, [slug]);
 
   function updateForm(field: string, value: string | string[]) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -131,7 +132,7 @@ export default function RegisterPage({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          slug: params.slug,
+          slug,
           ...form,
           companions,
           lead_consent: leadConsent,

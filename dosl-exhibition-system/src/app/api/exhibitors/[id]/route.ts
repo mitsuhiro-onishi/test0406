@@ -11,9 +11,10 @@ import { canManageAdminData } from "@/lib/admin-scope";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const { id } = await params;
     const auth = await requireAdminApi();
     if (auth instanceof NextResponse) return auth;
     if (!canManageAdminData(auth)) {
@@ -21,7 +22,7 @@ export async function PATCH(
     }
     const allowedIds = await getAuthorizedExhibitionIds(auth);
 
-    if (!isValidUuid(params.id)) {
+    if (!isValidUuid(id)) {
       return NextResponse.json(
         { success: false, error: "出展社が見つかりません" },
         { status: 404 },
@@ -31,7 +32,7 @@ export async function PATCH(
     const { data: existing } = await supabaseAdmin
       .from("exhibitors")
       .select("id, exhibition_id")
-      .eq("id", params.id)
+      .eq("id", id)
       .in("exhibition_id", allowedIds)
       .maybeSingle();
 
@@ -69,7 +70,7 @@ export async function PATCH(
       const { data: exhibitor, error } = await supabaseAdmin
         .from("exhibitors")
         .update(update)
-        .eq("id", params.id)
+        .eq("id", id)
         .select()
         .single();
 

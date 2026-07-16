@@ -37,7 +37,7 @@ interface ExhibitorRow {
  * 無効コード・無効化済み・展示会のオプションOFFの場合は null。
  */
 export async function getExhibitorSession(): Promise<ExhibitorSession | null> {
-  const code = cookies().get(COOKIE_NAME)?.value;
+  const code = (await cookies()).get(COOKIE_NAME)?.value;
   if (!code || !isValidAccessCode(code)) return null;
 
   const { data } = await supabaseAdmin
@@ -87,8 +87,9 @@ export async function requireExhibitorApi(): Promise<
   return session;
 }
 
-export function setExhibitorCookie(code: string) {
-  cookies().set(COOKIE_NAME, code, {
+export async function setExhibitorCookie(code: string) {
+  const cookieStore = await cookies();
+  cookieStore.set(COOKIE_NAME, code, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -97,6 +98,7 @@ export function setExhibitorCookie(code: string) {
   });
 }
 
-export function clearExhibitorCookie() {
-  cookies().delete(COOKIE_NAME);
+export async function clearExhibitorCookie() {
+  const cookieStore = await cookies();
+  cookieStore.delete(COOKIE_NAME);
 }

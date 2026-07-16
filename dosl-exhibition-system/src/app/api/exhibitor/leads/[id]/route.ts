@@ -7,13 +7,14 @@ import { isValidUuid, validateLeadNote } from "@/lib/validation";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const { id } = await params;
     const auth = await requireExhibitorApi();
     if (auth instanceof NextResponse) return auth;
 
-    if (!isValidUuid(params.id)) {
+    if (!isValidUuid(id)) {
       return NextResponse.json(
         { success: false, error: "リードが見つかりません" },
         { status: 404 },
@@ -24,7 +25,7 @@ export async function PATCH(
     const { data: existing } = await supabaseAdmin
       .from("exhibitor_leads")
       .select("id")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("exhibitor_id", auth.exhibitor_id)
       .maybeSingle();
 
@@ -47,7 +48,7 @@ export async function PATCH(
     const { data: lead, error } = await supabaseAdmin
       .from("exhibitor_leads")
       .update({ note })
-      .eq("id", params.id)
+      .eq("id", id)
       .select("id, note, scanned_at")
       .single();
 

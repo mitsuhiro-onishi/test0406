@@ -18,7 +18,7 @@ export interface AdminSession {
  * 未ログイン・権限なしの場合は null。
  */
 export async function getAdminSession(): Promise<AdminSession | null> {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const accessToken = cookieStore.get("sb-access-token")?.value;
 
   if (!accessToken) {

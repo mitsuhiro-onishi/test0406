@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    setExhibitorCookie(code);
+    await setExhibitorCookie(code);
 
     return NextResponse.json({
       success: true,

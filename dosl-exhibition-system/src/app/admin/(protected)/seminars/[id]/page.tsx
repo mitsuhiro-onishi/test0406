@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { use, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 
 // 聴講実績（GATEオプション）: セミナーの予約・チェックイン状況
@@ -57,8 +57,9 @@ function jst(value: string | null): string {
 export default function SeminarBookingsPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = use(params);
   const [seminar, setSeminar] = useState<SeminarInfo | null>(null);
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,7 +68,7 @@ export default function SeminarBookingsPage({
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/seminars/${params.id}/bookings`);
+      const res = await fetch(`/api/seminars/${id}/bookings`);
       const json = await res.json();
       if (!res.ok) {
         setError(json.error || "取得に失敗しました");
@@ -80,7 +81,7 @@ export default function SeminarBookingsPage({
     } finally {
       setLoading(false);
     }
-  }, [params.id]);
+  }, [id]);
 
   useEffect(() => {
     fetchData();

@@ -12,11 +12,12 @@ import { getAuthorizedExhibitionIds } from "@/lib/admin-scope-server";
 import { canManageAdminData } from "@/lib/admin-scope";
 
 interface RouteParams {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 // 登録情報の取得
 export async function GET(_request: NextRequest, { params }: RouteParams) {
+  const { id } = await params;
   const auth = await requireAdminApi();
   if (auth instanceof NextResponse) return auth;
   const allowedIds = await getAuthorizedExhibitionIds(auth);
@@ -31,7 +32,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       registration_type:registration_types(id, name, slug, color)
     `,
     )
-    .eq("id", params.id)
+    .eq("id", id)
     .in("exhibition_id", allowedIds)
     .single();
 
@@ -48,6 +49,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 // 登録情報の更新
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
+    const { id } = await params;
     const auth = await requireAdminApi();
     if (auth instanceof NextResponse) return auth;
     if (!canManageAdminData(auth)) {
@@ -61,7 +63,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const { data: existing, error: fetchError } = await supabaseAdmin
       .from("registrations")
       .select("*, visitor:visitors(*)")
-      .eq("id", params.id)
+      .eq("id", id)
       .in("exhibition_id", allowedIds)
       .single();
 
@@ -163,7 +165,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       const { error: regError } = await supabaseAdmin
         .from("registrations")
         .update(regUpdates)
-        .eq("id", params.id);
+        .eq("id", id);
 
       if (regError) {
         console.error("Registration update error:", regError);
@@ -200,7 +202,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         registration_type:registration_types(id, name, slug, color)
       `,
       )
-      .eq("id", params.id)
+      .eq("id", id)
       .in("exhibition_id", allowedIds)
       .single();
 
