@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { setExhibitorCookie } from "@/lib/exhibitor-auth";
-import { getClientIp, rateLimit } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/rate-limit";
+import { consumeRateLimit } from "@/lib/rate-limit-server";
 import { cleanText, isValidAccessCode } from "@/lib/validation";
 
 // 出展社ログイン（リードリトリーバル・GATEオプション）
@@ -10,7 +11,7 @@ export async function POST(request: NextRequest) {
   try {
     // レート制限: アクセスコードの総当たり対策（IPごと 10回/15分）
     const ip = getClientIp(request);
-    const rl = rateLimit(`exhibitor-login:${ip}`, 10, 15 * 60_000);
+    const rl = await consumeRateLimit(`exhibitor-login:${ip}`, 10, 15 * 60_000);
     if (!rl.allowed) {
       return NextResponse.json(
         {

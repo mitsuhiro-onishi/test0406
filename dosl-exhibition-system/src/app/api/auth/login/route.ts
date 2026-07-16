@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
-import { getClientIp, rateLimit } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/rate-limit";
+import { consumeRateLimit } from "@/lib/rate-limit-server";
 import { cleanText, isValidEmail, MAX_LEN } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
   try {
     // レート制限: ブルートフォース対策（IPごと 10回/15分）
     const ip = getClientIp(request);
-    const rl = rateLimit(`login:${ip}`, 10, 15 * 60_000);
+    const rl = await consumeRateLimit(`login:${ip}`, 10, 15 * 60_000);
     if (!rl.allowed) {
       return NextResponse.json(
         {

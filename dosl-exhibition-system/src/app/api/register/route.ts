@@ -8,7 +8,9 @@ import {
   PublicRegistrationPersistenceError,
   type PublicRegistrationRepository,
 } from "@/lib/public-registration";
-import { getClientIp, rateLimit } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/rate-limit";
+import { consumeRateLimit } from "@/lib/rate-limit-server";
+import { isCapacityError } from "@/lib/capacity";
 import {
   cleanText,
   fieldLabel,
@@ -40,7 +42,7 @@ export async function POST(request: NextRequest) {
   try {
     // レート制限: スパム登録防止（IPごと 10回/分）
     const ip = getClientIp(request);
-    const rl = rateLimit(`register:${ip}`, 10, 60_000);
+    const rl = await consumeRateLimit(`register:${ip}`, 10, 60_000);
     if (!rl.allowed) {
       return NextResponse.json(
         { success: false, error: "リクエストが多すぎます。しばらくしてからお試しください" },
@@ -194,7 +196,7 @@ export async function POST(request: NextRequest) {
             (s): s is string => typeof s === "string",
           ),
         ),
-      );
+      ).sort();
       const { data: seminars } = await supabaseAdmin
         .from("seminars")
         .select("id, title, capacity")
@@ -311,6 +313,16 @@ export async function POST(request: NextRequest) {
       });
     } catch (error) {
       console.error("Public registration persistence error:", error);
+      if (
+        error instanceof PublicRegistrationPersistenceError &&
+        error.stage === "registration" &&
+        isCapacityError(error.dbError, "exhibition")
+      ) {
+        return NextResponse.json(
+          { success: false, error: "登録数が上限に達しています" },
+          { status: 409 },
+        );
+      }
       const message =
         error instanceof PublicRegistrationPersistenceError &&
         error.stage === "visitor"
@@ -324,15 +336,30 @@ export async function POST(request: NextRequest) {
 
     // --- セミナー予約 ---
     if (persistedRegistration.created && seminarIds.length > 0) {
-      const bookings = seminarIds.map((seminar_id) => ({
-        seminar_id,
-        registration_id: persistedRegistration.registrationId,
-        status: "confirmed",
-      }));
-      const { error: bookingError } = await supabaseAdmin
-        .from("seminar_bookings")
-        .insert(bookings);
-      if (bookingError) {
+      // ID順でロックを取得してデッドロックを避ける。最後の1席を同時に
+      // 予約した場合、DB triggerで負けた側だけをwaitlistへ安全に移す。
+      for (const seminar_id of seminarIds) {
+        const booking = {
+          seminar_id,
+          registration_id: persistedRegistration.registrationId,
+          status: "confirmed",
+        };
+        const { error: bookingError } = await supabaseAdmin
+          .from("seminar_bookings")
+          .insert(booking);
+
+        if (!bookingError) continue;
+
+        if (isCapacityError(bookingError, "seminar")) {
+          const { error: waitlistError } = await supabaseAdmin
+            .from("seminar_bookings")
+            .insert({ ...booking, status: "waitlisted" });
+          if (waitlistError) {
+            console.error("Seminar waitlist error:", waitlistError);
+          }
+          continue;
+        }
+
         // 予約失敗でも登録自体は成立させる（当日受付で対応可能）
         console.error("Seminar booking error:", bookingError);
       }
