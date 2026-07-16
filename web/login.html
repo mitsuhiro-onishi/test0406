@@ -105,38 +105,7 @@
     <p class="footer-note">アカウントは主催事務局から発行されます</p>
   </div>
 
-  <script src="app.js"></script>
-  <script>
-    // ログイン済みなら各ポータルへ
-    const existing = getUser();
-    if (getToken() && existing) {
-      location.href = existing.role === 'exhibitor' ? 'index.html' : 'admin.html';
-    }
-
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const btn = document.getElementById('btnLogin');
-      const errorBox = document.getElementById('errorBox');
-      errorBox.classList.remove('show');
-      btn.disabled = true;
-      btn.textContent = 'ログイン中...';
-      try {
-        const res = await api('/api/auth/login', {
-          method: 'POST',
-          body: {
-            email: document.getElementById('email').value,
-            password: document.getElementById('password').value,
-          },
-        });
-        setAuth(res.access_token, res.user);
-        location.href = res.user.role === 'exhibitor' ? 'index.html' : 'admin.html';
-      } catch (err) {
-        errorBox.textContent = err.message;
-        errorBox.classList.add('show');
-        btn.disabled = false;
-        btn.textContent = 'ログイン';
-      }
-    });
-  </script>
+  <script src="app.js?v=20260716p12"></script>
+  <script src="login.js?v=20260716p12"></script>
 </body>
 </html>

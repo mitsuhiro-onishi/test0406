@@ -1,28 +1,35 @@
 // DOSL HUB 共通APIクライアント
 const API_BASE = '';  // 同一オリジン配信
 
-function getToken() { return localStorage.getItem('doslhub_token'); }
 function getUser() {
-  try { return JSON.parse(localStorage.getItem('doslhub_user') || 'null'); }
+  try { return JSON.parse(sessionStorage.getItem('doslhub_user') || 'null'); }
   catch { return null; }
 }
-function setAuth(token, user) {
-  localStorage.setItem('doslhub_token', token);
-  localStorage.setItem('doslhub_user', JSON.stringify(user));
+function setAuth(user) {
+  sessionStorage.setItem('doslhub_user', JSON.stringify(user));
 }
 function clearAuth() {
-  localStorage.removeItem('doslhub_token');
+  sessionStorage.removeItem('doslhub_user');
   localStorage.removeItem('doslhub_user');
+  // 旧版が保存したJWTをアップグレード時に破棄する。
+  localStorage.removeItem(['doslhub', 'token'].join('_'));
 }
-function logout() {
-  clearAuth();
-  location.href = 'login.html';
+async function logout() {
+  try {
+    await fetch(API_BASE + '/api/auth/logout', {
+      method: 'POST',
+      credentials: 'same-origin',
+    });
+  } finally {
+    clearAuth();
+    location.href = 'login.html';
+  }
 }
 
 // ログイン必須ページの入口で呼ぶ。未ログインならログイン画面へ
 function requireAuth(allowedRoles) {
   const user = getUser();
-  if (!getToken() || !user) {
+  if (!user) {
     location.href = 'login.html';
     return null;
   }
@@ -34,15 +41,18 @@ function requireAuth(allowedRoles) {
 }
 
 async function api(path, options = {}) {
-  const headers = options.headers || {};
-  const token = getToken();
-  if (token) headers['Authorization'] = 'Bearer ' + token;
-  if (options.body && !(options.body instanceof FormData)) {
+  const { skipAuthRedirect = false, ...fetchOptions } = options;
+  const headers = fetchOptions.headers || {};
+  if (fetchOptions.body && !(fetchOptions.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
-    options.body = JSON.stringify(options.body);
+    fetchOptions.body = JSON.stringify(fetchOptions.body);
   }
-  const res = await fetch(API_BASE + path, { ...options, headers });
-  if (res.status === 401) {
+  const res = await fetch(API_BASE + path, {
+    ...fetchOptions,
+    headers,
+    credentials: 'same-origin',
+  });
+  if (res.status === 401 && !skipAuthRedirect) {
     clearAuth();
     location.href = 'login.html';
     throw new Error('認証が切れました');
@@ -59,7 +69,7 @@ async function api(path, options = {}) {
 // 認証付きファイルダウンロード（別タブで開けないためblob経由）
 async function apiDownload(path, fallbackName) {
   const res = await fetch(API_BASE + path, {
-    headers: { Authorization: 'Bearer ' + getToken() },
+    credentials: 'same-origin',
   });
   if (!res.ok) throw new Error('ダウンロードに失敗しました');
   const blob = await res.blob();
@@ -85,7 +95,14 @@ const STATUS_LABELS = {
 };
 function statusChip(status) {
   const s = STATUS_LABELS[status] || { text: status, cls: 'status-received' };
-  return '<span class="chip-status ' + s.cls + '">' + s.text + '</span>';
+  return '<span class="chip-status ' + s.cls + '">' + escapeHtml(s.text) + '</span>';
+}
+function statusChipElement(status) {
+  const s = STATUS_LABELS[status] || { text: status, cls: 'status-received' };
+  const chip = document.createElement('span');
+  chip.className = 'chip-status ' + s.cls;
+  chip.textContent = s.text;
+  return chip;
 }
 
 // 受信経路の表示名（web_upload / camera_capture / email）

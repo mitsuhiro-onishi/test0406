@@ -3,7 +3,7 @@
 ## 1. API概要
 
 - ベースURL: `https://api.example.com/v1`
-- 認証: Bearer Token (JWT)
+- 認証: Secure / HttpOnly / SameSite=Strict Cookie内のJWT
 - レスポンス形式: JSON
 - 日時形式: ISO 8601 (UTC)
 - ページネーション: Cursor-based
@@ -51,14 +51,15 @@
 
 ## 2. 認証 API
 
-### POST /auth/login
-ログイン（OAuth連携後のトークン発行）
+### POST /api/auth/login
+ログイン。JWTはレスポンス本文へ含めず、`doslhub_session` Cookieへ設定する。
+ブラウザJavaScriptからJWTを読み取ることはできない。
 
-### POST /auth/refresh
-トークンリフレッシュ
+### GET /api/auth/me
+Cookieで認証された現在のユーザー情報を取得する。
 
-### POST /auth/logout
-ログアウト
+### POST /api/auth/logout
+ログアウトし、認証Cookieを失効させる。
 
 ---
 

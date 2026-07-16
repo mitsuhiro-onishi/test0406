@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
+from app.core.config import settings
 from app.core.security import create_access_token, get_current_user, verify_password
 from app.models.user import User
 
@@ -27,8 +28,6 @@ class UserInfo(BaseModel):
 
 
 class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
     user: UserInfo
 
 
@@ -45,7 +44,11 @@ def _user_info(user: User) -> UserInfo:
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login(
+    body: LoginRequest,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
     result = await db.execute(
         select(User)
         .options(selectinload(User.organization))
@@ -55,7 +58,29 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     if user is None or not user.is_active or not verify_password(body.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="メールアドレスまたはパスワードが正しくありません")
 
-    return LoginResponse(access_token=create_access_token(user), user=_user_info(user))
+    response.set_cookie(
+        key=settings.auth_cookie_name,
+        value=create_access_token(user),
+        max_age=settings.jwt_expire_minutes * 60,
+        httponly=True,
+        secure=settings.auth_cookie_secure,
+        samesite="strict",
+        path="/",
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return LoginResponse(user=_user_info(user))
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(response: Response):
+    response.delete_cookie(
+        key=settings.auth_cookie_name,
+        httponly=True,
+        secure=settings.auth_cookie_secure,
+        samesite="strict",
+        path="/",
+    )
+    response.headers["Cache-Control"] = "no-store"
 
 
 @router.get("/me", response_model=UserInfo)

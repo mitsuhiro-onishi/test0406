@@ -3,8 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 import bcrypt
 import jwt
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -12,9 +11,6 @@ from sqlalchemy.orm import selectinload
 from app.core.config import settings
 from app.core.database import get_db
 from app.models.user import User
-
-bearer_scheme = HTTPBearer(auto_error=False)
-
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
@@ -38,22 +34,24 @@ def create_access_token(user: User) -> str:
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    if credentials is None:
+    token = request.cookies.get(settings.auth_cookie_name)
+    if token is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="認証が必要です")
     try:
-        payload = jwt.decode(credentials.credentials, settings.secret_key, algorithms=[settings.jwt_algorithm])
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
+        user_id = uuid.UUID(payload["sub"])
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="トークンの有効期限が切れています")
-    except jwt.InvalidTokenError:
+    except (jwt.InvalidTokenError, KeyError, TypeError, ValueError):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="トークンが不正です")
 
     result = await db.execute(
         select(User)
         .options(selectinload(User.organization))
-        .where(User.id == uuid.UUID(payload["sub"]))
+        .where(User.id == user_id)
     )
     user = result.scalar_one_or_none()
     if user is None or not user.is_active:

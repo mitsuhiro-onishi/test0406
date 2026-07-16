@@ -20,11 +20,12 @@ AEOツールと同構成（e2-micro + Caddy自動HTTPS + sslip.io）。**すで�
 ## 本番の状態
 - ENABLE_SEED=false（/api/seed は404）。初回シードは投入済み（7アカウント・展示会1件）
 - デモパスワード（admin1234等）は本番では無効。全アカウント SEED_PASSWORD で作成済み
-- AI解析: AI_PROVIDER=anthropic（claude-sonnet-5）実動作確認済み（信頼度0.96・自動承認・注文生成まで）
+- AI解析: AI_PROVIDER=anthropic（claude-sonnet-5）。解析結果は信頼度に関係なく全件人手レビュー後に確定する
 - **ファイル保存はGCS（2026-07-10切替）**: `STORAGE_BACKEND=gcs` / `GCS_BUCKET=dosl-hub-documents`。
   VMスコープ=cloud-platform・SAにバケット限定objectAdmin。旧書類はローカルパスのまま読める（/opt/dosl-hub/data/uploads は消さない）。
   アップロードが403になったらスコープとバケットIAMを疑う
 - メール受信/送信（指示書04＋5-4）はコード・DB列とも本番反映済みだが .env のフラグ未設定＝OFF
+- 認証JWTはSecure/HttpOnly/SameSite=Strict Cookieで保持する。本番では`AUTH_COOKIE_SECURE=true`（未指定時もtrue）が必須
 
 ## 更新（コードを直したら）
 
@@ -48,6 +49,7 @@ curl -s https://34-168-97-181.sslip.io/admin.html | shasum -a 256   # ↑と一�
 ```
 ※ 本番 .env（/opt/dosl-hub/backend/.env）は上書きしないこと。データは /opt/dosl-hub/data にあるためコード上書きで消えない。
 ※ requirements.txt を変えた場合はVMで `cd /opt/dosl-hub/backend && sudo ./.venv/bin/pip install -r requirements.txt` も実行。
+※ ローカルHTTPでログイン動作を確認する場合だけ、起動時に`AUTH_COOKIE_SECURE=false`を指定する。本番では使用しない。
 
 ## 運用コマンド
 
@@ -78,3 +80,4 @@ gcloud compute instances start dosl-hub --zone=us-west1-b --project=dosl-hub-01
 - APIキー・SECRET_KEYはVM内 .env（600）のみ。gitに含まれない
 - 開放ポートは80/443のみ。アプリは127.0.0.1でのみlisten
 - /api/seed は本番で無効（404）。デモ用パスワードは本番に存在しない
+- JWTはJavaScriptへ返さず、Secure/HttpOnly/SameSite=Strict Cookieに保存。CSPでインラインJavaScriptを禁止

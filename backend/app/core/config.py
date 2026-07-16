@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     secret_key: str = "local-dev-secret-key-change-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 12  # 12時間
+    auth_cookie_name: str = "doslhub_session"
+    # 本番は必ずtrue。ローカルHTTP開発時だけAUTH_COOKIE_SECURE=falseを指定する。
+    auth_cookie_secure: bool = True
 
     # AI解析プロバイダ: "auto" / "anthropic" / "claude_cli" / "mock"
     # auto: ANTHROPIC_API_KEYがあればanthropic、claudeコマンドがあればclaude_cli、なければmock
