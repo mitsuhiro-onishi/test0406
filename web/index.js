@@ -8,6 +8,7 @@
     let currentStep = 0;
     let exhibition = null;
     let categories = [];
+    const MAX_FILES_PER_UPLOAD = 5;
 
     // ──── DOM refs ────
     const fileInput = document.getElementById('fileInput');
@@ -179,6 +180,10 @@
 
     function addFiles(fileList) {
       for (const file of fileList) {
+        if (selectedFiles.length >= MAX_FILES_PER_UPLOAD) {
+          showSnackbar('一度に選択できるのは' + MAX_FILES_PER_UPLOAD + 'ファイルまでです');
+          break;
+        }
         if (file.size > 50 * 1024 * 1024) {
           showSnackbar('ファイルサイズが50MBを超えています: ' + file.name);
           continue;

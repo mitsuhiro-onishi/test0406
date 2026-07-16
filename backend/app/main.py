@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.core.database import engine, Base
+from app.core.request_limits import RequestBodyLimitMiddleware
 from app.api import admin_users, applications, auth, design_specs, documents, exhibitions, notifications, orders, reviews, seed
 
 
@@ -16,6 +17,9 @@ async def lifespan(app: FastAPI):
     # Create tables on startup
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    from app.services.ai_queue import start_ai_queue, stop_ai_queue
+    await start_ai_queue()
 
     # メール受信の常駐ポーリング（MAIL_INGEST_ENABLED=trueのときだけ・指示書04）
     mail_task = None
@@ -31,6 +35,7 @@ async def lifespan(app: FastAPI):
             await mail_task
         except asyncio.CancelledError:
             pass
+    await stop_ai_queue()
 
 
 app = FastAPI(
@@ -78,6 +83,10 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+app.add_middleware(
+    RequestBodyLimitMiddleware,
+    max_body_size=settings.max_request_size,
 )
 
 app.include_router(auth.router)

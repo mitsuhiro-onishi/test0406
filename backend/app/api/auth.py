@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +8,7 @@ from app.core.database import get_db
 from app.core.config import settings
 from app.core.security import create_access_token, get_current_user, verify_password
 from app.models.user import User
+from app.services.quota import QuotaExceeded, consume_quota, fixed_window
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -47,12 +48,38 @@ def _user_info(user: User) -> UserInfo:
 async def login(
     body: LoginRequest,
     response: Response,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
+    email = body.email.strip().lower()
+    client_ip = request.client.host if request.client else "unknown"
+    window = fixed_window(15 * 60)
+    try:
+        await consume_quota(
+            db,
+            action="login_account_15m",
+            identity=email,
+            window=window,
+            max_count=settings.login_attempts_per_account_15m,
+        )
+        await consume_quota(
+            db,
+            action="login_ip_15m",
+            identity=client_ip,
+            window=window,
+            max_count=settings.login_attempts_per_ip_15m,
+        )
+    except QuotaExceeded:
+        raise HTTPException(
+            status_code=429,
+            detail="ログイン試行回数が上限に達しました。しばらく待ってから再試行してください",
+            headers={"Retry-After": "900"},
+        )
+
     result = await db.execute(
         select(User)
         .options(selectinload(User.organization))
-        .where(User.email == body.email.strip().lower())
+        .where(User.email == email)
     )
     user = result.scalar_one_or_none()
     if user is None or not user.is_active or not verify_password(body.password, user.hashed_password):

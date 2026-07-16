@@ -13,7 +13,7 @@ AEOツールと同構成（e2-micro + Caddy自動HTTPS + sslip.io）。**すで�
 | VM | dosl-hub（e2-micro・us-west1-b・Debian12・30GB・固定IP 34.168.97.181） |
 | 費用 | 約1,500円/月（e2-micro有償※無料枠はAEOツールが使用済み）＋AI解析API従量（1書類数円） |
 | アプリ配置 | /opt/dosl-hub（コード）・/opt/dosl-hub/data（DB=SQLite・アップロードファイル＝永続） |
-| サービス | systemd `dosl-hub`（uvicorn 127.0.0.1:8710）＋ `caddy`（TLS終端） |
+| サービス | systemd `dosl-hub`（専用ユーザー・uvicorn 127.0.0.1:8710）＋ `caddy`（TLS終端） |
 | 本番設定 | /opt/dosl-hub/backend/.env（600・SECRET_KEY/ANTHROPIC_API_KEY/SEED_PASSWORD等） |
 | ログイン | シードのデモアカウント×SEED_PASSWORD（Macローカル: 本番ログイン情報.txt 参照・git管理外） |
 
@@ -26,6 +26,8 @@ AEOツールと同構成（e2-micro + Caddy自動HTTPS + sslip.io）。**すで�
   アップロードが403になったらスコープとバケットIAMを疑う
 - メール受信/送信（指示書04＋5-4）はコード・DB列とも本番反映済みだが .env のフラグ未設定＝OFF
 - 認証JWTはSecure/HttpOnly/SameSite=Strict Cookieで保持する。本番では`AUTH_COOKIE_SECURE=true`（未指定時もtrue）が必須
+- アップロードは1回5件・要求全体60MB・1ユーザー1日50件/200MB。AI解析はキューで同時1件、再解析は管理者のみ1日20回
+- Caddyは64MB超の要求を413で遮断。systemdは`doslhub`ユーザー、MemoryMax=700M、CPUQuota=80%で稼働
 
 ## 更新（コードを直したら）
 
@@ -50,6 +52,19 @@ curl -s https://34-168-97-181.sslip.io/admin.html | shasum -a 256   # ↑と一�
 ※ 本番 .env（/opt/dosl-hub/backend/.env）は上書きしないこと。データは /opt/dosl-hub/data にあるためコード上書きで消えない。
 ※ requirements.txt を変えた場合はVMで `cd /opt/dosl-hub/backend && sudo ./.venv/bin/pip install -r requirements.txt` も実行。
 ※ ローカルHTTPでログイン動作を確認する場合だけ、起動時に`AUTH_COOKIE_SECURE=false`を指定する。本番では使用しない。
+
+### vm_setup.sh / systemd / Caddy設定を変更したリリース
+
+通常のコードコピーだけではsystemdとCaddyの設定は更新されない。今回のような実行基盤変更時は、転送後に本番`.env`を一時ステージへコピーして`vm_setup.sh`を再実行する。
+
+```bash
+gcloud compute ssh dosl-hub --zone=us-west1-b --project=dosl-hub-01 --command="
+  sudo cp /opt/dosl-hub/backend/.env ~/dosl-hub-update/backend/.env &&
+  sudo bash ~/dosl-hub-update/deploy/vm_setup.sh &&
+  rm -f ~/dosl-hub-update/backend/.env"
+```
+
+実行後は`systemctl show dosl-hub -p User -p MemoryMax -p CPUQuotaPerSecUSec`、`caddy validate --config /etc/caddy/Caddyfile`、50MB超のテスト要求が413になることを確認する。
 
 ## 運用コマンド
 
@@ -81,3 +96,4 @@ gcloud compute instances start dosl-hub --zone=us-west1-b --project=dosl-hub-01
 - 開放ポートは80/443のみ。アプリは127.0.0.1でのみlisten
 - /api/seed は本番で無効（404）。デモ用パスワードは本番に存在しない
 - JWTはJavaScriptへ返さず、Secure/HttpOnly/SameSite=Strict Cookieに保存。CSPでインラインJavaScriptを禁止
+- ログイン試行・アップロード日次量・AI再解析回数はSQLiteの共有カウンターで制限し、再起動や複数プロセスをまたいで維持

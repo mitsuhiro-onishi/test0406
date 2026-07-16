@@ -7,6 +7,11 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./exhibition.db"
     upload_dir: str = "./uploads"
     max_file_size: int = 50 * 1024 * 1024  # 50MB
+    max_request_size: int = 60 * 1024 * 1024  # multipart込み60MB
+    max_files_per_request: int = 5
+    daily_upload_files_per_user: int = 50
+    daily_upload_bytes_per_user: int = 200 * 1024 * 1024
+    daily_reanalysis_per_user: int = 20
     # ファイル保存先: "local"（VMディスク）/ "gcs"（Cloud Storage）。docs/指示書/03参照
     storage_backend: str = "local"
     gcs_bucket: str = ""
@@ -34,12 +39,15 @@ class Settings(BaseSettings):
     auth_cookie_name: str = "doslhub_session"
     # 本番は必ずtrue。ローカルHTTP開発時だけAUTH_COOKIE_SECURE=falseを指定する。
     auth_cookie_secure: bool = True
+    login_attempts_per_account_15m: int = 10
+    login_attempts_per_ip_15m: int = 50
 
     # AI解析プロバイダ: "auto" / "anthropic" / "claude_cli" / "mock"
     # auto: ANTHROPIC_API_KEYがあればanthropic、claudeコマンドがあればclaude_cli、なければmock
     ai_provider: str = "auto"
     anthropic_api_key: str = ""
     ai_model: str = "claude-sonnet-5"
+    ai_max_concurrency: int = 1
     # 後方互換のため環境変数は受け付けるが、AI結果の自動承認には使用しない。
     # セキュリティ上、解析結果は信頼度に関係なく全件人手レビューへ送る。
     auto_approve_threshold: float = 0.85

@@ -31,7 +31,8 @@ from app.models.notification import Notification
 from app.models.submission_category import SubmissionCategory
 from app.models.user import User
 from app.services import storage
-from app.services.ai_analyzer import analyze_document
+from app.services.ai_queue import enqueue_analysis
+from app.services.quota import QuotaExceeded, consume_quota, daily_window
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +131,7 @@ async def ingest_message(db: AsyncSession, message_id: str, from_email: str,
     if dup:
         return {"action": "duplicate", "document_ids": []}
 
-    files = extract_allowed_attachments(attachments)
+    files = extract_allowed_attachments(attachments)[:settings.max_files_per_request]
     if not files:
         return {"action": "no_attachments", "document_ids": []}
 
@@ -180,6 +181,23 @@ async def ingest_message(db: AsyncSession, message_id: str, from_email: str,
 
     document_ids = []
     for filename, content in files:
+        if len(content) > settings.max_file_size:
+            logger.warning("メール添付がサイズ上限を超過: %s", filename)
+            continue
+        try:
+            await consume_quota(
+                db,
+                action="upload_daily",
+                identity=str(sender.id),
+                window=daily_window(),
+                count=1,
+                byte_count=len(content),
+                max_count=settings.daily_upload_files_per_user,
+                max_bytes=settings.daily_upload_bytes_per_user,
+            )
+        except QuotaExceeded:
+            logger.warning("メール添付の日次クォータ超過: %s", sender.id)
+            break
         file_id = uuid.uuid4()
         safe_name = os.path.basename(filename or "mail-attachment")
         file_path = await storage.save_file(content, f"{exhibition.id}/{file_id}_{safe_name}")
@@ -204,7 +222,7 @@ async def ingest_message(db: AsyncSession, message_id: str, from_email: str,
 
     await db.commit()
     for doc_id in document_ids:
-        asyncio.create_task(analyze_document(doc_id))
+        await enqueue_analysis(doc_id)
     logger.info("メール取込: %s から %d 件（件名: %s）", from_email, len(document_ids), subject)
     return {"action": "imported", "document_ids": document_ids}
 

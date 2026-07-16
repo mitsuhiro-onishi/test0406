@@ -11,7 +11,8 @@ EnvironmentFile=/opt/dosl-hub/backend/.env
 Environment=DOSL_DB_PATH=/opt/dosl-hub/data/exhibition.db
 Environment=DOSL_BACKUP_DIR=/opt/dosl-hub/data/backups
 ExecStart=/opt/dosl-hub/backend/.venv/bin/python /opt/dosl-hub/backend/scripts/backup_sqlite.py
-User=root
+User=doslhub
+Group=doslhub
 UMask=0077
 Nice=10
 IOSchedulingClass=best-effort
@@ -19,6 +20,8 @@ IOSchedulingPriority=7
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/dosl-hub/data
 
 [Install]
 WantedBy=multi-user.target

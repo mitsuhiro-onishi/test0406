@@ -1,10 +1,10 @@
 import os
 import uuid
 from datetime import date, datetime, time as dtime, timezone
-from urllib.parse import quote
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, UploadFile, HTTPException
-from fastapi.responses import FileResponse, Response
+from fastapi import APIRouter, Depends, File, Form, UploadFile, HTTPException
+from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -26,7 +26,8 @@ from app.schemas.document import (
     DocumentUpdate,
 )
 from app.services import storage
-from app.services.ai_analyzer import analyze_document
+from app.services.ai_queue import enqueue_analysis
+from app.services.quota import QuotaExceeded, consume_quota, daily_window
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -150,13 +151,38 @@ async def _save_one(
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"対応していないファイル形式です: {ext}")
 
-    content = await file.read()
-    if len(content) > settings.max_file_size:
-        raise HTTPException(status_code=400, detail="ファイルサイズが50MBを超えています")
-
     file_id = uuid.uuid4()
     safe_name = os.path.basename(file.filename or "upload")
-    file_path = await storage.save_file(content, f"{exhibition_id}/{file_id}_{safe_name}")
+    try:
+        file_path, file_size = await storage.save_upload(
+            file,
+            f"{exhibition_id}/{file_id}_{safe_name}",
+            max_bytes=settings.max_file_size,
+        )
+    except storage.FileTooLargeError:
+        raise HTTPException(status_code=400, detail="ファイルサイズが50MBを超えています")
+
+    try:
+        await consume_quota(
+            db,
+            action="upload_daily",
+            identity=str(user.id),
+            window=daily_window(),
+            count=1,
+            byte_count=file_size,
+            max_count=settings.daily_upload_files_per_user,
+            max_bytes=settings.daily_upload_bytes_per_user,
+        )
+    except QuotaExceeded:
+        await storage.delete_file(file_path)
+        raise HTTPException(
+            status_code=429,
+            detail="本日のアップロード件数または容量の上限に達しました",
+            headers={"Retry-After": "3600"},
+        )
+    except Exception:
+        await storage.delete_file(file_path)
+        raise
 
     document = Document(
         id=file_id,
@@ -168,19 +194,23 @@ async def _save_one(
         recipient_org_id=category.recipient_org_id,
         file_name=safe_name,
         file_type=file.content_type or "application/octet-stream",
-        file_size_bytes=len(content),
+        file_size_bytes=file_size,
         storage_path=file_path,
         source_channel="camera_capture" if source == "camera" else "web_upload",
         status="received",
     )
     db.add(document)
-    await db.commit()
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        await storage.delete_file(file_path)
+        raise
     return document
 
 
 @router.post("/upload", response_model=DocumentResponse, status_code=201)
 async def upload_document(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     exhibition_id: uuid.UUID = Form(...),
     submission_category_id: uuid.UUID = Form(...),
@@ -196,7 +226,7 @@ async def upload_document(
     booth_id = await _resolve_booth(db, exhibition_id, booth_id, user)
     document = await _save_one(file, exhibition_id, category, booth_id, source, user, db)
 
-    background_tasks.add_task(analyze_document, document.id)
+    await enqueue_analysis(document.id)
 
     result = await db.execute(
         select(Document).options(*DOCUMENT_LOAD_OPTIONS).where(Document.id == document.id)
@@ -206,7 +236,6 @@ async def upload_document(
 
 @router.post("/bulk-upload")
 async def bulk_upload_documents(
-    background_tasks: BackgroundTasks,
     files: list[UploadFile] = File(...),
     exhibition_id: uuid.UUID = Form(...),
     submission_category_id: uuid.UUID = Form(...),
@@ -216,8 +245,11 @@ async def bulk_upload_documents(
     db: AsyncSession = Depends(get_db),
 ):
     """複数ファイルを1リクエストで受ける。失敗したファイルがあっても他は保存する（207相当を200で返す）"""
-    if len(files) > 20:
-        raise HTTPException(status_code=400, detail="一度にアップロードできるのは20ファイルまでです")
+    if len(files) > settings.max_files_per_request:
+        raise HTTPException(
+            status_code=400,
+            detail=f"一度にアップロードできるのは{settings.max_files_per_request}ファイルまでです",
+        )
 
     if user.role not in ("admin", "organizer", "exhibitor"):
         raise HTTPException(status_code=403, detail="アップロード権限がありません")
@@ -229,7 +261,7 @@ async def bulk_upload_documents(
     for file in files:
         try:
             document = await _save_one(file, exhibition_id, category, booth_id, source, user, db)
-            background_tasks.add_task(analyze_document, document.id)
+            await enqueue_analysis(document.id)
             results.append({"file_name": file.filename, "ok": True, "id": str(document.id)})
         except HTTPException as e:
             results.append({"file_name": file.filename, "ok": False, "error": e.detail})
@@ -305,13 +337,14 @@ async def download_document(
     document = await get_visible_document(document_id, user, db)
     if storage.is_gcs(document.storage_path):
         try:
-            data = await storage.read_file(document.storage_path)
+            local_path = await storage.open_local(document.storage_path)
         except FileNotFoundError:
             raise HTTPException(status_code=404, detail="ファイルが見つかりません")
-        return Response(
-            content=data,
+        return FileResponse(
+            local_path,
+            filename=document.file_name,
             media_type=document.file_type,
-            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(document.file_name)}"},
+            background=BackgroundTask(os.remove, local_path),
         )
     if not os.path.exists(document.storage_path):
         raise HTTPException(status_code=404, detail="ファイルが見つかりません")
@@ -321,14 +354,31 @@ async def download_document(
 @router.post("/{document_id}/reanalyze", status_code=202)
 async def reanalyze_document(
     document_id: uuid.UUID,
-    background_tasks: BackgroundTasks,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    if user.role not in ("admin", "organizer"):
+        raise HTTPException(status_code=403, detail="再解析を行う権限がありません")
     document = await get_visible_document(document_id, user, db)
+    if document.status in ("received", "processing"):
+        raise HTTPException(status_code=409, detail="この書類はすでに解析待ちまたは解析中です")
+    try:
+        await consume_quota(
+            db,
+            action="reanalysis_daily",
+            identity=str(user.id),
+            window=daily_window(),
+            max_count=settings.daily_reanalysis_per_user,
+        )
+    except QuotaExceeded:
+        raise HTTPException(
+            status_code=429,
+            detail="本日のAI再解析回数の上限に達しました",
+            headers={"Retry-After": "3600"},
+        )
     document.status = "received"
     await db.commit()
-    background_tasks.add_task(analyze_document, document.id)
+    await enqueue_analysis(document.id)
     return {"message": "再解析を開始しました", "document_id": str(document.id)}
 
 

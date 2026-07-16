@@ -85,7 +85,7 @@ async def _no_background_analysis(monkeypatch):
     """テスト中はAI解析のバックグラウンド起動を無効化"""
     async def _noop(document_id):
         return None
-    monkeypatch.setattr(mail_ingest, "analyze_document", _noop)
+    monkeypatch.setattr(mail_ingest, "enqueue_analysis", _noop)
 
 
 @pytest.fixture()

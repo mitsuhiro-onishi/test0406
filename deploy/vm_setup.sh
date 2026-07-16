@@ -16,6 +16,7 @@
 set -e
 SRC_DIR="$(cd "$(dirname "$0")/.." && pwd)"   # このスクリプトの1つ上＝アプリ本体
 APP_DIR=/opt/dosl-hub
+APP_USER=doslhub
 
 if [ ! -f "$SRC_DIR/backend/.env" ]; then
   echo "‼ $SRC_DIR/backend/.env がありません。本番用 .env をVMに置いてください。"
@@ -42,9 +43,16 @@ if [ ! -f /swapfile ]; then
 fi
 
 echo "==> 2/6 アプリ配置（$APP_DIR・データは $APP_DIR/data に永続）"
-mkdir -p "$APP_DIR" "$APP_DIR/data/uploads"
+getent group "$APP_USER" >/dev/null || groupadd --system "$APP_USER"
+id -u "$APP_USER" >/dev/null 2>&1 || useradd \
+  --system --gid "$APP_USER" --home-dir "$APP_DIR" --shell /usr/sbin/nologin "$APP_USER"
+mkdir -p "$APP_DIR" "$APP_DIR/data/uploads" "$APP_DIR/data/backups"
 cp -r "$SRC_DIR"/. "$APP_DIR"/
-chmod 600 "$APP_DIR/backend/.env"
+chown -R root:"$APP_USER" "$APP_DIR"
+chown -R "$APP_USER":"$APP_USER" "$APP_DIR/data"
+chmod 750 "$APP_DIR" "$APP_DIR/backend"
+chmod 700 "$APP_DIR/data" "$APP_DIR/data/uploads" "$APP_DIR/data/backups"
+chmod 640 "$APP_DIR/backend/.env"
 cd "$APP_DIR/backend"
 python3 -m venv .venv
 ./.venv/bin/pip install --upgrade pip -q
@@ -59,9 +67,32 @@ After=network.target
 [Service]
 WorkingDirectory=$APP_DIR/backend
 ExecStart=$APP_DIR/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8710
+EnvironmentFile=$APP_DIR/backend/.env
+Environment=PYTHONDONTWRITEBYTECODE=1
 Restart=always
 RestartSec=3
-User=root
+User=doslhub
+Group=doslhub
+UMask=0077
+MemoryMax=700M
+MemorySwapMax=512M
+CPUQuota=80%
+TasksMax=128
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectClock=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+ReadWritePaths=/opt/dosl-hub/data
 
 [Install]
 WantedBy=multi-user.target
@@ -71,8 +102,6 @@ systemctl enable dosl-hub
 systemctl restart dosl-hub
 
 echo "==> 4/6 SQLite毎時バックアップ"
-mkdir -p "$APP_DIR/data/backups"
-chmod 700 "$APP_DIR/data/backups"
 install -m 0644 "$APP_DIR/deploy/dosl-hub-backup.service" /etc/systemd/system/
 install -m 0644 "$APP_DIR/deploy/dosl-hub-backup.timer" /etc/systemd/system/
 systemctl daemon-reload
@@ -89,6 +118,9 @@ IP="$(curl -s -H 'Metadata-Flavor: Google' 'http://metadata.google.internal/comp
 HOSTN="${IP//./-}.sslip.io"
 cat >/etc/caddy/Caddyfile <<EOF
 $HOSTN {
+    request_body {
+        max_size 64MB
+    }
     reverse_proxy 127.0.0.1:8710 {
         header_up Host {host}
     }

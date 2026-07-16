@@ -10,6 +10,7 @@ from app.models.order import Order, OrderItem
 from app.models.notification import Notification
 from app.models.audit_log import AuditLog
 from app.models.exhibitor_application import ExhibitorApplication
+from app.models.quota_bucket import QuotaBucket
 
 __all__ = [
     "ExhibitorApplication",
@@ -25,4 +26,5 @@ __all__ = [
     "OrderItem",
     "Notification",
     "AuditLog",
+    "QuotaBucket",
 ]

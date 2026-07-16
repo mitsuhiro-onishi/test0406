@@ -51,6 +51,8 @@
 
 ## 2. 認証 API
 
+ログインは同一アカウント15分10回、同一送信元IP 15分50回まで。超過時は`429`と`Retry-After`を返す。
+
 ### POST /api/auth/login
 ログイン。JWTはレスポンス本文へ含めず、`doslhub_session` Cookieへ設定する。
 ブラウザJavaScriptからJWTを読み取ることはできない。
@@ -60,6 +62,14 @@ Cookieで認証された現在のユーザー情報を取得する。
 
 ### POST /api/auth/logout
 ログアウトし、認証Cookieを失効させる。
+
+### アップロード・AIクォータ
+
+- multipart要求全体: 60MB（Caddy側は64MB）
+- 一括アップロード: 1回5ファイル、1ファイル50MB
+- 1ユーザー日次: 50ファイル、合計200MB（Webとメール取込を合算）
+- AI再解析: admin/organizerのみ、1ユーザー日次20回
+- 超過時: `429 Too Many Requests`。AI解析はキューに入り、既定で同時1件だけ実行する
 
 ---
 

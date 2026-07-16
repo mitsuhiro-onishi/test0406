@@ -1,7 +1,7 @@
 """JWTをJavaScriptから隔離するCookie認証の回帰テスト。"""
 
 import pytest
-from fastapi import Response
+from fastapi import HTTPException, Request, Response
 
 from app.api.auth import LoginRequest, login, logout
 from app.core.database import Base, async_session, engine
@@ -38,6 +38,7 @@ async def test_login_sets_hardened_httponly_cookie_without_returning_jwt(login_d
     result = await login(
         LoginRequest(email="admin@example.com", password="correct-password"),
         response,
+        Request({"type": "http", "client": ("127.0.0.1", 1234), "headers": []}),
         login_database,
     )
 
@@ -58,3 +59,28 @@ async def test_logout_expires_session_cookie():
     assert "doslhub_session=" in cookie
     assert "max-age=0" in cookie
     assert "httponly" in cookie
+
+
+async def test_login_attempts_are_database_rate_limited(login_database, monkeypatch):
+    from app.api import auth
+
+    monkeypatch.setattr(auth.settings, "login_attempts_per_account_15m", 1)
+    request = Request(
+        {"type": "http", "client": ("192.0.2.10", 1234), "headers": []}
+    )
+    await login(
+        LoginRequest(email="admin@example.com", password="correct-password"),
+        Response(),
+        request,
+        login_database,
+    )
+    with pytest.raises(HTTPException) as error:
+        await login(
+            LoginRequest(email="admin@example.com", password="correct-password"),
+            Response(),
+            request,
+            login_database,
+        )
+
+    assert error.value.status_code == 429
+    assert error.value.headers["Retry-After"] == "900"
