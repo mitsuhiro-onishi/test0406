@@ -1,6 +1,18 @@
-# DOSL GATE 引き継ぎ（2026-07-07 作成 / 2026-07-11 送信ドメイン認証完了で更新）
+# DOSL GATE 引き継ぎ（2026-07-07 作成 / 2026-07-16 セキュリティ修正本番反映で更新）
 
-## 【2026-07-11 送信ドメイン認証 完了（最新）】
+## 【2026-07-16 セキュリティ修正 本番反映完了（最新）】
+
+GPT-5.6監査のGATE修正7コミット（bf3a599〜ca2d9cb・詳細は `../../HANDOVER_DOSL_GATE_HUB_セキュリティ修正_20260716_Claude_Code.md`）を本番反映した。
+
+- push済み（exhibition/registration-system → origin）
+- `TICKET_LINK_SECRET` をVercel Production/PreviewへSensitive設定（値は非表示・32bytes超ランダム）
+- Supabase migration 007（原子的定員チェック＋共有レート制限）は大西さんがSQL Editorで適用。`api_rate_limit_buckets` の存在を200で確認済み
+- 本番デプロイ: `dosl-gate-69x8krvfw`（git archiveクリーン書き出し→vercel deploy --prod）。ロールバック先=旧Production `dosl-gate-am5zgeek9`
+- スモークテストPASS: セキュリティヘッダー6種（CSP/HSTS/X-Frame-Options DENY/nosniff/Referrer/Permissions）・未認証管理API 401・未署名チケットURLは一般化エラーでPII非漏洩・誤slug×有効コードも拒否
+- **未署名の旧チケットURLは全て無効化済み**。実登録者は大西さん本人の仮登録のみのため、同一メールで再登録すれば署名済みURL入りの確認メールが再送される（重複登録テストを兼ねる・未実施）
+- 未実施: 同一メール再登録の本番UX確認（「メールを確認してください」画面・visitor非更新・識別子非漏洩）
+
+## 【2026-07-11 送信ドメイン認証 完了】
 
 ### 完了したこと
 - **送信ドメイン認証（dosl.co.jp）完遂**: Resendにドメイン追加（Tokyo・Full accessキー一時発行でAPI実施）→ エックスサーバーDNSに3レコード新規追加（DKIM TXT / send MX / send TXT SPF。既存レコード未変更）→ Verify（約20分で3件とも verified）
