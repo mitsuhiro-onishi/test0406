@@ -1,5 +1,10 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { escapeHtml, safeCssColor } from "@/lib/validation";
+import {
+  buildSignedTicketUrl,
+  getTicketLinkExpiry,
+  getTicketLinkSecret,
+} from "@/lib/ticket-link";
 
 export interface SendEmailResult {
   success: boolean;
@@ -44,8 +49,26 @@ export async function sendConfirmationEmail(
     };
   }
 
+  const ticketLinkSecret = getTicketLinkSecret();
+  if (!ticketLinkSecret) {
+    return {
+      success: false,
+      error: "チケットリンク署名が設定されていません",
+      status: 500,
+    };
+  }
+
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-  const ticketUrl = `${baseUrl}/${encodeURIComponent(exhibition.slug)}/ticket/${encodeURIComponent(registration.ticket_code)}`;
+  const ticketUrl = buildSignedTicketUrl(
+    {
+      baseUrl,
+      slug: exhibition.slug,
+      code: registration.ticket_code,
+      expires: getTicketLinkExpiry(exhibition.end_date),
+      registrationUpdatedAt: registration.updated_at,
+    },
+    ticketLinkSecret,
+  );
 
   const fromEmail = process.env.EMAIL_FROM || "noreply@exhibition.example.com";
   // メールヘッダーインジェクション防止: 改行・引用符を除去

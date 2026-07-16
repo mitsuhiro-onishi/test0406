@@ -1,14 +1,59 @@
 import { supabaseAdmin } from "@/lib/supabase/server";
 import { generateQRCodeDataURL } from "@/lib/qr";
+import { isValidTicketCode } from "@/lib/validation";
+import {
+  getTicketLinkSecret,
+  isTicketLinkSignature,
+  verifyTicketLinkSignature,
+} from "@/lib/ticket-link";
 
 export const dynamic = "force-dynamic";
 
 interface Props {
   params: Promise<{ slug: string; code: string }>;
+  searchParams: Promise<{
+    expires?: string | string[];
+    signature?: string | string[];
+  }>;
 }
 
-export default async function TicketPage({ params }: Props) {
-  const { slug, code } = await params;
+function InvalidTicketLink() {
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">
+          チケットを表示できません
+        </h1>
+        <p className="text-gray-500">
+          リンクが無効または期限切れです。確認メールを再送してください
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export default async function TicketPage({ params, searchParams }: Props) {
+  const [{ slug, code }, query] = await Promise.all([params, searchParams]);
+  const expiresValue = Array.isArray(query.expires)
+    ? undefined
+    : query.expires;
+  const signature = Array.isArray(query.signature)
+    ? undefined
+    : query.signature;
+  const expires = Number(expiresValue);
+  const secret = getTicketLinkSecret();
+
+  // 明らかに不正・期限切れのリクエストはDB照会前に拒否する。
+  if (
+    !secret ||
+    !isValidTicketCode(code) ||
+    !Number.isSafeInteger(expires) ||
+    expires <= Math.floor(Date.now() / 1000) ||
+    !isTicketLinkSignature(signature)
+  ) {
+    return <InvalidTicketLink />;
+  }
+
   // ticket_code と URL の展示会slugが両方一致する登録だけを取得する。
   // ticket_code が他展示会のものでも来場者情報を表示しない。
   const { data: registration } = await supabaseAdmin
@@ -25,19 +70,20 @@ export default async function TicketPage({ params }: Props) {
     .eq("exhibition.slug", slug)
     .maybeSingle();
 
-  if (!registration) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">
-            チケットが見つかりません
-          </h1>
-          <p className="text-gray-500">
-            チケットコードをご確認ください
-          </p>
-        </div>
-      </div>
-    );
+  if (
+    !registration ||
+    !verifyTicketLinkSignature(
+      {
+        slug,
+        code,
+        expires,
+        registrationUpdatedAt: registration.updated_at,
+      },
+      signature,
+      secret,
+    )
+  ) {
+    return <InvalidTicketLink />;
   }
 
   const exhibition = registration.exhibition;

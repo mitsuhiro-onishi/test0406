@@ -3,6 +3,11 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { requireAdminApi } from "@/lib/auth";
 import { REGISTRATION_STATUSES, sanitizeSearchTerm } from "@/lib/validation";
 import { getAuthorizedExhibitionIds } from "@/lib/admin-scope-server";
+import {
+  buildSignedTicketUrl,
+  getTicketLinkExpiry,
+  getTicketLinkSecret,
+} from "@/lib/ticket-link";
 
 const MAX_PER_PAGE = 100;
 
@@ -35,7 +40,7 @@ export async function GET(request: NextRequest) {
       `
       *,
       visitor:visitors!inner(*),
-      exhibition:exhibitions(id, name, slug),
+      exhibition:exhibitions(id, name, slug, end_date),
       registration_type:registration_types(name, color),
       entry_logs(action, logged_at)
     `,
@@ -93,8 +98,32 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const ticketLinkSecret = getTicketLinkSecret();
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+  const registrations = (data || []).map((registration) => {
+    const exhibition = registration.exhibition as unknown as {
+      slug: string;
+      end_date: string;
+    };
+    return {
+      ...registration,
+      ticket_url: ticketLinkSecret
+        ? buildSignedTicketUrl(
+            {
+              baseUrl,
+              slug: exhibition.slug,
+              code: registration.ticket_code,
+              expires: getTicketLinkExpiry(exhibition.end_date),
+              registrationUpdatedAt: registration.updated_at,
+            },
+            ticketLinkSecret,
+          )
+        : null,
+    };
+  });
+
   return NextResponse.json({
-    registrations: data || [],
+    registrations,
     total: count || 0,
     page,
     per_page,

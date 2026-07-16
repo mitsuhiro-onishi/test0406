@@ -17,3 +17,23 @@ test("チケット画面: ticket_codeだけでなく展示会slugも一致した
   );
 });
 
+test("チケット画面: 期限付き署名を検証し、署名なしURLを表示しない", () => {
+  assert.match(ticketPage, /verifyTicketLinkSignature\(/);
+  assert.match(ticketPage, /searchParams: Promise/);
+
+  const emailSource = readFileSync(
+    new URL("../src/lib/email.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(emailSource, /buildSignedTicketUrl\(/);
+
+  const adminPage = readFileSync(
+    new URL(
+      "../src/app/admin/(protected)/registrations/page.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.match(adminPage, /href=\{r\.ticket_url\}/);
+  assert.doesNotMatch(adminPage, /ticket\/\$\{r\.ticket_code\}/);
+});

@@ -8,6 +8,7 @@ import EditRegistrationModal from "@/components/admin/EditRegistrationModal";
 interface RegistrationRow {
   id: string;
   ticket_code: string;
+  ticket_url: string | null;
   status: string;
   industry: string | null;
   visit_purpose: string[] | null;
@@ -257,13 +258,17 @@ function RegistrationsPageInner() {
                           {expandedRow === r.id ? "\u25BC" : "\u25B6"}
                         </td>
                         <td className="px-4 py-3 font-mono text-xs">
-                          <Link
-                            href={`/${r.exhibition?.slug}/ticket/${r.ticket_code}`}
-                            className="text-blue-600 hover:underline"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {r.ticket_code}
-                          </Link>
+                          {r.ticket_url ? (
+                            <Link
+                              href={r.ticket_url}
+                              className="text-blue-600 hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {r.ticket_code}
+                            </Link>
+                          ) : (
+                            r.ticket_code
+                          )}
                         </td>
                         <td className="px-4 py-3 font-medium">
                           {r.visitor.last_name} {r.visitor.first_name}
