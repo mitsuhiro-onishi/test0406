@@ -1,4 +1,19 @@
-# セッション引き継ぎドキュメント（2026-07-12更新・6回目）
+# セッション引き継ぎドキュメント（2026-07-16更新・7回目）
+
+## 【2026-07-16 セキュリティ修正 本番反映完了（最新）】
+
+GPT-5.6監査のHUB修正6コミット（bb6d0d7〜3473f8e・詳細は `../HANDOVER_DOSL_GATE_HUB_セキュリティ修正_20260716_Claude_Code.md`）＋統合バグ修正1件（9fba8f3）を本番反映した。
+
+- 事前バックアップ: SQLite online backup（integrity ok）＋GCEスナップショット `pre-security-deploy-20260716`
+- バックアップ基盤を有効化（configure_gcp_backups.sh --apply）: GCS `gs://dosl-hub-01-db-backups`（非公開・Soft Delete 14日）・VM SAへバケット限定objectCreator・日次スナップショット03:00 JST 14日保持・毎時backupタイマー稼働・初回GCSアップロード成功を確認
+- vm_setup.sh再実行で新実行基盤へ移行: 専用ユーザー`doslhub`・MemoryMax=700M・CPUQuota=80%・hardening
+- **本番反映時に発見・修正した統合バグ2件**（GPT-5.6のvm_setup.shは本番未実行だったため潜在）:
+  1. 転送ファイルの権限600で`doslhub`が読めず起動失敗 → VM側g+rX付与＋ローカル600→644修正（`__init__.py`群）
+  2. vm_setup.sh必須の`BACKUP_GCS_BUCKET`をpydantic Settingsがextra_forbiddenで拒否 → config.pyにフィールド追加（9fba8f3・pytest 54/54）
+- 本番.envに`BACKUP_GCS_BUCKET=dosl-hub-01-db-backups`を1行追記（それ以外は不変更）
+- スモークテストPASS: health 200・/docs系404・未認証API 401・admin.htmlハッシュ一致・セキュリティヘッダー4種・`users.token_version`列追加・誤パスワード401
+- **全既存ユーザーは再ログインが必要**（旧JWTに`ver` claimなし・設計どおり）
+- 未実施（要ユーザー判断）: RDPファイアウォールルール閉鎖・SSH IAP限定（ロックアウトリスクのためIAP検証後）・MFA方式選定（TOTP推奨）
 
 > **開発は全指示書（01〜05）完了・全機能が本番稼働中。開発側の残タスクはゼロ。**
 > 残るは大西さんの「マニュアル2冊の内容確認・配布」のみ。
