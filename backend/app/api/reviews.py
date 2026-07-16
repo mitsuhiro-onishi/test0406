@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -14,6 +15,7 @@ from app.models.notification import Notification
 from app.models.user import User
 from app.schemas.document import ReviewRequest
 from app.services.audit import record_audit
+from app.services.ai_result_schema import validate_ai_result
 from app.services.design_spec_builder import create_design_spec_from_analysis
 from app.services.order_builder import create_order_from_analysis
 
@@ -93,10 +95,17 @@ async def review_analysis(
         analysis.review_status = "rejected"
         document.status = "error"  # UI上は「差し戻し」として表示
     else:
+        merged = dict(analysis.structured_data or {})
         if body.action == "approve_with_corrections" and body.corrected_data:
-            merged = dict(analysis.structured_data or {})
             merged.update(body.corrected_data)
-            analysis.structured_data = merged
+        try:
+            validated = validate_ai_result(merged)
+        except ValidationError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail="解析結果または修正内容が業務上の制約を満たしていません",
+            ) from exc
+        analysis.structured_data = validated.model_dump(mode="json")
         analysis.review_status = "reviewed"
         document.status = "confirmed"
         await create_order_from_analysis(db, document, analysis)

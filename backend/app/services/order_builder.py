@@ -1,12 +1,18 @@
 """AI解析結果（承認済み）から注文レコードを生成する"""
+import logging
 import uuid
 from datetime import date
 
+from pydantic import ValidationError
 from sqlalchemy import delete, select
 
 from app.models.ai_analysis import AIAnalysis
 from app.models.document import Document
 from app.models.order import Order, OrderItem
+from app.services.ai_result_schema import validate_ai_result
+
+
+logger = logging.getLogger("order_builder")
 
 
 def _parse_date(value) -> date | None:
@@ -32,7 +38,17 @@ async def create_order_from_analysis(db, document: Document, analysis: AIAnalysi
 
     同一ドキュメントの既存注文は削除して作り直す（再解析・再レビュー対応）。
     """
-    data = analysis.structured_data or {}
+    if analysis.review_status != "reviewed":
+        return None
+
+    try:
+        data = validate_ai_result(analysis.structured_data or {}).model_dump(
+            mode="json"
+        )
+    except ValidationError:
+        logger.warning("invalid reviewed AI result; order generation skipped")
+        return None
+
     items = data.get("order_items") or []
     if data.get("document_type") != "order" or not items:
         return None

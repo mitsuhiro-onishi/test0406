@@ -1,11 +1,17 @@
 """AI解析結果（承認済み）から設計仕様レコードを生成・更新する"""
+import logging
 import uuid
 
+from pydantic import ValidationError
 from sqlalchemy import select
 
 from app.models.ai_analysis import AIAnalysis
 from app.models.design_spec import DesignSpec
 from app.models.document import Document
+from app.services.ai_result_schema import validate_ai_result
+
+
+logger = logging.getLogger("design_spec_builder")
 
 
 def _num(value) -> float | None:
@@ -22,7 +28,17 @@ async def create_design_spec_from_analysis(db, document: Document, analysis: AIA
 
     同一ドキュメントの既存仕様がある場合は上書きし version を進める（再解析・再レビュー対応）。
     """
-    data = analysis.structured_data or {}
+    if analysis.review_status != "reviewed":
+        return None
+
+    try:
+        data = validate_ai_result(analysis.structured_data or {}).model_dump(
+            mode="json"
+        )
+    except ValidationError:
+        logger.warning("invalid reviewed AI result; design generation skipped")
+        return None
+
     spec_data = data.get("design_spec")
     if data.get("document_type") != "design" or not isinstance(spec_data, dict):
         return None

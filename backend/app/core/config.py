@@ -37,7 +37,8 @@ class Settings(BaseSettings):
     ai_provider: str = "auto"
     anthropic_api_key: str = ""
     ai_model: str = "claude-sonnet-5"
-    # 信頼度がこの値以上なら自動承認、未満ならレビュー待ちにする
+    # 後方互換のため環境変数は受け付けるが、AI結果の自動承認には使用しない。
+    # セキュリティ上、解析結果は信頼度に関係なく全件人手レビューへ送る。
     auto_approve_threshold: float = 0.85
 
     # デモデータ投入API (/api/seed) の有効化。本番では必ずfalseにする
