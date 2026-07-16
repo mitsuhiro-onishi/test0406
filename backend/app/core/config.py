@@ -1,7 +1,9 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env")
+
     # ローカル開発はSQLite。本番は環境変数 DATABASE_URL で
     # postgresql+asyncpg://... を指定して切替する
     database_url: str = "sqlite+aiosqlite:///./exhibition.db"
@@ -35,12 +37,14 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3000,http://localhost:8000"
     secret_key: str = "local-dev-secret-key-change-in-production"
     jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 60 * 12  # 12時間
+    jwt_expire_minutes: int = 60 * 8  # 標準的な運用シフト内に限定
     auth_cookie_name: str = "doslhub_session"
     # 本番は必ずtrue。ローカルHTTP開発時だけAUTH_COOKIE_SECURE=falseを指定する。
     auth_cookie_secure: bool = True
     login_attempts_per_account_15m: int = 10
     login_attempts_per_ip_15m: int = 50
+    # OpenAPI管理面はsecure defaultで閉じ、ローカル開発時のみ明示的に有効化する。
+    enable_api_docs: bool = False
 
     # AI解析プロバイダ: "auto" / "anthropic" / "claude_cli" / "mock"
     # auto: ANTHROPIC_API_KEYがあればanthropic、claudeコマンドがあればclaude_cli、なければmock
@@ -58,9 +62,5 @@ class Settings(BaseSettings):
     # 本番シード時にデモアカウント全員のパスワードをこの値で上書きする
     # （空ならseed.py記載の開発用パスワードをそのまま使う）
     seed_password: str = ""
-
-    class Config:
-        env_file = ".env"
-
 
 settings = Settings()

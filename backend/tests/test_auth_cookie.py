@@ -2,10 +2,12 @@
 
 import pytest
 from fastapi import HTTPException, Request, Response
+from sqlalchemy import select
 
 from app.api.auth import LoginRequest, login, logout
 from app.core.database import Base, async_session, engine
-from app.core.security import hash_password
+from app.core.security import create_access_token, get_current_user, hash_password
+from app.api.admin_users import reset_password
 from app.models.organization import Organization
 from app.models.user import User
 
@@ -84,3 +86,28 @@ async def test_login_attempts_are_database_rate_limited(login_database, monkeypa
 
     assert error.value.status_code == 429
     assert error.value.headers["Retry-After"] == "900"
+
+
+async def test_password_reset_immediately_revokes_existing_cookie(login_database, monkeypatch):
+    user = (
+        await login_database.execute(
+            select(User).where(User.email == "admin@example.com")
+        )
+    ).scalar_one()
+    old_token = create_access_token(user)
+
+    async def fake_send(*_args, **_kwargs):
+        return True
+
+    monkeypatch.setattr("app.api.admin_users.send_credentials_mail", fake_send)
+    await reset_password(user.id, user, login_database)
+
+    request = Request(
+        {
+            "type": "http",
+            "headers": [(b"cookie", f"doslhub_session={old_token}".encode())],
+        }
+    )
+    with pytest.raises(HTTPException) as error:
+        await get_current_user(request, login_database)
+    assert error.value.status_code == 401

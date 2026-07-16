@@ -318,6 +318,7 @@ async def reset_password(
 
     new_password = secrets.token_urlsafe(9)
     target.hashed_password = hash_password(new_password)
+    target.token_version += 1
     record_audit(db, user, "user_reset_password", "user", target.id, {"email": target.email})
     await db.commit()
 

@@ -28,6 +28,7 @@ def create_access_token(user: User) -> str:
         "sub": str(user.id),
         "org": str(user.organization_id),
         "role": user.role,
+        "ver": user.token_version,
         "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_minutes),
     }
     return jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
@@ -43,6 +44,9 @@ async def get_current_user(
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
         user_id = uuid.UUID(payload["sub"])
+        token_version = payload["ver"]
+        if not isinstance(token_version, int):
+            raise ValueError("invalid token version")
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="トークンの有効期限が切れています")
     except (jwt.InvalidTokenError, KeyError, TypeError, ValueError):
@@ -56,6 +60,8 @@ async def get_current_user(
     user = result.scalar_one_or_none()
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="ユーザーが見つかりません")
+    if token_version != user.token_version:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="セッションは失効しています")
     return user
 
 

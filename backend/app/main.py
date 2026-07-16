@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.core.database import engine, Base
 from app.core.request_limits import RequestBodyLimitMiddleware
+from app.core.schema_upgrades import apply_schema_upgrades
 from app.api import admin_users, applications, auth, design_specs, documents, exhibitions, notifications, orders, reviews, seed
 
 
@@ -17,6 +18,7 @@ async def lifespan(app: FastAPI):
     # Create tables on startup
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await apply_schema_upgrades(conn)
 
     from app.services.ai_queue import start_ai_queue, stop_ai_queue
     await start_ai_queue()
@@ -43,6 +45,9 @@ app = FastAPI(
     description="Exhibition Document Management System API",
     version="0.2.0",
     lifespan=lifespan,
+    docs_url="/docs" if settings.enable_api_docs else None,
+    redoc_url="/redoc" if settings.enable_api_docs else None,
+    openapi_url="/openapi.json" if settings.enable_api_docs else None,
 )
 
 
