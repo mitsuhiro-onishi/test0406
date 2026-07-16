@@ -46,12 +46,9 @@ export default function QRScanner({
       .catch(() => {
         setPermissionError("カメラへのアクセスが許可されていません");
       });
-
-    return () => {
-      if (scannerRef.current?.isScanning) {
-        scannerRef.current.stop().catch(() => {});
-      }
-    };
+    // 停止処理はスキャナーを起動したeffect側のクリーンアップに一本化する。
+    // ここでも stop() を呼ぶと同一インスタンスへの二重 stop になり、
+    // html5-qrcode が同期throwしてエラーバウンダリに落ちる（手動入力切替でクラッシュ）
   }, []);
 
   useEffect(() => {
@@ -96,8 +93,14 @@ export default function QRScanner({
       });
 
     return () => {
-      if (scanner.isScanning) {
-        scanner.stop().catch(() => {});
+      // 起動遷移中などは stop() が同期throwすることがあるため握りつぶす
+      // （カメラのトラック自体は renderedCamera.close() で確実に停止される）
+      try {
+        if (scanner.isScanning) {
+          scanner.stop().catch(() => {});
+        }
+      } catch {
+        // no-op
       }
       setCameraActive(false);
     };
