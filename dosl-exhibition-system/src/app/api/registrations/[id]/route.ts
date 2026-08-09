@@ -10,6 +10,7 @@ import {
 } from "@/lib/validation";
 import { getAuthorizedExhibitionIds } from "@/lib/admin-scope-server";
 import { canManageAdminData } from "@/lib/admin-scope";
+import { sendConfirmationEmail } from "@/lib/email";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -160,6 +161,24 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: "名を入力してください" }, { status: 400 });
     }
 
+    // --- 変更のないフィールドは除外する ---
+    // registrations は UPDATE のたびにトリガーで updated_at が進み、
+    // 送付済みチケットURLの署名（updated_at をバインド）が失効するため、
+    // 実際に値が変わるときだけ UPDATE を発行する。
+    const isSameValue = (a: unknown, b: unknown) =>
+      JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+    for (const key of Object.keys(regUpdates)) {
+      if (isSameValue(regUpdates[key], (existing as Record<string, unknown>)[key])) {
+        delete regUpdates[key];
+      }
+    }
+    const existingVisitor = (existing.visitor ?? {}) as Record<string, unknown>;
+    for (const key of Object.keys(visitorUpdates)) {
+      if (isSameValue(visitorUpdates[key], existingVisitor[key])) {
+        delete visitorUpdates[key];
+      }
+    }
+
     // --- 更新実行 ---
     if (Object.keys(regUpdates).length > 0) {
       const { error: regError } = await supabaseAdmin
@@ -191,6 +210,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    // 登録行が実際に変わった場合、送付済みチケットURLは署名失効している。
+    // キャンセル以外は新しい署名URLで確認メールを自動再送する。
+    let emailResent = false;
+    let emailError: string | null = null;
+    const registrationChanged = Object.keys(regUpdates).length > 0;
+    if (registrationChanged && regUpdates.status !== "cancelled") {
+      const emailResult = await sendConfirmationEmail(id);
+      if (emailResult.success) {
+        emailResent = true;
+      } else {
+        emailError = emailResult.error ?? "メールの再送に失敗しました";
+        console.error("Ticket auto-resend error:", emailError);
+      }
+    }
+
     // 更新後のデータを返す
     const { data: updated } = await supabaseAdmin
       .from("registrations")
@@ -206,7 +240,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .in("exhibition_id", allowedIds)
       .single();
 
-    return NextResponse.json({ success: true, registration: updated });
+    return NextResponse.json({
+      success: true,
+      registration: updated,
+      email_resent: emailResent,
+      email_error: emailError,
+    });
   } catch (err) {
     console.error("Registration PATCH error:", err);
     return NextResponse.json(

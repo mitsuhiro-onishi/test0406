@@ -74,6 +74,16 @@ export default function EditRegistrationModal({
         return;
       }
 
+      // 登録内容の変更でチケットURLの署名が失効するため、サーバーが自動再送する。
+      // 再送に失敗した場合は手動再送が必要なことを管理者に知らせる。
+      if (data.email_resent) {
+        alert("変更を保存し、新しいQRチケットのメールを再送しました");
+      } else if (data.email_error) {
+        alert(
+          `変更を保存しましたが、チケットメールの再送に失敗しました。\n旧チケットURLは無効になっているため、「確認メールを送信」から手動で再送してください。\n（${data.email_error}）`,
+        );
+      }
+
       onSaved();
     } catch {
       setError("ネットワークエラー");

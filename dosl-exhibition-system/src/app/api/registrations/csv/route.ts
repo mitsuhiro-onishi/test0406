@@ -83,6 +83,7 @@ export async function GET(request: NextRequest) {
     "登録日時",
     "来場状況",
     "初回入場日時",
+    "チケットメール送信日時",
   ];
 
   function csvEscape(val: string | null | undefined): string {
@@ -141,6 +142,12 @@ export async function GET(request: NextRequest) {
       firstEntryAt ? "来場済み" : "未来場",
       firstEntryAt
         ? new Date(firstEntryAt).toLocaleString("ja-JP", {
+            timeZone: "Asia/Tokyo",
+          })
+        : "",
+      // 空欄 = チケットメール未達の可能性（Resend上限到達時の抽出用）
+      r.qr_sent_at
+        ? new Date(r.qr_sent_at).toLocaleString("ja-JP", {
             timeZone: "Asia/Tokyo",
           })
         : "",

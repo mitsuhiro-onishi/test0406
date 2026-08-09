@@ -58,6 +58,25 @@ export async function sendConfirmationEmail(
     };
   }
 
+  // 送信記録（qr_sent_at）を先に打つ。registrations は BEFORE UPDATE トリガーで
+  // updated_at が必ず進むため、記録後の updated_at で署名しないと
+  // 送った直後のリンクを自分で失効させてしまう。
+  const previousQrSentAt = registration.qr_sent_at ?? null;
+  const { data: stamped, error: stampError } = await supabaseAdmin
+    .from("registrations")
+    .update({ qr_sent_at: new Date().toISOString() })
+    .eq("id", registrationId)
+    .select("updated_at")
+    .single();
+  if (stampError || !stamped) {
+    console.error("qr_sent_at stamp error:", stampError);
+    return {
+      success: false,
+      error: "メール送信記録の更新に失敗しました",
+      status: 500,
+    };
+  }
+
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
   const ticketUrl = buildSignedTicketUrl(
     {
@@ -65,7 +84,7 @@ export async function sendConfirmationEmail(
       slug: exhibition.slug,
       code: registration.ticket_code,
       expires: getTicketLinkExpiry(exhibition.end_date),
-      registrationUpdatedAt: registration.updated_at,
+      registrationUpdatedAt: stamped.updated_at,
     },
     ticketLinkSecret,
   );
@@ -150,6 +169,14 @@ export async function sendConfirmationEmail(
   if (!emailRes.ok) {
     const errorBody = await emailRes.text();
     console.error("Resend API error:", errorBody);
+    // 未送信のまま記録が残らないよう qr_sent_at を元に戻す（ベストエフォート）
+    const { error: revertError } = await supabaseAdmin
+      .from("registrations")
+      .update({ qr_sent_at: previousQrSentAt })
+      .eq("id", registrationId);
+    if (revertError) {
+      console.error("qr_sent_at revert error:", revertError);
+    }
     return { success: false, error: "メールの送信に失敗しました", status: 500 };
   }
 
