@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       .from("registrations")
       .select(
         `
-        id, ticket_code, status, exhibition_id, industry, visit_purpose,
+        id, ticket_code, status, exhibition_id, industry, visit_purpose, custom_fields,
         visitor:visitors(last_name, first_name, last_name_kana, first_name_kana, company_name, department, position, email, phone)
       `,
       )
@@ -70,6 +70,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: "この展示会のチケットではありません" },
         { status: 400 },
+      );
+    }
+
+    // 出展社への情報提供に同意した登録のみリード化できる。
+    // 同意記録は登録時に lead_retrieval が有効だった場合のみ保存されるため、
+    // フラグを後からONにした展示会の既存登録者は同意なし＝提供不可になる。
+    const leadConsent = (
+      registration.custom_fields as
+        | { lead_consent?: { agreed?: boolean } }
+        | null
+        | undefined
+    )?.lead_consent;
+    if (leadConsent?.agreed !== true) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "この来場者は出展社への情報提供に同意していないため、リード登録できません",
+        },
+        { status: 403 },
       );
     }
 
