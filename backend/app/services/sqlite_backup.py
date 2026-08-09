@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import shutil
 import sqlite3
+import sys
 from typing import Any
 import uuid
 
@@ -176,6 +177,10 @@ def restore_sqlite_backup(
         raise ValueError("バックアップ元と復元先が同一です")
 
     destination.parent.mkdir(parents=True, exist_ok=True)
+    # 置換前のDBの所有者・権限を控え、復元後に引き継ぐ。
+    # ランブックはsudo（root）実行のため、これがないと復元DBがroot所有になり
+    # doslhubユーザーで動くアプリが書き込めなくなる。
+    previous_stat = destination.stat() if destination.exists() else None
     temporary = destination.parent / f".{destination.name}.{uuid.uuid4().hex}.restore"
     try:
         shutil.copy2(backup, temporary)
@@ -185,6 +190,16 @@ def restore_sqlite_backup(
         else:
             os.link(temporary, destination)
             temporary.unlink()
+        if previous_stat is not None:
+            try:
+                os.chown(destination, previous_stat.st_uid, previous_stat.st_gid)
+                os.chmod(destination, previous_stat.st_mode & 0o777)
+            except OSError as exc:
+                print(
+                    f"警告: 復元DBの所有者・権限を引き継げませんでした: {exc}\n"
+                    f"手動で chown/chmod を実行してください: {destination}",
+                    file=sys.stderr,
+                )
         return destination
     finally:
         temporary.unlink(missing_ok=True)
