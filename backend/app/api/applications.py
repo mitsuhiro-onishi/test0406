@@ -182,8 +182,11 @@ async def approve_application(
     user: User = Depends(require_manager),
     db: AsyncSession = Depends(get_db),
 ):
-    """承認: 出展社組織＋担当者アカウント（＋任意でブース）を作成する。
+    """承認: 出展社組織＋担当者アカウント＋ブースを作成する。
 
+    ブース番号は必須。出展社の展示会アクセス権はブース割当経由でしか
+    付与されないため、ブースなしで承認すると発行アカウントは
+    「参加中の展示会がありません」となり何もできない。
     初期パスワードはこのレスポンスで一度だけ返す（メール送信はPhase 2）。
     """
     application = await db.get(ExhibitorApplication, application_id)
@@ -200,6 +203,11 @@ async def approve_application(
         raise HTTPException(status_code=409, detail="このメールアドレスのユーザーが既に存在します")
 
     booth_number = (body.booth_number or "").strip() or None
+    if not booth_number:
+        raise HTTPException(
+            status_code=400,
+            detail="ブース番号を入力してください（ブース割当がないと出展社アカウントは展示会にアクセスできません）",
+        )
     if booth_number:
         dup_booth = (await db.execute(
             select(func.count()).select_from(Booth).where(

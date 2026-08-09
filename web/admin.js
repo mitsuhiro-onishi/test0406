@@ -848,11 +848,17 @@
 
     document.getElementById('btnConfirmApprove').addEventListener('click', async () => {
       const btn = document.getElementById('btnConfirmApprove');
+      // ブース割当がないと出展社アカウントは展示会にアクセスできないため必須
+      const boothNumber = document.getElementById('approveBoothNumber').value.trim();
+      if (!boothNumber) {
+        showSnackbar('ブース番号を入力してください（必須）');
+        return;
+      }
       btn.disabled = true;
       try {
         const res = await api('/api/applications/' + approvingApplicationId + '/approve', {
           method: 'POST',
-          body: { booth_number: document.getElementById('approveBoothNumber').value.trim() || null },
+          body: { booth_number: boothNumber },
         });
         closeApproveDialog();
         const c = res.data.credentials;

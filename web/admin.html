@@ -933,11 +933,12 @@
       <h3>出展申込を承認</h3>
       <p style="font-size:13px;color:#616161;margin-bottom:14px" id="approveSummary"></p>
       <div class="field">
-        <label>割当ブース番号（任意）</label>
-        <input type="text" id="approveBoothNumber" placeholder="例: E-05（空欄なら後から割当）" maxlength="20" />
+        <label>割当ブース番号（必須）</label>
+        <input type="text" id="approveBoothNumber" placeholder="例: E-05" maxlength="20" required />
       </div>
       <p style="font-size:12px;color:#757575;margin-bottom:14px">
-        承認すると出展社の組織と担当者アカウントが作成され、初期パスワードが一度だけ表示されます。
+        承認すると出展社の組織と担当者アカウントが作成され、初期パスワードが一度だけ表示されます。<br>
+        ブース割当がないと出展社アカウントは展示会にアクセスできないため、ブース番号は必須です。
       </p>
       <div class="action-row">
         <button class="btn btn-text" data-action="close-approve-dialog">キャンセル</button>
