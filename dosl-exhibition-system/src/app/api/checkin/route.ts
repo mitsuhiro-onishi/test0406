@@ -83,37 +83,53 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 既に入場済みかチェック
-    const { data: lastEntry } = await supabaseAdmin
-      .from("entry_logs")
-      .select("action")
-      .eq("registration_id", registration.id)
-      .order("logged_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // 入場判定と記録をDB関数で原子的に行う（migration 008）。
+    // 複数端末の同時スキャンでも登録単位で直列化され、
+    // 30分以内の重複は同一入場として時刻上書き・30分超は再入場になる。
+    const { data: checkinRows, error: logError } = await supabaseAdmin.rpc(
+      "checkin_atomic",
+      {
+        p_registration_id: registration.id,
+        p_gate: gate || null,
+        p_method: method,
+        p_scanned_by: auth.user_id,
+      },
+    );
 
-    const alreadyEntered = lastEntry?.action === "entry";
-
-    // 入場ログを記録（誰がスキャンしたかも残す）
-    const { error: logError } = await supabaseAdmin.from("entry_logs").insert({
-      registration_id: registration.id,
-      action: "entry",
-      gate: gate || null,
-      method,
-      scanned_by: auth.user_id,
-    });
-
-    if (logError) {
-      console.error("Entry log insert error:", logError);
+    if (logError || !checkinRows?.[0]) {
+      console.error("Atomic checkin error:", logError);
       return NextResponse.json(
         { success: false, error: "入場記録の保存に失敗しました" },
         { status: 500 },
       );
     }
 
+    const checkin = checkinRows[0] as {
+      result: "entry" | "merged" | "reentry" | "cancelled" | "not_found";
+      previous_logged_at: string | null;
+    };
+
+    // ロック下の再検証結果（判定直前のキャンセル・削除を取りこぼさない）
+    if (checkin.result === "cancelled") {
+      return NextResponse.json(
+        { success: false, error: "この登録はキャンセルされています" },
+        { status: 400 },
+      );
+    }
+    if (checkin.result === "not_found") {
+      return NextResponse.json(
+        { success: false, error: "無効なチケットコードです" },
+        { status: 404 },
+      );
+    }
+
     return NextResponse.json({
       success: true,
-      already_entered: alreadyEntered,
+      // 旧API契約を維持: スキャン前に入場記録があれば true（merged/reentry とも）。
+      // 表示の出し分けは checkin_result を使う
+      already_entered: checkin.result !== "entry",
+      checkin_result: checkin.result,
+      previous_entry_at: checkin.previous_logged_at,
       registration: {
         id: registration.id,
         ticket_code: registration.ticket_code,

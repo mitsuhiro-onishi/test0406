@@ -17,6 +17,8 @@ interface CheckinResult {
   success: boolean;
   error?: string;
   already_entered?: boolean;
+  checkin_result?: "entry" | "merged" | "reentry";
+  previous_entry_at?: string | null;
   registration?: {
     ticket_code: string;
     visitor: {
@@ -164,7 +166,7 @@ export default function CheckinPage() {
             <div
               className={`rounded-xl shadow-sm p-6 mb-6 ${
                 result.success
-                  ? result.already_entered
+                  ? result.checkin_result === "reentry"
                     ? "bg-yellow-50 border-2 border-yellow-400"
                     : "bg-green-50 border-2 border-green-400"
                   : "bg-red-50 border-2 border-red-400"
@@ -174,17 +176,28 @@ export default function CheckinPage() {
                 <div>
                   <div className="flex items-center gap-3 mb-4">
                     <span className="text-5xl">
-                      {result.already_entered ? "\u26A0" : "\u2713"}
+                      {result.checkin_result === "reentry" ? "\u26A0" : "\u2713"}
                     </span>
                     <div>
                       <h2 className="text-xl font-bold">
-                        {result.already_entered
-                          ? "再入場（既に入場済み）"
-                          : "チェックイン完了"}
+                        {result.checkin_result === "reentry"
+                          ? "再入場"
+                          : result.checkin_result === "merged"
+                            ? "チェックイン済み（同一入場・時刻を更新）"
+                            : "チェックイン完了"}
                       </h2>
                       <p className="text-sm text-gray-500 font-mono">
                         {result.registration.ticket_code}
                       </p>
+                      {result.checkin_result === "reentry" && result.previous_entry_at && (
+                        <p className="text-sm text-yellow-700 mt-1">
+                          前回入場:{" "}
+                          {new Date(result.previous_entry_at).toLocaleString(
+                            "ja-JP",
+                            { timeZone: "Asia/Tokyo" },
+                          )}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -273,7 +286,7 @@ export default function CheckinPage() {
               h.registration ? (
                 <div key={i} className="px-6 py-3 flex items-center gap-4">
                   <span
-                    className={`w-2 h-2 rounded-full flex-shrink-0 ${h.already_entered ? "bg-yellow-400" : "bg-green-400"}`}
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${h.checkin_result === "reentry" ? "bg-yellow-400" : "bg-green-400"}`}
                   />
                   <span className="font-mono text-sm text-gray-500 w-20">
                     {h.registration.ticket_code}
@@ -296,7 +309,7 @@ export default function CheckinPage() {
                       {h.registration.registration_type.name}
                     </span>
                   )}
-                  {h.already_entered && (
+                  {h.checkin_result === "reentry" && (
                     <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full">
                       再入場
                     </span>
